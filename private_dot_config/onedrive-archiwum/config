@@ -1,0 +1,3 @@
+# INSTANCJA "ARCHIWUM" - caly OneDrive OPROCZ katalogu roboczego.
+# Katalog roboczy obsluguje instancja domyslna (~/.config/onedrive) na SSD.
+sync_dir = "/data/OneDrive"

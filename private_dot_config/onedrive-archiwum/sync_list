@@ -1,0 +1,10 @@
+# sync_list domyslnie WYKLUCZA WSZYSTKO. Zasada klienta: wykluczenia PRZED wlaczeniami.
+#
+# 1) WYKLUCZ katalog roboczy - obsluguje go druga instancja, na SSD.
+#    Bez tej linii oba klienty ciagnelyby ten sam folder w dwa miejsca
+#    i kazda zmiana szlaby do chmury dwa razy => konflikty i duplikaty.
+!/AI-katalog-roboczy/*
+!/AI-katalog-roboczy
+#
+# 2) WLACZ cala reszte z korzenia OneDrive.
+/*

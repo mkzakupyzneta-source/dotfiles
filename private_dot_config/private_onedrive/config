@@ -1,0 +1,3 @@
+# Katalog roboczy trzymamy na SSD (szybki), archiwum calego OneDrive pojdzie
+# osobna instancja na /data (dysk talerzowy). Patrz: plan z 2026-08-20.
+sync_dir = "~/OneDrive-AI"

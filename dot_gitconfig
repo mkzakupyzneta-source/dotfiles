@@ -1,0 +1,9 @@
+[user]
+	name = mk
+	email = a.cisowski@anvproduction.pl
+[init]
+	defaultBranch = main
+[core]
+	quotepath = false
+[pull]
+	rebase = false
