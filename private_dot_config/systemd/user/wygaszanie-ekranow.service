@@ -1,0 +1,14 @@
+[Unit]
+Description=Domyka wygaszanie ekranow (DPMS off przy bezczynnosci GNOME)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=:1
+ExecStart=%h/bin/wygaszanie-ekranow.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=graphical-session.target
