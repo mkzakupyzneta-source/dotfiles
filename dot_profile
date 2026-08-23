@@ -25,3 +25,9 @@ fi
 if [ -d "$HOME/.local/bin" ] ; then
     PATH="$HOME/.local/bin:$PATH"
 fi
+
+# nvm (Node.js) — dodane 2026-08-23, Siec_domowa
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" --no-use
+[ -d "$NVM_DIR/versions/node" ] && PATH="$(ls -d $NVM_DIR/versions/node/*/bin | tail -1):$PATH"
+# koniec nvm
