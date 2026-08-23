@@ -1,0 +1,448 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+sekrety-odswiez — przepisuje sekrety z sejfu Bitwarden do plików env na tej maszynie.
+
+Co robi:
+  1. czyta plik mapowania (DANE: nazwa zmiennej -> nazwa pozycji w sejfie),
+  2. odblokowuje sejf (pyta o hasło główne),
+  3. pobiera wartości i buduje pliki env — atomowo, z prawami 600,
+  4. zamyka sejf.
+
+ŻELAZNA ZASADA: skrypt nigdy nie wypisuje wartości sekretu — ani na ekran,
+ani do logu. Wartości trafiają wyłącznie do plików docelowych (600).
+
+Wymaga: klient `bw` (Bitwarden CLI) ustawiony na serwer https://vault.bitwarden.eu
+Autor: obszar 7_Bezpieczenstwo projektu „Sieć domowa”, 2026-08-24
+"""
+
+import argparse
+import getpass
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import tomllib
+from pathlib import Path
+
+SERWER_EU = "https://vault.bitwarden.eu"
+
+MIEJSCA_MAPY = [
+    Path.home() / ".config" / "sekrety" / "sekrety-map.toml",
+    Path.home() / ".config" / "sekrety-map.toml",
+]
+
+# ------------------------------------------------------------------ wypisywanie
+
+def info(txt=""):
+    print(txt)
+
+def krok(txt):
+    print(f"  {txt}")
+
+def uwaga(txt):
+    print(f"  ! {txt}")
+
+def blad(txt):
+    print(f"BŁĄD: {txt}", file=sys.stderr)
+
+# ------------------------------------------------------------------ szukanie bw
+
+def znajdz_bw():
+    """Zwraca ścieżkę do `bw`. Szuka też w nvm, bo PATH bywa okrojony."""
+    sciezka = shutil.which("bw")
+    if sciezka:
+        return sciezka
+    nvm = Path.home() / ".nvm" / "versions" / "node"
+    if nvm.is_dir():
+        for wersja in sorted(nvm.iterdir(), reverse=True):
+            kandydat = wersja / "bin" / "bw"
+            if kandydat.is_file() and os.access(kandydat, os.X_OK):
+                return str(kandydat)
+    return None
+
+# ------------------------------------------------------------------ rozmowa z bw
+
+class Sejf:
+    def __init__(self, bw):
+        self.bw = bw
+        self.sesja = os.environ.get("BW_SESSION") or None
+
+    def _uruchom(self, argumenty, wejscie_env=None):
+        srodowisko = dict(os.environ)
+        if self.sesja:
+            srodowisko["BW_SESSION"] = self.sesja
+        if wejscie_env:
+            srodowisko.update(wejscie_env)
+        srodowisko["BW_NOINTERACTION"] = "true"
+        return subprocess.run(
+            [self.bw] + argumenty,
+            capture_output=True, text=True, env=srodowisko,
+        )
+
+    def stan(self):
+        wynik = self._uruchom(["status"])
+        try:
+            return json.loads(wynik.stdout.strip() or "{}")
+        except json.JSONDecodeError:
+            return {}
+
+    def odblokuj(self):
+        """True, jeśli sejf jest odblokowany i mamy klucz sesji."""
+        stan = self.stan()
+        status = stan.get("status", "?")
+        serwer = stan.get("serverUrl") or "(domyślny — bitwarden.com)"
+
+        if serwer.rstrip("/") != SERWER_EU:
+            uwaga(f"klient wskazuje serwer {serwer}, a konto jest w regionie EU.")
+            uwaga(f"napraw: bw config server {SERWER_EU}")
+
+        if status == "unauthenticated":
+            blad("nie jesteś zalogowany do sejfu na tej maszynie.")
+            info()
+            info("  Zrób to RAZ, ręcznie:")
+            info(f"      bw config server {SERWER_EU}")
+            info("      bw login")
+            info("  (poda e-mail, hasło główne i kod 2FA), a potem uruchom mnie ponownie.")
+            return False
+
+        if status == "unlocked" and self.sesja:
+            krok("sejf już otwarty (BW_SESSION) — nie pytam o hasło.")
+            return True
+
+        # zablokowany albo mamy stary/nieważny BW_SESSION
+        self.sesja = None
+        try:
+            haslo = getpass.getpass("  Hasło główne do sejfu Bitwarden: ")
+        except (EOFError, KeyboardInterrupt):
+            info()
+            blad("przerwane — brak hasła.")
+            return False
+        if not haslo:
+            blad("puste hasło — przerywam.")
+            return False
+
+        wynik = self._uruchom(
+            ["unlock", "--passwordenv", "BW_HASLO_TYMCZASOWE", "--raw"],
+            wejscie_env={"BW_HASLO_TYMCZASOWE": haslo},
+        )
+        klucz = wynik.stdout.strip()
+        if wynik.returncode != 0 or not klucz:
+            blad("nie udało się otworzyć sejfu (złe hasło albo problem z siecią).")
+            if wynik.stderr.strip():
+                uwaga(wynik.stderr.strip().splitlines()[0])
+            return False
+        self.sesja = klucz
+        krok("sejf otwarty.")
+        return True
+
+    def synchronizuj(self):
+        wynik = self._uruchom(["sync"])
+        if wynik.returncode == 0:
+            krok("sejf zsynchronizowany z serwerem.")
+        else:
+            uwaga("nie udało się odświeżyć sejfu — pracuję na kopii lokalnej.")
+
+    def zamknij(self):
+        self._uruchom(["lock"])
+        self.sesja = None
+
+    def pobierz(self, pozycja, pole):
+        """Zwraca (wartosc, blad). Wartości NIGDY nie wypisujemy."""
+        if pole.startswith("pole:"):
+            nazwa_pola = pole[len("pole:"):]
+            wynik = self._uruchom(["get", "item", pozycja])
+            if wynik.returncode != 0:
+                return None, self._powod(wynik)
+            try:
+                dane = json.loads(wynik.stdout)
+            except json.JSONDecodeError:
+                return None, "odpowiedź sejfu nie jest czytelna"
+            for pole_wlasne in dane.get("fields") or []:
+                if pole_wlasne.get("name") == nazwa_pola:
+                    return pole_wlasne.get("value") or "", None
+            return None, f"pozycja nie ma pola własnego „{nazwa_pola}”"
+
+        if pole not in ("password", "username", "notes", "totp", "uri"):
+            return None, f"nieznany rodzaj pola „{pole}” w mapowaniu"
+
+        wynik = self._uruchom(["get", pole, pozycja])
+        if wynik.returncode != 0:
+            return None, self._powod(wynik)
+        wartosc = wynik.stdout.rstrip("\n")
+        if not wartosc:
+            return None, f"pole „{pole}” jest puste"
+        return wartosc, None
+
+    @staticmethod
+    def _powod(wynik):
+        tekst = (wynik.stderr or wynik.stdout or "").strip().splitlines()
+        pierwsza = tekst[0] if tekst else "nieznany błąd"
+        if "not found" in pierwsza.lower():
+            return "nie ma takiej pozycji w sejfie"
+        if "more than one" in pierwsza.lower():
+            return "w sejfie jest kilka pozycji o tej nazwie — zostaw jedną"
+        return pierwsza
+
+# ------------------------------------------------------------------ mapowanie
+
+def znajdz_mape(wskazana):
+    if wskazana:
+        sciezka = Path(wskazana).expanduser()
+        if not sciezka.is_file():
+            blad(f"nie ma pliku mapowania: {sciezka}")
+            return None
+        return sciezka
+    ze_srodowiska = os.environ.get("SEKRETY_MAPA")
+    if ze_srodowiska:
+        sciezka = Path(ze_srodowiska).expanduser()
+        if sciezka.is_file():
+            return sciezka
+    for kandydat in MIEJSCA_MAPY:
+        if kandydat.is_file():
+            return kandydat
+    obok = Path(__file__).resolve().parent / "sekrety-map.toml"
+    if obok.is_file():
+        return obok
+    blad("nie znalazłem pliku mapowania. Szukałem w:")
+    for kandydat in MIEJSCA_MAPY + [obok]:
+        info(f"    {kandydat}")
+    return None
+
+def wczytaj_mape(sciezka):
+    with open(sciezka, "rb") as uchwyt:
+        dane = tomllib.load(uchwyt)
+    pliki = dane.get("plik") or []
+    if not pliki:
+        blad(f"mapowanie {sciezka} nie zawiera ani jednego bloku [[plik]]")
+        return None
+    for wpis in pliki:
+        if "sciezka" not in wpis:
+            blad("blok [[plik]] bez pola `sciezka`")
+            return None
+        for zmienna in wpis.get("zmienna") or []:
+            if "nazwa" not in zmienna:
+                blad(f"{wpis['sciezka']}: pozycja bez pola `nazwa`")
+                return None
+            if "pozycja" not in zmienna and "wartosc" not in zmienna:
+                blad(f"{wpis['sciezka']}: {zmienna['nazwa']} — brak `pozycja` i `wartosc`")
+                return None
+    return pliki
+
+# ------------------------------------------------------------------ pliki env
+
+def stare_wartosci(sciezka):
+    """Wczytuje obecny plik env, żeby nie zgubić wartości, której nie ma w sejfie."""
+    zapamietane = {}
+    if not sciezka.is_file():
+        return zapamietane
+    try:
+        for linia in sciezka.read_text(encoding="utf-8").splitlines():
+            linia = linia.strip()
+            if not linia or linia.startswith("#") or "=" not in linia:
+                continue
+            klucz, _, wartosc = linia.partition("=")
+            zapamietane[klucz.strip()] = wartosc.strip()
+    except OSError:
+        pass
+    return zapamietane
+
+def zapisz_atomowo(sciezka, tresc):
+    katalog = sciezka.parent
+    katalog.mkdir(parents=True, exist_ok=True)
+    os.chmod(katalog, 0o700)
+    uchwyt, tymczasowy = tempfile.mkstemp(dir=str(katalog), prefix=".sekrety-", suffix=".tmp")
+    try:
+        os.fchmod(uchwyt, 0o600)
+        with os.fdopen(uchwyt, "w", encoding="utf-8") as plik:
+            plik.write(tresc)
+            plik.flush()
+            os.fsync(plik.fileno())
+        os.replace(tymczasowy, sciezka)
+        os.chmod(sciezka, 0o600)
+    except BaseException:
+        try:
+            os.unlink(tymczasowy)
+        except OSError:
+            pass
+        raise
+
+# ------------------------------------------------------------------ tryb podglądu
+
+def tylko_pokaz(pliki, sciezka_mapy, sejf):
+    info(f"Mapowanie: {sciezka_mapy}")
+    info("Tryb --tylko-pokaz: NIE dotykam żadnego pliku, NIE pobieram wartości.")
+    info()
+    for wpis in pliki:
+        cel = Path(wpis["sciezka"]).expanduser()
+        opis = wpis.get("opis", "")
+        info(f"» {cel}   {('— ' + opis) if opis else ''}")
+        istnieje = "jest" if cel.is_file() else "jeszcze go nie ma"
+        krok(f"plik docelowy: {istnieje}")
+        for zmienna in wpis.get("zmienna") or []:
+            nazwa = zmienna["nazwa"]
+            if "wartosc" in zmienna:
+                krok(f"{nazwa:<28} <- stała wpisana w mapowaniu (nie sekret)")
+                continue
+            stan = zmienna.get("stan", "gotowe")
+            pole = zmienna.get("pole", "password")
+            znacznik = "" if stan == "gotowe" else f"   [POMIJAM — stan: {stan}]"
+            krok(f"{nazwa:<28} <- sejf: „{zmienna['pozycja']}” ({pole}){znacznik}")
+            if znacznik and zmienna.get("uwaga"):
+                info(f"        uwaga: {zmienna['uwaga']}")
+        info()
+
+    stan = sejf.stan() if sejf else {}
+    status = stan.get("status", "?")
+    info(f"Sejf: serwer {stan.get('serverUrl') or '(niestawiony)'} — stan: {status}")
+    if status == "unauthenticated":
+        info("  Ta maszyna NIE jest zalogowana do sejfu.")
+        info(f"  Zrób raz:  bw config server {SERWER_EU}  &&  bw login")
+    elif status == "locked":
+        info("  Sejf zamknięty — przy prawdziwym uruchomieniu zapytam o hasło główne.")
+    return 0
+
+# ------------------------------------------------------------------ główna praca
+
+def odswiez(pliki, sejf):
+    braki_lacznie = []
+    zapisane = 0
+
+    for wpis in pliki:
+        cel = Path(wpis["sciezka"]).expanduser()
+        info(f"» {cel}")
+        poprzednie = stare_wartosci(cel)
+
+        linie = [
+            "# Plik wygenerowany przez `sekrety-odswiez` — NIE EDYTUJ RĘCZNIE.",
+            "# Źródło wartości: sejf Bitwarden (https://vault.bitwarden.eu).",
+            f"# Opis: {wpis.get('opis', '(brak)')}",
+            "",
+        ]
+        braki = []
+        pobrane = 0
+
+        for zmienna in wpis.get("zmienna") or []:
+            nazwa = zmienna["nazwa"]
+
+            if "wartosc" in zmienna:
+                linie.append(f"{nazwa}={zmienna['wartosc']}")
+                pobrane += 1
+                continue
+
+            stan = zmienna.get("stan", "gotowe")
+            if stan != "gotowe":
+                powod = zmienna.get("uwaga", f"stan: {stan}")
+                uwaga(f"{nazwa} — pomijam ({powod})")
+                if nazwa in poprzednie:
+                    linie.append(f"{nazwa}={poprzednie[nazwa]}")
+                    krok(f"{nazwa} — zachowałem poprzednią wartość z pliku")
+                else:
+                    linie.append(f"# {nazwa} — pozycja przewidziana, jeszcze nie w sejfie")
+                continue
+
+            wartosc, powod = sejf.pobierz(zmienna["pozycja"], zmienna.get("pole", "password"))
+            if wartosc is None:
+                braki.append((nazwa, zmienna["pozycja"], powod))
+                if nazwa in poprzednie:
+                    linie.append(f"{nazwa}={poprzednie[nazwa]}")
+                else:
+                    linie.append(f"# {nazwa} — BRAK W SEJFIE (pozycja: {zmienna['pozycja']})")
+                continue
+
+            linie.append(f"{nazwa}={wartosc}")
+            pobrane += 1
+
+        linie.append("")
+        try:
+            zapisz_atomowo(cel, "\n".join(linie))
+        except OSError as wyjatek:
+            blad(f"nie udało się zapisać {cel}: {wyjatek}")
+            continue
+
+        zapisane += 1
+        krok(f"zapisane, prawa 600 — wpisów z wartością: {pobrane}")
+
+        if braki:
+            uwaga(f"brakuje {len(braki)} pozycji w sejfie:")
+            for nazwa, pozycja, powod in braki:
+                zachowane = " (zostawiłem poprzednią wartość z pliku)" if nazwa in poprzednie else ""
+                info(f"        {nazwa}  ->  pozycja „{pozycja}”: {powod}{zachowane}")
+            braki_lacznie.extend(braki)
+        info()
+
+    info(f"Gotowe. Plików zapisanych: {zapisane}.")
+    if braki_lacznie:
+        info(f"Do uzupełnienia w sejfie: {len(braki_lacznie)} pozycji (nazwy wyżej).")
+        return 1
+    return 0
+
+# ------------------------------------------------------------------ start
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="sekrety-odswiez",
+        description="Przepisuje sekrety z sejfu Bitwarden do plików env na tej maszynie.",
+    )
+    parser.add_argument("--tylko-pokaz", action="store_true",
+                        help="pokaż, co zostałoby zapisane (same nazwy, bez wartości) i nic nie zmieniaj")
+    parser.add_argument("--mapa", metavar="PLIK",
+                        help="inny plik mapowania niż domyślny ~/.config/sekrety/sekrety-map.toml")
+    parser.add_argument("--plik", metavar="ŚCIEŻKA", action="append",
+                        help="ogranicz się do tego pliku docelowego (można podać kilka razy)")
+    argumenty = parser.parse_args()
+
+    info("sekrety-odswiez — sekrety z sejfu Bitwarden do plików env")
+    info()
+
+    bw = znajdz_bw()
+    if not bw:
+        blad("nie znalazłem klienta `bw` (Bitwarden CLI) na tej maszynie.")
+        info("  Instalacja:  npm install -g @bitwarden/cli")
+        return 2
+
+    sciezka_mapy = znajdz_mape(argumenty.mapa)
+    if not sciezka_mapy:
+        return 2
+    try:
+        pliki = wczytaj_mape(sciezka_mapy)
+    except tomllib.TOMLDecodeError as wyjatek:
+        blad(f"mapowanie {sciezka_mapy} ma błąd składni: {wyjatek}")
+        return 2
+    if pliki is None:
+        return 2
+
+    if argumenty.plik:
+        chciane = {str(Path(p).expanduser()) for p in argumenty.plik}
+        pliki = [w for w in pliki if str(Path(w["sciezka"]).expanduser()) in chciane]
+        if not pliki:
+            blad("żaden plik z mapowania nie pasuje do --plik")
+            return 2
+
+    sejf = Sejf(bw)
+
+    if argumenty.tylko_pokaz:
+        return tylko_pokaz(pliki, sciezka_mapy, sejf)
+
+    info(f"Mapowanie: {sciezka_mapy}")
+    if not sejf.odblokuj():
+        return 2
+    try:
+        sejf.synchronizuj()
+        info()
+        kod = odswiez(pliki, sejf)
+    finally:
+        sejf.zamknij()
+        info()
+        info("Sejf zamknięty (bw lock).")
+    return kod
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        info()
+        blad("przerwane przez użytkownika.")
+        sys.exit(130)
