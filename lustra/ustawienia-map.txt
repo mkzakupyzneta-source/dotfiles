@@ -1,0 +1,32 @@
+# Program → jego pliki ustawień (ścieżki względem katalogu domowego). Spec rozdz. 7.2.
+# Po co ten plik, skoro chezmoi zna listę? Żeby apka umiała powiedzieć
+# "usuwasz Flameshota — usunąć też jego ustawienia?" i "ustawienia X są nowsze na Vostro".
+#
+# Format:  <program>  <ścieżka> [<ścieżka> …]
+# Adnotacja `# nie wozimy — decyzja usera <data>` = apka nie pyta drugi raz.
+
+# --- wożone przez chezmoi (sprawdzone `chezmoi managed`, 23.08) ---
+kitty            .config/kitty/kitty.conf
+wezterm          .config/wezterm/wezterm.lua
+onedrive         .config/onedrive/config .config/onedrive/sync_list
+onedrive-archiwum .config/onedrive-archiwum/config .config/onedrive-archiwum/sync_list
+ccstatusline     .config/ccstatusline/settings.json
+git              .gitconfig
+powloka          .bashrc .profile
+gnome-pulpit     .config/zrzuty/gnome-dconf.ini
+
+# --- do dołożenia (istnieją na maszynie, chezmoi ich NIE wozi — stan 23.08) ---
+flameshot        .config/flameshot/flameshot.ini    # skróty w programie: TYPE_ACCEPT=S
+
+# --- decyzje usera z 23.08 ---
+# [126] Chrome i VS Code: NIE lustrzymy plików ustawień — mają własną synchronizację
+#       przez konto (Chrome Sync, VS Code Settings Sync). W lustrze zostaje sam program.
+google-chrome    # nie wozimy — decyzja usera [126] 2026-08-23 (własna synchronizacja konta)
+code             # nie wozimy — decyzja usera [126] 2026-08-23 (Settings Sync)
+
+# [125] wchodzą do lustra:
+ssh-aliasy       .ssh/config                        # ⛔ TYLKO config, klucze prywatne NIGDY (7.6)
+zakladki-plikow  .config/gtk-3.0/bookmarks          # zakładki menedżera plików i udziały smb://
+czcionki-wlasne  .local/share/fonts
+autostart        .config/autostart
+uslugi-uzytkownika .config/systemd/user

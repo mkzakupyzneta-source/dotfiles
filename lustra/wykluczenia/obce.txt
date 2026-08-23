@@ -1,0 +1,8 @@
+# Znane i zaakceptowane instalacje spoza apt/snap/flatpak — spec rozdz. 6.
+# Wpis tutaj = "user o tym wie", pozycja przestaje się pokazywać w `lustro status`.
+# Jeden wzorzec na linię; `~` = katalog domowy; `*` = dowolny ciąg.
+~/.local/bin/claude      # Claude Code — instalator z claude.ai, świadomie
+~/.local/bin/chezmoi     # chezmoi — instalator get.chezmoi.io, świadomie
+~/bin/*                  # własne skrypty usera — wozi je chezmoi
+~/.nvm                   # Node.js przez nvm — decyzja [125]: w lustrze jako KROK
+~/.nvm/*                 # bootstrapu, nie jako pliki (spec rozdz. 6)

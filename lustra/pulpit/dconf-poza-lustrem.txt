@@ -1,0 +1,11 @@
+# Ścieżki GNOME świadomie POZA lustrem — spec rozdz. 8.3, z uzasadnieniem przy każdej.
+# Apka używa tej listy do sprawdzenia, czy ścieżka nie została pominięta przez przeoczenie.
+/org/gnome/settings-daemon/plugins/power/   # zasilanie — zależy od maszyny (laptop/desktop, bateria)
+/org/gnome/control-center/                  # ostatnio otwarty panel, rozmiar okna = ślad pracy
+/apps/update-manager/                       # liczniki aktualizacji tej maszyny
+/com/ubuntu/update-notifier/                # jw.
+/org/gnome/desktop/peripherals/             # mysz, touchpad, tablet — sprzęt tej maszyny
+/org/gnome/desktop/notifications/           # lista aplikacji, które coś pokazały = ślad pracy
+                                            #   (na Vostro m.in. org-upscayl-upscayl — programu już nie ma)
+/org/gnome/shell/extensions/ding/           # ikony pulpitu: check-x11wayland = cecha sesji tej maszyny
+/org/gnome/shell/world-clocks/              # zegary miast — własność miejsca, nie warsztatu

@@ -1,0 +1,28 @@
+# Czego NIE wozimy z katalogów konfiguracji — spec rozdz. 7.4.
+# To pliki STANU (bazy, cache, dzienniki, ciasteczka, sesje), nie ustawienia.
+# Lista jest WZORCOWA, nie kompletna — dla każdego programu trzeba raz spojrzeć.
+*/Cache/*
+*/cache/*
+*/CachedData/*
+*.log
+*.tmp
+*.sqlite-wal
+*.sqlite-shm
+*/logs/*
+*/Crash Reports/*
+*/Cookies*
+*/History*
+*/Local Storage/*
+*/Session Storage/*
+*/Sessions/*
+*/recently-used*
+.var/app/*/cache/*
+
+# ⛔ Baza Zotero (kilka GB) — ma własny kanał, obszar 4_Kanaly_danych
+.var/app/org.zotero.Zotero/*
+
+# ⛔ Historia poleceń powłoki — log tej maszyny, nie ustawienie
+.bash_history
+
+# ⛔ Pamięć sesji Claude Code — lokalny brudnopis (spec 7.7)
+.claude/projects/*

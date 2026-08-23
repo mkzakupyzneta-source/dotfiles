@@ -1,0 +1,25 @@
+# Ścieżki GNOME (dconf) objęte lustrem — spec rozdz. 8.3.
+# Jedna ścieżka na linię, `#` = komentarz.
+# Eksportujemy WYBRANE ścieżki, nie `dconf dump /` — uzasadnienie w spec 8.2.
+
+# --- skróty klawiszowe ---
+/org/gnome/settings-daemon/plugins/media-keys/   # WŁASNE skróty usera (custom0, custom1…)
+/org/gnome/desktop/wm/keybindings/               # skróty okien (na Vostro puste = same domyślne)
+/org/gnome/shell/keybindings/                    # skróty powłoki (na Vostro: Print → zrzut GNOME)
+/org/gnome/mutter/keybindings/                   # kafelkowanie okien
+
+# --- klawiatura (decyzja [124] z 23.08 — WCHODZI do lustra) ---
+/org/gnome/desktop/input-sources/                # układ klawiatury i klawisz Compose
+                                                 # na Vostro: sources=[('xkb','pl')], xkb-options=[]
+
+# --- wygląd ---
+/org/gnome/desktop/interface/                    # motyw, ikony, CZCIONKI systemowe
+/org/gnome/desktop/background/                   # tapeta (samo ustawienie; plik osobno → 8.6)
+/org/gnome/desktop/screensaver/                  # wygaszacz: kolor, blokada
+/org/gnome/shell/extensions/dash-to-dock/        # dock: pozycja, kolor, rozmiar ikon
+/org/gnome/desktop/wm/preferences/               # układ przycisków okna (na Vostro: :minimize,maximize,close)
+
+# --- zachowanie pulpitu ---
+/org/gnome/mutter/                               # np. edge-tiling
+/org/gnome/desktop/session/                      # po ilu minutach bezczynności
+/org/gnome/nautilus/preferences/                 # menedżer plików: widok, sortowanie

@@ -1,0 +1,10 @@
+# Wykluczenia snap — spec rozdz. 5.4.
+# Niezależnie od tej listy apka odrzuca wiersze z kolumną Notes = base / snapd.
+core*
+bare
+gnome-*
+gtk-common-themes
+mesa-*
+snapd*
+snap-store
+firmware-updater

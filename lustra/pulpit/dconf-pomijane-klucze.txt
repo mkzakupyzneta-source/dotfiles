@@ -1,0 +1,8 @@
+# Pojedyncze klucze do pominięcia WEWNĄTRZ ścieżek objętych lustrem — spec rozdz. 8.3.
+# Ścieżka /org/gnome/shell/ miesza ustawienia ze śladami pracy, stąd ta lista.
+/org/gnome/shell/command-history
+/org/gnome/shell/welcome-dialog-last-shown-version
+/org/gnome/shell/last-selected-power-profile
+/org/gnome/desktop/interface/text-scaling-factor    # skalowanie tekstu = sprawa ekranu
+/org/gnome/shell/extensions/tiling-assistant/last-version-installed
+/org/gnome/shell/extensions/vitals/hot-sensors      # nazwy czujników TEJ płyty (_fan_dell_smm_)

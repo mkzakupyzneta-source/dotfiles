@@ -1,0 +1,26 @@
+# ⛔⛔ TOŻSAMOŚĆ MASZYNY — NIGDY NIE LUSTRZYĆ. Spec rozdz. 7.6.
+#
+# To NIE są ustawienia. To pliki mówiące "jestem tym konkretnym komputerem".
+# Skopiowanie ich na drugą maszynę nie sprawia, że coś wygląda inaczej — sprawia,
+# że dwa komputery udają tę samą maszynę. Psuje się to głośno (odmowa połączenia)
+# albo cicho i gorzej (dwa węzły o tym samym ID rozjeżdżają synchronizację plików).
+#
+# Apka ODMAWIA zignorowania tej listy — to jedyne miejsce bez trybu
+# "zatwierdzam mimo wszystko".
+#
+# Zasada nadrzędna: jeżeli skopiowanie pliku sprawia, że dwie maszyny stają się
+# nierozróżnialne dla jakiejś usługi — plik jest tożsamością, nie ustawieniem.
+
+/etc/ssh/ssh_host_*              # klucze hosta SSH — dowód tożsamości serwera
+/etc/machine-id                  # systemowy numer seryjny instalacji
+/var/lib/dbus/machine-id         # jw.
+~/.config/syncthing/config.xml   # ID urządzenia liczone z certyfikatu
+~/.config/syncthing/cert.pem
+~/.config/syncthing/key.pem
+/var/lib/tailscale/*             # klucz węzła sieci prywatnej
+~/.config/monitors.xml           # układ i rozdzielczości monitorów TEJ maszyny
+/var/lib/bluetooth/*             # klucze parowania związane z adapterem
+~/.ssh/id_*                      # klucze prywatne — idą z Bitwardena, nie z repo (D7 z 21.08)
+
+# UWAGA (decyzja [125] z 23.08): sam ~/.ssh/config (aliasy hostów) JEST w lustrze.
+# Wykluczone są wyłącznie klucze prywatne (~/.ssh/id_*).

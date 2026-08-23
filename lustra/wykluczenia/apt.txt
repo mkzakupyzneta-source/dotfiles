@@ -1,0 +1,42 @@
+# Wykluczenia apt — jeden wzorzec na linię, `#` = komentarz, `*` = dowolny ciąg.
+# Zawartość początkowa ze spec rozdz. 5.4 (mechanizm-luster-spec.md).
+#
+# UWAGA: nie zastępować tej listy filtrem po priorytecie pakietu
+# (required/important/standard) — sprawdzone na Vostro 23.08: taki filtr odsiewa
+# 14 z 97 pozycji, ale wśród nich `wget`, który ma być na każdej maszynie.
+
+# --- jądro systemu i rozruch ---
+linux-*
+grub-*
+shim-signed
+efibootmgr
+
+# --- sterowniki i sprzęt (POZA lustrem z definicji) ---
+nvidia-*
+libnvidia-*
+xserver-xorg-video-*
+*-firmware
+firmware-*
+intel-microcode
+amd64-microcode
+
+# --- szkielet Ubuntu (to nie jest warsztat, to system) ---
+ubuntu-minimal
+ubuntu-standard
+ubuntu-desktop-minimal
+ubuntu-wallpapers
+ubuntu-restricted-addons
+language-pack-*
+
+# --- podstawowe narzędzia powłoki, które instalator sam oznaczył jako ręczne ---
+bsdutils
+dash
+diffutils
+findutils
+grep
+gzip
+hostname
+init
+login
+ncurses-base
+ncurses-bin

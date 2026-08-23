@@ -1,0 +1,5 @@
+# Katalog danych mechanizmu luster — ma zostać w repozytorium,
+# NIE ma być rozwijany do katalogu domowego (~/lustra).
+# Sprawdzone 2026-08-23 na Vostro: bez tego wpisu `chezmoi managed` pokazuje
+# `lustra`, `lustra/dziennik` … czyli chezmoi utworzyłby ~/lustra przy `apply`.
+lustra

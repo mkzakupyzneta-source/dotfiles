@@ -1,0 +1,4 @@
+# Wykluczenia flatpak — spec rozdz. 5.4.
+# Pusty z założenia: sam przełącznik `--app` odsiewa biblioteki uruchomieniowe.
+# Dodatki (Addon) też są odsiewane przez --app — np. net.mkiol.SpeechNote.Addon.nvidia
+# (6,7 GB, tylko maszyny z NVIDIA — patrz programy.md, sekcja "Zależne od sprzętu").

@@ -1,0 +1,5 @@
+# Pojedyncze klucze wożone MIMO że ich ścieżka nie jest na liście dconf-lustro.txt
+# — spec rozdz. 8.3, akapit o pułapce /org/gnome/shell/.
+/org/gnome/shell/favorite-apps        # ulubione programy w docku
+/org/gnome/shell/enabled-extensions   # które rozszerzenia GNOME są włączone
+/org/gnome/shell/disabled-extensions
