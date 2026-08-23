@@ -1,6 +1,6 @@
 # Lista programów lustra — plik GENEROWANY przez `lustro lista`.
 # Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.
-# Wygenerowane: 2026-08-23 18:06 na maszynie vostro.
+# Wygenerowane: 2026-08-23 18:30 na maszynie vostro.
 packages:
   apt:
     - btop
@@ -66,6 +66,7 @@ packages:
     - ttf-mscorefonts-installer
     - unzip
     - vainfo
+    - vlc
     - wbritish
     - wezterm
     - wget
@@ -83,5 +84,4 @@ packages:
     - com.orcaslicer.OrcaSlicer
     - net.mkiol.SpeechNote
     - org.onlyoffice.desktopeditors
-    - org.videolan.VLC
     - org.zotero.Zotero

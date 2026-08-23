@@ -1745,7 +1745,13 @@ def _identyfikatory_z_nazwy(tekst):
     wynik = []
     for c in czlony:
         c = c.split("(")[0].strip().rstrip(":…").strip()
-        if re.fullmatch(r"[a-z0-9][a-z0-9.+_-]{1,60}", c):
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+_-]{1,60}", c):
+            continue
+        # nazwa pakietu jest z małych liter (`xournalpp`) albo ma kropki
+        # (`org.zotero.Zotero`). „LibreOffice" to nazwa dla człowieka, nie pakiet —
+        # dzięki temu warunkowi tabela GENEROWANA daje się odczytać z powrotem
+        # i ręczne opisy przeżywają kolejne przegenerowanie.
+        if c.islower() or "." in c:
             wynik.append(c)
     return wynik
 
