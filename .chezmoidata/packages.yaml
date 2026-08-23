@@ -1,0 +1,87 @@
+# Lista programów lustra — plik GENEROWANY przez `lustro lista`.
+# Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.
+# Wygenerowane: 2026-08-23 18:06 na maszynie vostro.
+packages:
+  apt:
+    - btop
+    - build-essential
+    - code
+    - cryptsetup
+    - curl
+    - ddcutil
+    - dislocker
+    - flameshot
+    - flatpak
+    - fonts-cascadia-code
+    - fonts-jetbrains-mono
+    - git
+    - gnome-shell-extension-manager
+    - gnome-software-plugin-flatpak
+    - gnome-tweaks
+    - google-chrome-stable
+    - gstreamer1.0-plugins-bad
+    - htop
+    - hunspell-pl
+    - ibus-table-cangjie-big
+    - ibus-table-cangjie3
+    - ibus-table-cangjie5
+    - jq
+    - kitty
+    - libchewing3
+    - libchewing3-data
+    - libdrm-dev
+    - libegl-dev
+    - libgstreamer-plugins-bad1.0-dev
+    - libm17n-0
+    - libmarisa0
+    - libopencc-data
+    - libopencc1.1
+    - libotf1
+    - libpinyin-data
+    - libpinyin15
+    - libreoffice
+    - libreoffice-help-pl
+    - libreoffice-l10n-pl
+    - libva-dev
+    - lm-sensors
+    - m17n-db
+    - mesa-utils
+    - meson
+    - ninja-build
+    - nvtop
+    - okular
+    - onedrive
+    - openssh-server
+    - psensor
+    - python3-netifaces
+    - python3-tk
+    - ripgrep
+    - smartmontools
+    - solaar
+    - syncthing
+    - tesseract-ocr
+    - tesseract-ocr-eng
+    - tesseract-ocr-pol
+    - texlive-full
+    - ttf-mscorefonts-installer
+    - unzip
+    - vainfo
+    - wbritish
+    - wezterm
+    - wget
+    - xclip
+    - xournalpp
+    - zip
+  snap:
+    - bitwarden
+    - firefox
+    - teams-for-linux
+  flatpak:
+    - com.bambulab.BambuStudio
+    - com.github.tenderowl.frog
+    - com.jgraph.drawio.desktop
+    - com.orcaslicer.OrcaSlicer
+    - net.mkiol.SpeechNote
+    - org.onlyoffice.desktopeditors
+    - org.videolan.VLC
+    - org.zotero.Zotero

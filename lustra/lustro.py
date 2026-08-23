@@ -42,6 +42,10 @@ KOPIE = DOM / ".local/share/lustro/kopie"
 
 KANALY = ("apt", "snap", "flatpak")
 
+# Wszystko w programy.md poniżej tej linii jest RĘCZNE — `lustro lista` przepisuje to
+# bez zmian. Nad nią rządzi generator, pod nią człowiek.
+ZNACZNIK_RECZNY = "<!-- PONIŻEJ TEJ LINII PISZE CZŁOWIEK — generator tego nie rusza -->"
+
 # tryb roota: "sudo" (domyślnie) albo "pkexec"; ustawiany w main()
 TRYB_ROOT = os.environ.get("LUSTRO_ROOT", "sudo")
 
@@ -1848,6 +1852,9 @@ def polecenie_lista(args):
         do_czego, uwagi = reczne.get(ident, ("", ""))
         if not uwagi:
             uwagi = ost.get("notatka", "")
+            # notatka z zasiewu bywa powtórzeniem opisu — nie dublujemy tekstu
+            if do_czego and uwagi.startswith(do_czego):
+                uwagi = uwagi[len(do_czego):].lstrip("; ").strip()
         wiersze.append((ident, kanal, komorki, do_czego, uwagi))
         if ost.get("zdarzenie") == "dodano" and kanal in pakiety:
             pakiety[kanal].append(ident)
@@ -1881,6 +1888,14 @@ def polecenie_lista(args):
         "`.chezmoidata/packages.yaml` — czyta ją `run_onchange_install-packages.sh.tmpl`.",
     ]
     tresc = "\n".join(linie) + "\n"
+
+    # Ogon ręczny: wszystko poniżej znacznika NALEŻY DO CZŁOWIEKA i generator go
+    # przepisuje bez zmian. Dzięki temu opisy, sekcje „zależne od sprzętu" czy
+    # „do decyzji usera" przeżywają każde przegenerowanie tabeli.
+    if args.do and Path(args.do).exists():
+        stare = Path(args.do).read_text(encoding="utf-8")
+        if ZNACZNIK_RECZNY in stare:
+            tresc += "\n" + ZNACZNIK_RECZNY + stare.split(ZNACZNIK_RECZNY, 1)[1]
 
     if args.do:
         Path(args.do).write_text(tresc, encoding="utf-8")
