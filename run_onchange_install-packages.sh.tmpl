@@ -1,0 +1,74 @@
+#!/bin/sh
+# Instalacja listy programów lustra — uruchamiana przez chezmoi.
+#
+# Skąd bierze listę: .chezmoidata/packages.yaml, plik GENEROWANY przez
+# `lustro lista` z dzienników (lustra/dziennik/*.jsonl). Nie edytować ręcznie.
+#
+# ⚠️ ZASADA „NIC BEZ ZGODY USERA" (spec rozdz. 11.1):
+#    chezmoi umie uruchomić ten skrypt sam, bez pytania. Dlatego skrypt
+#    INSTALUJE WYŁĄCZNIE W TRYBIE STAWIANIA NOWEJ MASZYNY — poznaje go po tym,
+#    że ta maszyna nie ma jeszcze własnego dziennika lustra. Na działającym
+#    lustrze skrypt tylko WYPISUJE, czego brakuje, i odsyła do `lustro sync`,
+#    gdzie pytanie zadaje apka.
+#
+# Przedrostek `run_onchange_` sprawia, że chezmoi liczy odcisk treści tego pliku
+# i uruchamia go dopiero wtedy, gdy lista programów faktycznie się zmieniła.
+# Dlatego listy są wpisane niżej w treść — to one są tym odciskiem.
+
+set -eu
+
+APT="{{ join " " .packages.apt }}"
+SNAP="{{ join " " .packages.snap }}"
+FLATPAK="{{ join " " .packages.flatpak }}"
+
+ZRODLO="{{ .chezmoi.sourceDir }}"
+MASZYNA="$(hostname | tr '[:upper:]' '[:lower:]')"
+DZIENNIK="$ZRODLO/lustra/dziennik/$MASZYNA.jsonl"
+
+brakuje_apt=""
+brakuje_snap=""
+brakuje_flatpak=""
+
+for p in $APT; do
+    dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q "install ok installed" \
+        || brakuje_apt="$brakuje_apt $p"
+done
+if command -v snap >/dev/null 2>&1; then
+    for p in $SNAP; do
+        snap list "$p" >/dev/null 2>&1 || brakuje_snap="$brakuje_snap $p"
+    done
+fi
+if command -v flatpak >/dev/null 2>&1; then
+    for p in $FLATPAK; do
+        flatpak info "$p" >/dev/null 2>&1 || brakuje_flatpak="$brakuje_flatpak $p"
+    done
+fi
+
+if [ -z "$brakuje_apt$brakuje_snap$brakuje_flatpak" ]; then
+    echo "lustro: wszystkie programy z listy są na miejscu."
+    exit 0
+fi
+
+if [ -f "$DZIENNIK" ]; then
+    echo "lustro: ta maszyna ma już własny dziennik ($MASZYNA) — NICZEGO NIE INSTALUJĘ."
+    echo "lustro: brakuje:"
+    [ -n "$brakuje_apt" ]     && echo "   apt:    $brakuje_apt"
+    [ -n "$brakuje_snap" ]    && echo "   snap:   $brakuje_snap"
+    [ -n "$brakuje_flatpak" ] && echo "   flatpak:$brakuje_flatpak"
+    echo "lustro: żeby to wyrównać — uruchom: lustro sync (zapyta przy każdej pozycji)."
+    exit 0
+fi
+
+echo "lustro: nowa maszyna ($MASZYNA, brak dziennika) — instaluję listę z lustra."
+if [ -n "$brakuje_apt" ]; then
+    sudo apt-get update
+    # shellcheck disable=SC2086
+    sudo apt-get install -y $brakuje_apt
+fi
+for p in $brakuje_snap; do sudo snap install "$p"; done
+for p in $brakuje_flatpak; do
+    flatpak remote-add --if-not-exists flathub \
+        https://dl.flathub.org/repo/flathub.flatpakrepo
+    sudo flatpak install -y flathub "$p"
+done
+echo "lustro: gotowe. Dziennik tej maszyny załóż przez: lustro sync"

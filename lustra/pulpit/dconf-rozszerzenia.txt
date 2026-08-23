@@ -1,0 +1,11 @@
+# Klucze dconf PRZEJĘTE PRZEZ ROZSZERZENIA GNOME — plik GENEROWANY.
+# Nie należą do usera: rozszerzenie zapisuje je przy włączeniu i KASUJE
+# przy wyłączeniu (restart powłoki, wylogowanie, ekran blokady).
+# Dlatego są POZA lustrem — inaczej `lustro status` zgłaszałby rozbieżność
+# za każdym razem, gdy rozszerzenie akurat jest wyłączone.
+# Źródło: klucze `overridden-settings` rozszerzeń (/org/gnome/shell/extensions/).
+# Lista tylko rośnie — raz wykryty klucz zostaje, bo znacznik znika razem
+# z wyłączonym rozszerzeniem.
+/org/gnome/mutter/edge-tiling
+/org/gnome/mutter/keybindings/toggle-tiled-left
+/org/gnome/mutter/keybindings/toggle-tiled-right

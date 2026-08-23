@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+
+# Sztuczne dzienniki testowe (udające drugą maszynę) — nigdy do repozytorium.
+dziennik/test-*.jsonl

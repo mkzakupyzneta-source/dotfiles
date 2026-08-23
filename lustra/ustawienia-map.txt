@@ -8,15 +8,20 @@
 # --- wożone przez chezmoi (sprawdzone `chezmoi managed`, 23.08) ---
 kitty            .config/kitty/kitty.conf
 wezterm          .config/wezterm/wezterm.lua
-onedrive         .config/onedrive/config .config/onedrive/sync_list
+# onedrive (domyślna instancja) — ZDJĘTE Z LUSTRA 2026-08-23 (E2). Obszar 4_Kanaly_danych
+#   ustalił, że ~/.config/onedrive (folder ~/OneDrive-AI) to zaszłość: katalog przemianowany
+#   na ~/.config/onedrive.ZASZLOSC-2026-08-23, usługa onedrive.service zamaskowana.
+#   `chezmoi forget` na .config/onedrive/{config,sync_list} + bin/onedrive-roboczy.sh.
+#   Żywa jest wyłącznie instancja onedrive-archiwum (wiersz niżej).
 onedrive-archiwum .config/onedrive-archiwum/config .config/onedrive-archiwum/sync_list
 ccstatusline     .config/ccstatusline/settings.json
 git              .gitconfig
 powloka          .bashrc .profile
 gnome-pulpit     .config/zrzuty/gnome-dconf.ini
 
-# --- do dołożenia (istnieją na maszynie, chezmoi ich NIE wozi — stan 23.08) ---
 flameshot        .config/flameshot/flameshot.ini    # skróty w programie: TYPE_ACCEPT=S
+#   ^ dołożone do chezmoi 2026-08-23 w E2 (do tego dnia plik istniał na maszynie,
+#     ale chezmoi go NIE woził — hipoteza 17 ze spec obalona w E1).
 
 # --- decyzje usera z 23.08 ---
 # [126] Chrome i VS Code: NIE lustrzymy plików ustawień — mają własną synchronizację
