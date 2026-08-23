@@ -1,0 +1,114 @@
+# Lista maszyn domowej sieci — DANE, nie kod.
+#
+# Czyta ją AI Launcher (12_Narzedzia-AI/AILauncher_V2/linux/ailauncher.py) przy KAŻDYM
+# starcie, żeby pokazać listę „gdzie uruchomić Claude'a". Zmiana floty = zmiana TEGO pliku,
+# launchera nikt nie rusza:
+#   • nowa maszyna po bootstrapie dopisuje swój blok [[maszyna]] i robi `git push`,
+#   • maszyna wycofana — blok znika.
+#
+# Plik leży w katalogu `lustra/`, który jest w `.chezmoiignore` — zostaje w repozytorium
+# i NIE jest rozwijany do katalogu domowego. Launcher czyta go wprost ze ścieżki
+# ~/.local/share/chezmoi/lustra/maszyny.toml (można nadpisać zmienną AILAUNCHER_MASZYNY).
+#
+# Pola bloku [[maszyna]]:
+#   klucz              — krótki, stały identyfikator (bez spacji); używany w trybie tekstowym
+#   nazwa              — co user widzi na liście
+#   nazwa_hosta        — `hostname` tej maszyny; po tym launcher poznaje, że to ON sam
+#                        (wtedy uruchamia lokalnie, bez SSH)
+#   host_lan           — adres w domowej sieci; launcher próbuje go PIERWSZEGO
+#   host_tailscale     — nazwa w Tailscale (MagicDNS); próba druga
+#   ip_tailscale       — adres 100.x Tailscale; próba trzecia
+#   user               — konto systemowe do logowania po SSH
+#   katalog_roboczy    — gdzie na tej maszynie leży AI-katalog-roboczy
+#   dostepna_jako_cel  — czy wolno na niej URUCHAMIAĆ (false = maszyna tylko „skąd")
+#   aktywna            — false = wpis-szkielet, launcher go nie pokazuje
+#   uwagi              — dla człowieka
+#
+# Bloki [[maszyna.konto]] — konta Claude Code NA TEJ maszynie (etykieta + katalog ustawień;
+# pusty katalog = domyślny ~/.claude). Przypisanie „etykieta → adres e-mail" bywa na każdej
+# maszynie INNE, dlatego siedzi przy maszynie, a nie w programie. Maszyna lokalna kont tu
+# nie ma — dla niej źródłem prawdy jest ~/.config/ailauncher/settings.json (żeby nie było
+# dwóch list, które się rozjadą).
+#
+# Stan zapisu: 2026-08-23, sprawa [132], obszar 10_Siec_domowa/6_Dostep_zdalny.
+
+wersja = 1
+
+# ── Vostro — stacja robocza (Ubuntu 24.04) ──────────────────────────────────────
+[[maszyna]]
+klucz = "vostro"
+nazwa = "Vostro (ta maszyna)"
+nazwa_hosta = "vostro"
+host_lan = ""
+host_tailscale = ""
+ip_tailscale = ""
+user = "mk"
+katalog_roboczy = "/home/mk/AI-katalog-roboczy"
+dostepna_jako_cel = true
+aktywna = true
+uwagi = """
+Stacja robocza. Konta Claude bierzemy z ~/.config/ailauncher/settings.json.
+Tailscale na Vostro jeszcze NIE zainstalowany (stan 2026-08-23) — pola tailscale puste.
+Do wpisania po instalacji: openssh-server + reguła zapory, jeśli Vostro ma być też celem
+z innych maszyn."""
+
+# ── OptiPlex 7050 — serwer domowy 24/7 (Linux Mint 22.3) ───────────────────────
+[[maszyna]]
+klucz = "serwer"
+nazwa = "Serwer (OptiPlex 7050)"
+nazwa_hosta = "mk-OptiPlex-7050"
+host_lan = "192.168.1.49"
+host_tailscale = "mk-optiplex-7050"
+ip_tailscale = "100.110.113.13"
+user = "mk"
+katalog_roboczy = "/home/mk/AI-katalog-roboczy"
+dostepna_jako_cel = true
+aktywna = true
+uwagi = """
+Serwer domowy — tu żyją długie sesje Claude'a (zawsze w tmux, żeby przetrwały zerwanie
+łącza i żeby dało się podpiąć z drugiej maszyny). Klucz SSH z Vostro działa (2026-08-23).
+`tmux` doinstalowany 2026-08-23 przy uruchamianiu tego trybu — serwer nie jest jeszcze
+objęty mechanizmem luster, więc instalacji nie ma w dzienniku.
+Nazwa MagicDNS `mk-optiplex-7050` jest NIEZWERYFIKOWANA (hipoteza) — z Vostro nie da się
+jej dziś sprawdzić, bo Vostro nie ma Tailscale. Launcher i tak próbuje adresów po kolei."""
+
+  [[maszyna.konto]]
+  nazwa = "Konto 1 — michal.kowalik@pw.edu.pl"
+  katalog_konfiguracji = ""
+
+  [[maszyna.konto]]
+  nazwa = "Konto 2 — a.cisowski@anvproduction.pl"
+  katalog_konfiguracji = "~/.claude-konto1"
+
+# ── HP — stacja robocza pod Windows ────────────────────────────────────────────
+[[maszyna]]
+klucz = "hp"
+nazwa = "HP (Windows)"
+nazwa_hosta = ""
+host_lan = ""
+host_tailscale = ""
+ip_tailscale = ""
+user = ""
+katalog_roboczy = ""
+dostepna_jako_cel = false
+aktywna = true
+uwagi = """
+Tylko „skąd" — punkt startowy, nie cel. Windows ma inną ścieżkę katalogu roboczego i nie ma
+tmux, więc `ssh -t ... cd ... && tmux ...` nie zadziała wprost. Po przesiadce HP na Linuksa
+wpis się uzupełnia i `dostepna_jako_cel` staje się true."""
+
+# ── Poligon — maszyna do eksperymentów (jeszcze nie istnieje) ──────────────────
+[[maszyna]]
+klucz = "poligon"
+nazwa = "Poligon (szkielet — jeszcze nie istnieje)"
+nazwa_hosta = ""
+host_lan = ""
+host_tailscale = ""
+ip_tailscale = ""
+user = "mk"
+katalog_roboczy = "/home/mk/AI-katalog-roboczy"
+dostepna_jako_cel = true
+aktywna = false
+uwagi = """
+Wpis-szkielet, `aktywna = false` — launcher go nie pokazuje. Gdy poligon powstanie:
+uzupełnić nazwa_hosta / host_lan / tailscale i przestawić na true."""
