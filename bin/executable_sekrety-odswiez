@@ -21,6 +21,7 @@ import getpass
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -231,6 +232,17 @@ def wczytaj_mape(sciezka):
                 return None
     return pliki
 
+def sciezka_docelowa(wpis):
+    """Ścieżka pliku docelowego — z nadpisaniem per hostname, jeśli mapowanie
+    je przewiduje (klucz `sciezka_wg_hosta.<hostname>`). Dzięki temu jeden plik
+    mapowania jest identyczny na wszystkich maszynach, nawet gdy któraś z nich
+    trzyma plik env w innym miejscu niż `sciezka`."""
+    nadpisania = wpis.get("sciezka_wg_hosta") or {}
+    host = socket.gethostname()
+    if host in nadpisania:
+        return Path(nadpisania[host]).expanduser()
+    return Path(wpis["sciezka"]).expanduser()
+
 # ------------------------------------------------------------------ pliki env
 
 def stare_wartosci(sciezka):
@@ -276,7 +288,7 @@ def tylko_pokaz(pliki, sciezka_mapy, sejf):
     info("Tryb --tylko-pokaz: NIE dotykam żadnego pliku, NIE pobieram wartości.")
     info()
     for wpis in pliki:
-        cel = Path(wpis["sciezka"]).expanduser()
+        cel = sciezka_docelowa(wpis)
         opis = wpis.get("opis", "")
         info(f"» {cel}   {('— ' + opis) if opis else ''}")
         istnieje = "jest" if cel.is_file() else "jeszcze go nie ma"
@@ -311,7 +323,7 @@ def odswiez(pliki, sejf):
     zapisane = 0
 
     for wpis in pliki:
-        cel = Path(wpis["sciezka"]).expanduser()
+        cel = sciezka_docelowa(wpis)
         info(f"» {cel}")
         poprzednie = stare_wartosci(cel)
 
@@ -416,7 +428,7 @@ def main():
 
     if argumenty.plik:
         chciane = {str(Path(p).expanduser()) for p in argumenty.plik}
-        pliki = [w for w in pliki if str(Path(w["sciezka"]).expanduser()) in chciane]
+        pliki = [w for w in pliki if str(sciezka_docelowa(w)) in chciane]
         if not pliki:
             blad("żaden plik z mapowania nie pasuje do --plik")
             return 2

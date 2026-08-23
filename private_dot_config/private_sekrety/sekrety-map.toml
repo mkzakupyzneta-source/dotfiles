@@ -32,6 +32,15 @@
 #                    sekretem: numery bibliotek, identyfikatory, adresy).
 #                    Wyklucza się z `pozycja`.
 #
+# sciezka_wg_hosta — gdy JEDNA maszyna trzyma ten plik env w innym miejscu niż
+#                    `sciezka` (np. usługa na serwerze mieszka pod /srv/...).
+#                    Klucz = `hostname` tej maszyny (`hostname` w terminalu).
+#                    Mapowanie zostaje IDENTYCZNE na wszystkich maszynach —
+#                    to skrypt wybiera ścieżkę wg tego, na czym działa:
+#
+#   [plik.sciezka_wg_hosta]
+#   "nazwa-hosta" = "/inna/sciezka/env"
+#
 # NOWY PLIK ENV = nowy blok [[plik]]. Nic w kodzie nie trzeba zmieniać.
 # ============================================================================
 
@@ -47,25 +56,32 @@
 sciezka = "~/.coach/env"
 opis    = "Coach 2.0 — Telegram (kontrakt §3c)"
 
+  # Na serwerze (OptiPlex) Coach 2.0 mieszka pod /srv/uslugi/coach-dev/, nie
+  # w katalogu domowym — nadpisanie ścieżki per hostname (klucz = `hostname`
+  # tej maszyny). Gdy dojdzie kolejna maszyna z inną ścieżką, dopisz tu kolejny
+  # wiersz — plik mapowania zostaje IDENTYCZNY na wszystkich maszynach.
+  [plik.sciezka_wg_hosta]
+  "mk-OptiPlex-7050" = "/srv/uslugi/coach-dev/.env"
+
   [[plik.zmienna]]
   nazwa   = "COACH_TG_BOT_TOKEN_SHADOW"
   pozycja = "COACH_TG_BOT_TOKEN_SHADOW"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "COACH_TG_BOT_TOKEN_UX"
   pozycja = "COACH_TG_BOT_TOKEN_UX"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "COACH_TG_POLL_TOKEN_UX"
   pozycja = "COACH_TG_POLL_TOKEN_UX"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "COACH_TG_CHAT_ID_UX"
   pozycja = "COACH_TG_CHAT_ID_UX"
-  pole    = "password"
+  pole    = "notes"
   # to numer rozmowy, nie sekret — ale w sejfie leży w komplecie z resztą
 
 
@@ -87,56 +103,56 @@ opis    = "Klucze API narzędzi AI (bazy publikacji, LLM, patenty)"
   [[plik.zmienna]]
   nazwa   = "SCOPUS_API_KEY"
   pozycja = "SCOPUS_API_KEY"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "ELSEVIER_FULLTEXT_API_KEY"
   pozycja = "ELSEVIER_FULLTEXT_API_KEY"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "SPRINGER_API_KEY_OA"
   pozycja = "SPRINGER_API_KEY_OA"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "SPRINGER_API_KEY_META"
   pozycja = "SPRINGER_API_KEY_META"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "IEEE_API_KEY"
   pozycja = "IEEE_API_KEY"
-  pole    = "password"
+  pole    = "notes"
 
   # --- darmowe API LLM (plan 2D1) ---
 
   [[plik.zmienna]]
   nazwa   = "GROQ_API_KEY"
   pozycja = "GROQ_API_KEY"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "NVIDIA_NIM_API_KEY"
   pozycja = "NVIDIA_NIM_API_KEY"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "OPENROUTER_API_KEY"
   pozycja = "OPENROUTER_API_KEY"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "GEMINI_API_KEY"
   pozycja = "GEMINI_API_KEY"
-  pole    = "password"
+  pole    = "notes"
 
   # --- Zotero (plan 2D2) ---
 
   [[plik.zmienna]]
   nazwa   = "ZOTERO_API_KEY"
   pozycja = "ZOTERO_API_KEY"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "ZOTERO_LIBRARY_ID"
@@ -153,23 +169,23 @@ opis    = "Klucze API narzędzi AI (bazy publikacji, LLM, patenty)"
   [[plik.zmienna]]
   nazwa   = "EPO_CONSUMER_KEY"
   pozycja = "EPO_CONSUMER_KEY"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "EPO_CONSUMER_SECRET"
   pozycja = "EPO_CONSUMER_SECRET"
-  pole    = "password"
+  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "PQAI_TOKEN"
   pozycja = "PQAI_TOKEN"
-  pole    = "password"
+  pole    = "notes"
 
   # --- Perplexity (plan 2D4) ---
 
   [[plik.zmienna]]
   nazwa   = "PERPLEXITY_API_KEY"
   pozycja = "PERPLEXITY_API_KEY"
-  pole    = "password"
+  pole    = "notes"
   stan    = "czeka"
   uwaga   = "wartość jest tylko na HP (zmienna środowiskowa); pozycję w sejfie zakładamy przy tamtej maszynie — wtedy zmień stan na \"gotowe\""
