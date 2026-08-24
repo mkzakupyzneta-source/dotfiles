@@ -45,11 +45,12 @@ maszyny:
         - .gitconfig
         - bin/sekrety-odswiez
         - .config/sekrety/sekrety-map.toml
+        - .config/ccstatusline/settings.json
       # Świadomie POZA warstwą serwera (decyzja usera 24.08 + Architekt):
       #   .bashrc, .profile        — serwer ma własne, nie ryzykujemy nadpisania
       #   install-packages.sh      — lista programów stacji, nie serwera
-      #   .config/* poza sekretami — kitty, wezterm, flameshot, ccstatusline,
+      #   .config/* poza sekretami i paskiem stanu — kitty, wezterm, flameshot,
       #                              systemd/wygaszanie-ekranow, zrzuty GNOME
       #   bin/* poza sekrety-odswiez — skrypty pulpitu/OneDrive/sesji
-      # Kandydat na później (jedna linia wyżej, gdy user zdecyduje):
-      #   .config/ccstatusline/settings.json — pasek statusu Claude Code
+      # .config/ccstatusline/settings.json dołączony 25.08 (decyzja usera [174a]):
+      #   pasek stanu Claude Code ma być spójny też na serwerze.
