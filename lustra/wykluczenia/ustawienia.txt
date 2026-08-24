@@ -26,3 +26,8 @@
 
 # ⛔ Pamięć sesji Claude Code — lokalny brudnopis (spec 7.7)
 .claude/projects/*
+
+# ⛔ FortiClient VPN [176] — adresy bram, loginy, identyfikatory maszyny; poza lustrem
+#    (decyzja przy `lustro dodaj forticlient` 25.08: „nie"). Ustawienia systemowe
+#    w /etc/forticlient i tak leżą poza katalogiem domowym.
+.config/FortiClient/*

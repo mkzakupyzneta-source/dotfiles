@@ -83,6 +83,7 @@ alias lustro='python3 "$HOME/.local/share/chezmoi/lustra/lustro.py"'
 | `pulpit/rozszerzenia-gnome.txt` | które rozszerzenia GNOME Shell mają być **zainstalowane** (nie: włączone) na każdej maszynie, i skąd (`ego` = extensions.gnome.org, `lokalne` = zgłoszenie bez instalacji) |
 | `pulpit/pulpit.ini` | eksport ustawień pulpitu — **plik generowany**, `{{HOME}}` zamiast `/home/mk` |
 | `ustawienia-map.txt` | program → jego pliki ustawień |
+| `zrodla-apt.toml` | zewnętrzne repozytoria apt (Fortinet, Tailscale…): skąd klucz, jaka linia `deb`, które pakiety — **dane**, apka je czyta w `status` i `dodaj` (od 25.08, [176]) |
 
 Poza tym katalogiem, ale należy do mechanizmu:
 `../.chezmoidata/packages.yaml` (generowana lista programów) i
@@ -115,6 +116,31 @@ HTTP 200 z `download_url`, plik pod tym adresem jest prawidłowym zip-em rozszer
 install` nie została odpalona na żywo** — na Vostro nie było czego instalować (Vitals już jest);
 do sprawdzenia przy najbliższej okazji, gdy na jakiejś maszynie faktycznie czegoś brakuje
 (kandydat: poligon, E3). Pełny opis → spec, rozdz. 8.12.
+
+## Zewnętrzne repozytoria apt — `zrodla-apt.toml` (25.08, sprawa [176])
+
+Część programów nie leży w Ubuntu, tylko u producenta (FortiClient → `repo.fortinet.com`,
+Tailscale → `pkgs.tailscale.com`). Na nowej maszynie `apt install <program>` nic wtedy nie
+znajdzie. `zrodla-apt.toml` opisuje takie źródła jako **dane** (blok `[[zrodlo]]`: adres,
+skąd klucz i w jakim formacie, dokąd keyring, jaka linia `deb`, które pakiety z niego
+pochodzą; opis pól w nagłówku pliku). Zastępnik `{codename}` = nazwa wydania z `/etc/os-release`.
+
+- `lustro status` — sekcja „ZEWNĘTRZNE ŹRÓDŁA APT, KTÓRYCH TU NIE MA": źródło uznane za
+  obecne, gdy jego `url` stoi w którymś pliku `.list`/`.sources` w `/etc/apt/sources.list.d/`
+  **i** plik `keyring` istnieje. Nic nie zmienia.
+- `lustro dodaj <pakiet>` — jeśli pakiet stoi w polu `pakiety` jakiegoś źródła, a źródła nie ma:
+  mówi to jasno, pyta `[T/n]` i dodaje **jednym skryptem `sh` pod jednym sudo/pkexec**
+  (klucz pobrany i `gpg --dearmor` bez roota; pod rootem tylko `install` keyringu, zapis
+  listy, `apt-get update`). Dopiero potem szuka pakietu w apt i instaluje jak dotąd.
+  Idempotentne. Przy odmowie — nie instaluje pakietu (bez źródła i tak by się nie udało).
+- Nie ma jeszcze: osobnej komendy „dodaj samo źródło", uwzględnienia źródeł w
+  `run_onchange_install-packages.sh.tmpl` (bootstrap nowej maszyny — E3), wpisów dla
+  Chrome / VS Code / OneDrive (zainstalowane ręcznie przed powstaniem pliku).
+
+Zweryfikowane na żywo 25.08 na Vostro: źródło Fortinet dodane przez `dodaj` (pkexec),
+`apt-cache policy forticlient` → kandydat `7.4.8.1904` z `repo.fortinet.com … ubuntu22 stable/non-free`,
+instalacja i wpis w dzienniku tą samą komendą. Tailscale (dodany wcześniej skryptem obszaru 6)
+rozpoznany jako obecny bez żadnej zmiany.
 
 ## ⚠️ Pułapka sprawdzona 2026-08-23: chezmoi rozwijał `lustra/`
 
