@@ -1,0 +1,34 @@
+{{- /*
+  Nazwa profilu TEJ maszyny (stacja | serwer | …). Sprawa [174].
+  Użycie w szablonie:  {{ $profil := includeTemplate "profil" . | trim }}
+  Podgląd z terminala: chezmoi execute-template '{{ includeTemplate "profil" . }}'
+
+  Kolejność rozstrzygania:
+    1. .maszyny.profil_wymuszony  (.chezmoidata/maszyny.yaml albo [data.maszyny]
+                                   w pliku konfiguracyjnym chezmoi tej maszyny)
+    2. pole `profil` bloku [[maszyna]] w lustra/maszyny.toml, dopasowane po
+       `nazwa_hosta` (porównanie bez rozróżniania wielkości liter — serwer
+       nazywa się `mk-OptiPlex-7050`)
+    3. .maszyny.profil_domyslny
+*/ -}}
+{{- $profil := "" -}}
+{{- if .maszyny.profil_wymuszony -}}
+{{-   $profil = .maszyny.profil_wymuszony -}}
+{{- end -}}
+{{- if not $profil -}}
+{{-   $host := lower .chezmoi.hostname -}}
+{{-   if stat (joinPath .chezmoi.sourceDir "lustra" "maszyny.toml") -}}
+{{-     $flota := include "lustra/maszyny.toml" | fromToml -}}
+{{-     range $flota.maszyna -}}
+{{-       if and (hasKey . "profil") (hasKey . "nazwa_hosta") -}}
+{{-         if and .nazwa_hosta (eq (lower .nazwa_hosta) $host) -}}
+{{-           $profil = .profil -}}
+{{-         end -}}
+{{-       end -}}
+{{-     end -}}
+{{-   end -}}
+{{- end -}}
+{{- if not $profil -}}
+{{-   $profil = .maszyny.profil_domyslny -}}
+{{- end -}}
+{{- $profil -}}

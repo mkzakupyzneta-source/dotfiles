@@ -1,0 +1,55 @@
+# Profile maszyn — DANE dla chezmoi, nie kod. Sprawa [174], 2026-08-24.
+#
+# Po co: nie każda maszyna jest lustrem. Serwer (OptiPlex) ma dostać z tego
+# repozytorium TYLKO warstwę wspólną (sekrety, dostępy, git), a nie pulpit
+# i zestaw programów stacji. Zamiast drugiego mechanizmu — jeden mechanizm,
+# w którym „co ta maszyna dostaje" jest daną.
+#
+# KTÓRA maszyna ma KTÓRY profil — NIE tutaj. To pole `profil` w bloku
+# [[maszyna]] pliku lustra/maszyny.toml (jedna lista maszyn floty, nie dwie).
+# Tutaj są tylko DEFINICJE profili + domyślny + wymuszenie.
+#
+# Jak to działa: .chezmoitemplates/profil ustala nazwę profilu tej maszyny,
+# .chezmoiignore.tmpl bierze z `profile.<nazwa>.tylko` listę ścieżek i wszystko
+# spoza niej wyklucza. Pusta lista `tylko` = maszyna dostaje WSZYSTKO (lustro).
+#
+# Nowy rodzaj maszyny (np. laptop dla dziecka, maszyna testowa) = nowy wpis
+# w `profile` + `profil = "..."` przy maszynie w lustra/maszyny.toml. Bez zmian
+# w szablonach.
+#
+# Testowanie profilu bez zmieniania danych (np. „pokaż mi, co dostałby serwer"):
+#   chezmoi --config /tmp/x.toml managed
+# gdzie /tmp/x.toml zawiera:  [data.maszyny]  profil_wymuszony = "serwer"
+# (dane z pliku konfiguracyjnego są scalane z .chezmoidata — sprawdzone 24.08).
+
+maszyny:
+  # Profil dla maszyny, której nie ma w lustra/maszyny.toml albo która nie ma
+  # tam pola `profil`. Stacja = pełne lustro (dotychczasowe zachowanie).
+  profil_domyslny: stacja
+
+  # Pusty = wyłączony. Ustawiony (tu albo w [data.maszyny] pliku konfiguracyjnego
+  # chezmoi na maszynie) — wygrywa z lustra/maszyny.toml. Do testów i wyjątków.
+  profil_wymuszony: ""
+
+  profile:
+    stacja:
+      opis: "Stacja robocza — pełne lustro: pulpit, programy, skrypty, ustawienia."
+      # Pusta lista = bez ograniczeń (wszystko z repozytorium, poza `lustra/`).
+      tylko: []
+
+    serwer:
+      opis: "Serwer — tylko warstwa wspólna: sekrety, dostępy, git. Bez pulpitu i programów stacji."
+      # Ścieżki DOCELOWE (względem katalogu domowego), tak jak pokazuje je
+      # `chezmoi managed`. Katalogi nadrzędne dokłada szablon sam.
+      tylko:
+        - .gitconfig
+        - bin/sekrety-odswiez
+        - .config/sekrety/sekrety-map.toml
+      # Świadomie POZA warstwą serwera (decyzja usera 24.08 + Architekt):
+      #   .bashrc, .profile        — serwer ma własne, nie ryzykujemy nadpisania
+      #   install-packages.sh      — lista programów stacji, nie serwera
+      #   .config/* poza sekretami — kitty, wezterm, flameshot, ccstatusline,
+      #                              systemd/wygaszanie-ekranow, zrzuty GNOME
+      #   bin/* poza sekrety-odswiez — skrypty pulpitu/OneDrive/sesji
+      # Kandydat na później (jedna linia wyżej, gdy user zdecyduje):
+      #   .config/ccstatusline/settings.json — pasek statusu Claude Code

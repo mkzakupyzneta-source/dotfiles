@@ -1,0 +1,31 @@
+{{- /* Plik jest SZABLONEM: co wykluczyć zależy od profilu maszyny (sprawa [174]).
+       Profil ustala .chezmoitemplates/profil; definicje profili → .chezmoidata/maszyny.yaml;
+       który host ma który profil → pole `profil` w lustra/maszyny.toml.
+       Podgląd wyniku:  chezmoi execute-template < .chezmoiignore.tmpl */ -}}
+{{- $profil := includeTemplate "profil" . | trim -}}
+{{- if not (hasKey .maszyny.profile $profil) -}}
+{{-   fail (printf "chezmoi: nieznany profil maszyny %q — dopisz go do .chezmoidata/maszyny.yaml" $profil) -}}
+{{- end -}}
+{{- $def := index .maszyny.profile $profil -}}
+# Profil tej maszyny: {{ $profil }} — {{ $def.opis }}
+
+# Katalog danych mechanizmu luster — ma zostać w repozytorium,
+# NIE ma być rozwijany do katalogu domowego (~/lustra).
+# Sprawdzone 2026-08-23 na Vostro: bez tego wpisu `chezmoi managed` pokazuje
+# `lustra`, `lustra/dziennik` … czyli chezmoi utworzyłby ~/lustra przy `apply`.
+# ⛔ Obowiązuje KAŻDY profil.
+lustra
+{{ if $def.tylko }}
+# Profil z listą `tylko`: wykluczamy WSZYSTKO, a potem odkluczamy (`!`) wyłącznie
+# wymienione ścieżki wraz z ich katalogami nadrzędnymi (bez odkluczenia katalogu
+# chezmoi nie zagląda do środka). Wg dokumentacji chezmoi wykluczenia `!` mają
+# pierwszeństwo przed wszystkimi wzorcami ignorowania, niezależnie od kolejności.
+**
+{{- range $def.tylko }}
+{{-   $sciezka := "" }}
+{{-   range (splitList "/" .) }}
+{{-     $sciezka = ternary . (printf "%s/%s" $sciezka .) (eq $sciezka "") }}
+!{{ $sciezka }}
+{{-   end }}
+{{- end }}
+{{ end -}}

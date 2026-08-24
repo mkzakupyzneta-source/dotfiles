@@ -23,6 +23,12 @@
 #   dostepna_jako_cel  — czy wolno na niej URUCHAMIAĆ (false = maszyna tylko „skąd")
 #   aktywna            — false = wpis-szkielet, launcher go nie pokazuje
 #   uwagi              — dla człowieka
+#   profil             — jak chezmoi traktuje tę maszynę (sprawa [174], 2026-08-24):
+#                        "stacja" = pełne lustro, "serwer" = tylko warstwa wspólna
+#                        (sekrety, dostępy, git). Definicje profili i lista, co który
+#                        dostaje: .chezmoidata/maszyny.yaml. Brak pola = profil domyślny
+#                        (stacja). Dopasowanie po `nazwa_hosta`, bez rozróżniania
+#                        wielkości liter. Launcher tego pola nie czyta.
 #
 # Bloki [[maszyna.konto]] — konta Claude Code NA TEJ maszynie (etykieta + katalog ustawień;
 # pusty katalog = domyślny ~/.claude). Przypisanie „etykieta → adres e-mail" bywa na każdej
@@ -46,6 +52,7 @@ user = "mk"
 katalog_roboczy = "/home/mk/AI-katalog-roboczy"
 dostepna_jako_cel = true
 aktywna = true
+profil = "stacja"
 uwagi = """
 Stacja robocza. Konta Claude bierzemy z ~/.config/ailauncher/settings.json.
 Tailscale na Vostro jeszcze NIE zainstalowany (stan 2026-08-23) — pola tailscale puste.
@@ -64,6 +71,7 @@ user = "mk"
 katalog_roboczy = "/home/mk/AI-katalog-roboczy"
 dostepna_jako_cel = true
 aktywna = true
+profil = "serwer"
 uwagi = """
 Serwer domowy — tu żyją długie sesje Claude'a (zawsze w tmux, żeby przetrwały zerwanie
 łącza i żeby dało się podpiąć z drugiej maszyny). Klucz SSH z Vostro działa (2026-08-23).
@@ -93,6 +101,7 @@ user = ""
 katalog_roboczy = ""
 dostepna_jako_cel = false
 aktywna = true
+profil = "stacja"
 uwagi = """
 Tylko „skąd" — punkt startowy, nie cel. Windows ma inną ścieżkę katalogu roboczego i nie ma
 tmux, więc `ssh -t ... cd ... && tmux ...` nie zadziała wprost. Po przesiadce HP na Linuksa
@@ -110,6 +119,7 @@ user = "mk"
 katalog_roboczy = "/home/mk/AI-katalog-roboczy"
 dostepna_jako_cel = true
 aktywna = false
+profil = "stacja"
 uwagi = """
 Wpis-szkielet, `aktywna = false` — launcher go nie pokazuje. Gdy poligon powstanie:
 uzupełnić nazwa_hosta / host_lan / tailscale i przestawić na true."""
