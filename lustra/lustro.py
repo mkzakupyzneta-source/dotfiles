@@ -38,7 +38,10 @@ PULPIT = KATALOG / "pulpit"
 MAPA_USTAWIEN = KATALOG / "ustawienia-map.txt"
 PLIK_PULPITU = PULPIT / "pulpit.ini"
 PLIK_ROZSZERZEN = PULPIT / "dconf-rozszerzenia.txt"
+PLIK_ROZSZERZEN_GNOME = PULPIT / "rozszerzenia-gnome.txt"
 KOPIE = DOM / ".local/share/lustro/kopie"
+
+EXTENSIONS_GNOME_ORG = "https://extensions.gnome.org"
 
 KANALY = ("apt", "snap", "flatpak")
 
@@ -627,6 +630,140 @@ def powody_niepewnosci():
     return powody
 
 
+def wczytaj_rozszerzenia_gnome():
+    """
+    Czyta pulpit/rozszerzenia-gnome.txt: {uuid: {"zrodlo": ..., "komentarz": ...}}.
+    Format jednej linii: `<uuid> <zrodlo> [# komentarz]`. Linie-komentarze i puste — pominięte.
+    Nieznana/pusta wartość zrodlo -> "?", żeby wołający wyraźnie zobaczył błąd danych,
+    a nie potraktował to po cichu jako "ego" (co skłoniłoby apkę do instalacji).
+    """
+    wynik = {}
+    if not PLIK_ROZSZERZEN_GNOME.exists():
+        return wynik
+    for linia in PLIK_ROZSZERZEN_GNOME.read_text(encoding="utf-8").splitlines():
+        goly, _, komentarz = linia.partition("#")
+        goly = goly.strip()
+        if not goly:
+            continue
+        pola = goly.split()
+        uuid = pola[0]
+        zrodlo = pola[1] if len(pola) > 1 else "?"
+        wynik[uuid] = {"zrodlo": zrodlo, "komentarz": komentarz.strip()}
+    return wynik
+
+
+def rozszerzenia_zainstalowane_lokalnie():
+    """
+    Zbiór UUID rozszerzeń GNOME Shell zainstalowanych na TEJ maszynie
+    (`gnome-extensions list` — wszystkie, nie tylko włączone).
+    None = nie umiem sprawdzić (brak `gnome-extensions`, np. maszyna bez GNOME/bez pulpitu).
+    """
+    if not czy_jest("gnome-extensions"):
+        return None
+    kod, out = uruchom(["gnome-extensions", "list"])
+    if kod != 0:
+        return None
+    return {l.strip() for l in out.splitlines() if l.strip()}
+
+
+def gnome_shell_wersja():
+    """Np. '46.0' z `gnome-shell --version`. None gdy gnome-shell nie jest zainstalowany."""
+    if not czy_jest("gnome-shell"):
+        return None
+    kod, out = uruchom(["gnome-shell", "--version"])
+    if kod != 0:
+        return None
+    m = re.search(r"(\d+(?:\.\d+)?)", out)
+    return m.group(1) if m else None
+
+
+def rozszerzenia_brakujace():
+    """
+    Porównuje pulpit/rozszerzenia-gnome.txt z tym, co jest NAPRAWDĘ zainstalowane na tej
+    maszynie (nie z dziennikiem — rozszerzenia GNOME nie są kanałem apt/snap/flatpak).
+
+    Zwraca (brakujace_ego, brakujace_inne):
+      brakujace_ego  — [(uuid, komentarz)]         zrodlo == "ego", apka umie doinstalować
+      brakujace_inne — [(uuid, zrodlo, komentarz)]  zrodlo != "ego", apka tylko zgłasza
+    (None, None) — nie umiem sprawdzić (brak `gnome-extensions` na tej maszynie).
+    """
+    docelowe = wczytaj_rozszerzenia_gnome()
+    if not docelowe:
+        return [], []
+    zainstalowane = rozszerzenia_zainstalowane_lokalnie()
+    if zainstalowane is None:
+        return None, None
+    ego, inne = [], []
+    for uuid, info in docelowe.items():
+        if uuid in zainstalowane:
+            continue
+        if info["zrodlo"] == "ego":
+            ego.append((uuid, info["komentarz"]))
+        else:
+            inne.append((uuid, info["zrodlo"], info["komentarz"]))
+    return ego, inne
+
+
+def pobierz_i_zainstaluj_rozszerzenie(uuid, wersja_shell):
+    """
+    Pobiera paczkę rozszerzenia z extensions.gnome.org i instaluje ją lokalnie
+    (`gnome-extensions install`, bez sudo — instalacja per-user).
+
+    NIE włącza rozszerzenia — włączanie to warstwa dconf/`enabled-extensions`,
+    którą wozi `pulpit wgraj` (spec 8, decyzja: nie dublować dwóch źródeł prawdy
+    o tym, co ma być włączone).
+
+    Zweryfikowane na żywo 24.08.2026 dla Vitals@CoreCoding.com: endpoint zwraca
+    JSON z polem `download_url` (ścieżka względna), pobrany plik jest prawidłowym
+    zip-em. `gnome-extensions install --force <zip>` — składnia sprawdzona
+    (`gnome-extensions install --help`).
+
+    Zwraca (True, komunikat) albo (False, komunikat_bledu).
+    """
+    import tempfile
+    import urllib.error
+    import urllib.request
+
+    if not wersja_shell:
+        return False, "nie znam wersji GNOME Shell (gnome-shell --version) — pomijam"
+
+    url_info = (f"{EXTENSIONS_GNOME_ORG}/extension-info/"
+                f"?uuid={uuid}&shell_version={wersja_shell}")
+    try:
+        with urllib.request.urlopen(url_info, timeout=20) as odp:
+            dane = json.loads(odp.read().decode("utf-8"))
+    except (urllib.error.URLError, ValueError, TimeoutError) as e:
+        return False, f"nie udało się zapytać extensions.gnome.org: {e}"
+
+    download_url = dane.get("download_url")
+    if not download_url:
+        return False, (f"extensions.gnome.org nie ma paczki dla {uuid} "
+                        f"pod GNOME Shell {wersja_shell} (odpowiedź bez download_url)")
+    if download_url.startswith("/"):
+        download_url = EXTENSIONS_GNOME_ORG + download_url
+
+    tmp_path = None
+    try:
+        with urllib.request.urlopen(download_url, timeout=60) as odp:
+            zawartosc = odp.read()
+        with tempfile.NamedTemporaryFile(
+                suffix=".shell-extension.zip", delete=False) as tmp:
+            tmp.write(zawartosc)
+            tmp_path = tmp.name
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        return False, f"nie udało się pobrać paczki: {e}"
+
+    kod, out = uruchom(["gnome-extensions", "install", "--force", tmp_path])
+    if tmp_path:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+    if kod != 0:
+        return False, f"`gnome-extensions install` zakończone błędem: {out.strip()}"
+    return True, f"zainstalowane (wersja {dane.get('version', '?')}, uuid {uuid})"
+
+
 def eksport_pulpitu():
     """
     Eksportuje wybrane ścieżki dconf (spec 8.3) z podmianą katalogu domowego
@@ -780,6 +917,26 @@ def kontrola_pulpitu():
                 if not Path(sciezka).exists():
                     uwagi.append(f"zakładka menedżera plików wskazuje na nieistniejące "
                                  f"miejsce: {sciezka} (nie kasuję — decyzja usera)")
+
+    # 5. rozszerzenia GNOME zadeklarowane w lustrze (pulpit/rozszerzenia-gnome.txt),
+    #    których nie ma zainstalowanych na tej maszynie (sprawa [150], 24.08).
+    #    Lustro wozi listę WŁĄCZONYCH rozszerzeń (enabled-extensions, warstwa dconf) — na
+    #    nowej maszynie to nie wystarcza, jeśli samego rozszerzenia nie ma na dysku.
+    ego_brak, inne_brak = rozszerzenia_brakujace()
+    if ego_brak is None:
+        pass  # brak `gnome-extensions` na tej maszynie — nie umiem sprawdzić, nie zgłaszam
+    else:
+        for uuid, komentarz in ego_brak:
+            uwagi.append(
+                f"rozszerzenie GNOME „{uuid}” jest w lustrze (źródło: extensions.gnome.org), "
+                f"ale NIE jest zainstalowane na tej maszynie\n"
+                f"      propozycja: lustro pulpit rozszerzenia")
+        for uuid, zrodlo, komentarz in inne_brak:
+            dopisek = f" ({komentarz})" if komentarz else ""
+            uwagi.append(
+                f"rozszerzenie GNOME „{uuid}” (źródło: {zrodlo}) jest w lustrze, "
+                f"ale NIE jest zainstalowane — apka nie umie go zainstalować sama, "
+                f"zainstaluj ręcznie{dopisek}")
     return uwagi
 
 
@@ -1222,6 +1379,108 @@ def polecenie_pulpit_sprawdz(args):
     return 0
 
 
+def polecenie_pulpit_rozszerzenia(args):
+    """
+    Rozszerzenia GNOME Shell (spec 8.12): sprawdza, czy to, co pulpit/rozszerzenia-gnome.txt
+    deklaruje jako "ma być zainstalowane", jest naprawdę na dysku tej maszyny — i, po pytaniu
+    (albo bez pytania z --zatwierdzam-wszystko / w trybie bootstrapu — patrz nowa-maszyna,
+    E3), doinstalowuje to, co da się pobrać z extensions.gnome.org (źródło "ego").
+
+    Rozszerzenia źródła "lokalne" apka NIE umie zainstalować — tylko zgłasza brak.
+    WŁĄCZANIE rozszerzenia to inna warstwa (dconf `enabled-extensions`, `pulpit wgraj`) —
+    ta komenda jej nie dotyka, żeby nie dublować dwóch źródeł prawdy o tym, co ma być włączone.
+    """
+    maszyna = nazwa_maszyny()
+    print(f"LUSTRO / PULPIT / ROZSZERZENIA GNOME — {maszyna}")
+    print()
+
+    docelowe = wczytaj_rozszerzenia_gnome()
+    print(f"W lustrze zadeklarowane jako „ma być zainstalowane”: {len(docelowe)}")
+
+    ego_brak, inne_brak = rozszerzenia_brakujace()
+    if ego_brak is None:
+        print("⚠ Brak `gnome-extensions` na tej maszynie (nie ma GNOME Shell?) "
+              "— nie umiem sprawdzić.")
+        return 0
+
+    if not docelowe:
+        print("Plik danych jest pusty — nic do sprawdzenia.")
+        return 0
+
+    if not ego_brak and not inne_brak:
+        print("Wszystkie zadeklarowane rozszerzenia są zainstalowane na tej maszynie.")
+        return 0
+
+    if inne_brak:
+        print()
+        print(f"Brakujące, źródła INNEGO niż extensions.gnome.org — zainstaluj ręcznie ({len(inne_brak)}):")
+        for uuid, zrodlo, komentarz in inne_brak:
+            print(f"   • {uuid}  (źródło: {zrodlo})" + (f"  — {komentarz}" if komentarz else ""))
+
+    if not ego_brak:
+        print()
+        print("Nic, co apka umiałaby doinstalować sama (extensions.gnome.org) — koniec.")
+        return 0
+
+    print()
+    print(f"Brakujące, apka umie doinstalować z extensions.gnome.org ({len(ego_brak)}):")
+    for uuid, komentarz in ego_brak:
+        print(f"   • {uuid}" + (f"  — {komentarz}" if komentarz else ""))
+
+    wersja_shell = gnome_shell_wersja()
+    print()
+    print(f"Wersja GNOME Shell na tej maszynie: {wersja_shell or 'nieznana'}")
+    if not wersja_shell:
+        print("⚠ Bez wersji GNOME Shell nie umiem zapytać extensions.gnome.org o właściwą paczkę.")
+        return 1
+
+    if not getattr(args, "zatwierdzam_wszystko", False):
+        if pytaj("Pobrać i zainstalować brakujące rozszerzenia z extensions.gnome.org?",
+                  "Tn", "t") != "t":
+            print("Nic nie instaluję.")
+            return 0
+
+    zainstalowane_teraz = []
+    bledy = []
+    for uuid, komentarz in ego_brak:
+        print(f"   → {uuid} …", end=" ")
+        ok, komunikat = pobierz_i_zainstaluj_rozszerzenie(uuid, wersja_shell)
+        print(komunikat)
+        if ok:
+            zainstalowane_teraz.append(uuid)
+        else:
+            bledy.append((uuid, komunikat))
+
+    potwierdzone = []
+    if zainstalowane_teraz:
+        # najpierw robimy, potem zapisujemy (spec 9.3) — sprawdzamy ponowną inwentaryzacją,
+        # że instalacja naprawdę się przyjęła, zanim to trafi do dziennika.
+        po = rozszerzenia_zainstalowane_lokalnie() or set()
+        potwierdzone = [u for u in zainstalowane_teraz if u in po]
+        for uuid in potwierdzone:
+            dopisz_zdarzenie("dodano", kanal="gnome-extension", ident=uuid,
+                             zrodlo="apka", notatka="zainstalowane z extensions.gnome.org "
+                                                     "przez `lustro pulpit rozszerzenia`; "
+                                                     "włączenie zostaje warstwie pulpitu (dconf)")
+        nieprzyjete = set(zainstalowane_teraz) - set(potwierdzone)
+        for uuid in nieprzyjete:
+            print(f"   ⚠ {uuid}: `gnome-extensions install` zwrócił sukces, ale ponowna "
+                  f"inwentaryzacja NIE widzi rozszerzenia — nie zapisuję zdarzenia")
+        if potwierdzone:
+            git_zapisz(f"lustra: rozszerzenia GNOME zainstalowane na {maszyna} "
+                       f"({len(potwierdzone)})")
+
+    print()
+    print(f"Zainstalowane: {len(potwierdzone)} z {len(ego_brak)}. "
+          f"Włączenie (jeśli potrzebne) zrobi `lustro pulpit wgraj` albo ustawienia systemowe.")
+    if bledy:
+        print("Błędy:")
+        for uuid, komunikat in bledy:
+            print(f"   • {uuid}: {komunikat}")
+        return 1
+    return 0
+
+
 def polecenie_pulpit_zasiew(args):
     """Jednorazowy zasiew: zapisuje bieżący eksport do repozytorium.
     NIE zmienia systemu — pisze wyłącznie plik w katalogu lustra/."""
@@ -1369,14 +1628,28 @@ def polecenie_sync(args):
 
     del _BLEDY_DCONF[:]
     rozne = roznice_pulpitu()
-    if rozne and not powody_niepewnosci():
+    powody = powody_niepewnosci()
+    if rozne and not powody:
         pozycje.append({
             "rodzaj": "pulpit", "kanal": "dconf", "id": "pulpit", "rozne": rozne,
             "tytul": f"Ustawienia pulpitu różnią się od lustra ({len(rozne)} kluczy)",
             "propozycja": "[o]ddać stąd do lustra / [w]grać z lustra tutaj"})
 
+    # Kontrola poprawności pulpitu (skróty/czcionki/tapeta/zakładki/rozszerzenia GNOME) —
+    # tylko informacyjnie, apka jej sama nie naprawia (tak jak w `status`), ale user ma to
+    # zobaczyć również tutaj, a nie dopiero po osobnym `lustro pulpit sprawdz`.
+    uwagi_pulpitu = [] if powody else kontrola_pulpitu()
+    if uwagi_pulpitu:
+        print("PULPIT — KONTROLA (informacyjnie, o zgodę pyta osobna komenda):")
+        for u in uwagi_pulpitu:
+            print(f"    ⚠ {u}")
+        print()
+
     if not pozycje:
-        print("Nic do wyrównania — lustro i maszyna mówią to samo.")
+        if not uwagi_pulpitu:
+            print("Nic do wyrównania — lustro i maszyna mówią to samo.")
+        else:
+            print("Nic do wyrównania interaktywnie — patrz uwagi wyżej.")
         return 0
 
     print(f"DO ROZSTRZYGNIĘCIA ({len(pozycje)})")
@@ -1994,7 +2267,8 @@ def main():
     l.add_argument("--reczne", help="skąd wziąć ręczne kolumny (domyślnie: plik z --do)")
 
     pu = pod.add_parser("pulpit", help="warstwa GNOME (dconf)")
-    pu.add_argument("co", choices=["status", "zasiew", "oddaj", "wgraj", "sprawdz"])
+    pu.add_argument("co", choices=["status", "zasiew", "oddaj", "wgraj", "sprawdz",
+                                    "rozszerzenia"])
     wspolne(pu)
 
     nm = pod.add_parser("nowa-maszyna", help="bootstrap (E3 — niedostępne)")
@@ -2025,7 +2299,8 @@ def main():
                 "zasiew": polecenie_pulpit_zasiew,
                 "oddaj": polecenie_pulpit_oddaj,
                 "wgraj": polecenie_pulpit_wgraj,
-                "sprawdz": polecenie_pulpit_sprawdz}[args.co](args)
+                "sprawdz": polecenie_pulpit_sprawdz,
+                "rozszerzenia": polecenie_pulpit_rozszerzenia}[args.co](args)
     return niedostepne(args.polecenie)(args)
 
 

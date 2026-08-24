@@ -1,0 +1,31 @@
+# Rozszerzenia GNOME Shell, które mają być NA DYSKU (zainstalowane) na każdym lustrze
+# — dane, nie kod. Sprawa [150] (do potwierdzenia w puli Architekta), 2026-08-24.
+#
+# WŁĄCZENIE (które z zainstalowanych rozszerzeń są aktywne) to INNA warstwa: klucz dconf
+# `enabled-extensions`, wożony przez pulpit.ini (spec 8.3, plik dconf-wyjatki.txt). Ten plik
+# NIE dubluje tamtej informacji — mówi tylko "ma być zainstalowane", nie "ma być włączone".
+# Rozszerzenie zainstalowane, ale wyłączone, jest normalnym stanem i samo z siebie NIE wchodzi
+# tutaj (patrz hidetopbar niżej) — dopóki user nie zdecyduje, że ma pojechać na lustro.
+#
+# Format jednej linii: <uuid>  <zrodlo>  [# komentarz]
+#   zrodlo = ego      -> extensions.gnome.org. `lustro pulpit rozszerzenia` umie samo
+#                        pobrać (extension-info API dla wersji GNOME Shell tej maszyny,
+#                        pole download_url) i zainstalować (`gnome-extensions install`).
+#   zrodlo = lokalne  -> spoza extensions.gnome.org (np. .deb, ręcznie rozpakowany zip).
+#                        Apka TYLKO zgłasza brak — nie umie sama zainstalować.
+#
+# Zweryfikowane NA ŻYWO 24.08.2026 (Vostro, GNOME Shell 46.0, gnome-extensions 46.0):
+#   curl 'https://extensions.gnome.org/extension-info/?uuid=Vitals@CoreCoding.com&shell_version=46.0'
+#   -> HTTP 200, JSON z polem download_url (wersja 82, version_tag 74111).
+#   Pobranie tego download_url -> prawidłowe archiwum zip (extension.js, metadata.json, ...).
+#   `gnome-extensions install --help` -> `gnome-extensions install [-f|--force] EXTENSION_BUNDLE`
+#   (bez sudo — instalacja per-user do ~/.local/share/gnome-shell/extensions/).
+
+Vitals@CoreCoding.com   ego   # dziś jedyne włączone spoza systemowych (enabled-extensions w pulpit.ini)
+
+# --- NIE wpisane, do decyzji usera (nie instalujemy, nie pytamy) ---
+# hidetopbar@mathieu.bidon.ca — zainstalowane na Vostro (v126), ale WYŁĄCZONE
+# (`enabled-extensions` go nie zawiera). Jest też na extensions.gnome.org (API odpowiada,
+# sprawdzone 24.08) — czyli formalnie mogłoby być "ego". Dopóki user nie zdecyduje, że ma
+# wejść na lustro, apka o niego nie pyta i nie instaluje. Zgłoszone w TODO.md tego obszaru
+# i w „DO ARCHITEKTA”.

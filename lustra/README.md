@@ -20,6 +20,7 @@ Nic nie dzieje się bez pytania — jedyny wyjątek to jawny przełącznik
 | `usun <program>` | odinstalowuje, zapisuje zdarzenie, pyta, czy usunąć też ustawienia |
 | `ustawienia <program>` | oddaje pliki ustawień programu do lustra (`chezmoi add` + zdarzenie) |
 | `pulpit status\|zasiew\|oddaj\|wgraj\|sprawdz` | warstwa GNOME (dconf) |
+| `pulpit rozszerzenia` | rozszerzenia GNOME Shell — sprawdza, czy to, co ma być zainstalowane, jest na dysku; dla źródła `ego` (extensions.gnome.org) umie po pytaniu doinstalować |
 | `dziennik [--maszyna X] [--od DATA]` | historia po ludzku |
 | `lista [--do PLIK]` | generuje `programy.md` **i** `.chezmoidata/packages.yaml` |
 | `nowa-maszyna` | bootstrap — dopiero E3 |
@@ -79,6 +80,7 @@ alias lustro='python3 "$HOME/.local/share/chezmoi/lustra/lustro.py"'
 | `pulpit/dconf-pomijane-klucze.txt` | pojedyncze klucze do pominięcia |
 | `pulpit/dconf-wyjatki.txt` | klucze wożone mimo pominiętej ścieżki |
 | `pulpit/dconf-rozszerzenia.txt` | **generowany** — klucze przejęte przez rozszerzenia GNOME |
+| `pulpit/rozszerzenia-gnome.txt` | które rozszerzenia GNOME Shell mają być **zainstalowane** (nie: włączone) na każdej maszynie, i skąd (`ego` = extensions.gnome.org, `lokalne` = zgłoszenie bez instalacji) |
 | `pulpit/pulpit.ini` | eksport ustawień pulpitu — **plik generowany**, `{{HOME}}` zamiast `/home/mk` |
 | `ustawienia-map.txt` | program → jego pliki ustawień |
 
@@ -88,6 +90,31 @@ Poza tym katalogiem, ale należy do mechanizmu:
 
 **Wykluczenia są DANYMI, nie kodem.** Żeby coś przestało się pokazywać, dopisuje się wzorzec
 do pliku tekstowego — bez ruszania `lustro.py`.
+
+## Rozszerzenia GNOME Shell — instalacja z extensions.gnome.org (24.08)
+
+Lustro wozi listę **włączonych** rozszerzeń (`enabled-extensions`, w `pulpit.ini`), ale to nie
+wystarcza na nowej maszynie: rozszerzenie może być „włączone" w ustawieniach, a fizycznie nie
+zainstalowane na dysku — GNOME Shell po cichu je pomija, bez błędu. `pulpit/rozszerzenia-gnome.txt`
+odpowiada za tę drugą warstwę: co ma być **zainstalowane**.
+
+- `lustro status` / `lustro sync` / `lustro pulpit sprawdz` **wykrywają** brak jako uwagę
+  (kontrola poprawności pulpitu) — nic nie instalują sami.
+- `lustro pulpit rozszerzenia` **instaluje** to, co da się (źródło `ego` = extensions.gnome.org),
+  po pytaniu (albo bez pytania z `--zatwierdzam-wszystko`): pobiera paczkę przez API
+  `extension-info/?uuid=<uuid>&shell_version=<wersja>` (pole `download_url`) i woła
+  `gnome-extensions install --force <zip>`. Idempotentne — już zainstalowane pomija.
+- Rozszerzenia źródła `lokalne` (spoza extensions.gnome.org) apka tylko zgłasza — instalacja
+  ręczna.
+- **Włączanie zostaje przy `pulpit wgraj`/dconf** — ta komenda go nie dotyka, żeby nie było
+  dwóch miejsc decydujących, co ma być włączone.
+
+Zweryfikowane na żywo 24.08.2026 (Vitals@CoreCoding.com, GNOME Shell 46.0): API odpowiada
+HTTP 200 z `download_url`, plik pod tym adresem jest prawidłowym zip-em rozszerzenia,
+`gnome-extensions install --help` potwierdza składnię. **Sama instalacja `gnome-extensions
+install` nie została odpalona na żywo** — na Vostro nie było czego instalować (Vitals już jest);
+do sprawdzenia przy najbliższej okazji, gdy na jakiejś maszynie faktycznie czegoś brakuje
+(kandydat: poligon, E3). Pełny opis → spec, rozdz. 8.12.
 
 ## ⚠️ Pułapka sprawdzona 2026-08-23: chezmoi rozwijał `lustra/`
 
