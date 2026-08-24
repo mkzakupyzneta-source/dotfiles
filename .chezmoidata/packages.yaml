@@ -1,6 +1,6 @@
 # Lista programów lustra — plik GENEROWANY przez `lustro lista`.
 # Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.
-# Wygenerowane: 2026-08-25 00:47 na maszynie vostro.
+# Wygenerowane: 2026-08-25 01:34 na maszynie vostro.
 packages:
   apt:
     - btop
@@ -14,7 +14,6 @@ packages:
     - flatpak
     - fonts-cascadia-code
     - fonts-jetbrains-mono
-    - forticlient
     - git
     - gnome-shell-extension-manager
     - gnome-software-plugin-flatpak
