@@ -84,3 +84,4 @@
 {"ts": "2026-08-23T18:19:09+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "vlc", "wersja": "3.0.20-3build6", "zrodlo": "apka", "notatka": "decyzja usera [133]: odtworzone z apt zamiast flatpaka"}
 {"ts": "2026-08-24T20:12:33+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "flatpak", "id": "org.ferdium.Ferdium", "wersja": "7.2.1", "zrodlo": "apka", "notatka": "agregator komunikatorow - test od 24.08 [155]"}
 {"ts": "2026-08-24T20:17:53+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "tailscale", "wersja": "1.102.3", "zrodlo": "reczne", "notatka": "sieć prywatna między maszynami, instalacja skryptem obszaru 6 [149]"}
+{"ts": "2026-08-25T00:31:27+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "forticlient", "wersja": "7.4.8.1904", "zrodlo": "apka", "notatka": "VPN uczelniany/służbowy FortiClient [176], test od 25.08"}

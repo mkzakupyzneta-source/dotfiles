@@ -1,0 +1,59 @@
+# Zewnętrzne źródła apt (repozytoria spoza Ubuntu) — DANE, nie kod.
+#
+# Po co: `apt install <program>` na nowej maszynie nic nie znajdzie, jeśli program
+# pochodzi z repozytorium producenta (Fortinet, Tailscale, Google, Microsoft…).
+# Ten plik mówi apce `lustro`, SKĄD apt ma wziąć dany pakiet i jak to źródło
+# poprawnie dodać (klucz podpisu + linia `deb`). Zasada jak przy wykluczeniach:
+# nowe źródło = nowy blok [[zrodlo]] tutaj, bez ruszania lustro.py.
+#
+# Co apka z tym robi (od 25.08, sprawa [176]):
+#   • `lustro status`        — zgłasza źródła z tej listy, których NIE MA na maszynie
+#                              (porównanie z /etc/apt/sources.list.d/ po polu `url`
+#                              i sprawdzenie, czy plik `keyring` istnieje),
+#   • `lustro dodaj <pakiet>` — jeśli pakiet stoi w polu `pakiety` jakiegoś źródła,
+#                              a źródła nie ma, apka mówi to jasno i po pytaniu dodaje je
+#                              JEDNYM skryptem pod JEDNYM sudo/pkexec (klucz + lista +
+#                              apt-get update), dopiero potem instaluje pakiet.
+#
+# Pola bloku [[zrodlo]]:
+#   nazwa        — krótki identyfikator (bez spacji)
+#   url          — adres repozytorium; po nim apka poznaje, czy źródło już jest
+#                  (szuka w każdym pliku .list / .sources w /etc/apt/sources.list.d/)
+#   klucz_url    — skąd pobrać klucz podpisu repozytorium
+#   klucz_format — "ascii" (blok -----BEGIN PGP…, trzeba `gpg --dearmor`)
+#                  albo "binarny" (gotowy keyring, zapis wprost)
+#   keyring      — dokąd klucz trafia (ścieżka w /usr/share/keyrings/)
+#   plik_listy   — jaki plik apka tworzy w /etc/apt/sources.list.d/
+#   linia_deb    — pełna linia `deb …` do tego pliku (format jednolinijkowy .list)
+#   pakiety      — nazwy pakietów, które z tego źródła pochodzą (po tym `lustro dodaj`
+#                  wie, że przed instalacją ma sprawdzić źródło)
+#   uwagi        — dla człowieka
+#
+# Zastępniki w polach `url`, `klucz_url`, `linia_deb`:
+#   {codename}   — nazwa wydania z /etc/os-release (VERSION_CODENAME, np. noble)
+#                  Użyć TYLKO tam, gdzie producent naprawdę ma osobne repo per wydanie.
+#
+# ⚠ Ubuntu Pro / Chrome / VS Code / OneDrive: jeszcze NIE spisane (TODO E3) — zainstalowane
+#   na Vostro ręcznie przed powstaniem tego pliku. Dopisać, gdy będą potrzebne apce.
+
+[[zrodlo]]
+nazwa = "fortinet"
+url = "https://repo.fortinet.com/repo/forticlient/7.4/ubuntu22/"
+klucz_url = "https://repo.fortinet.com/repo/forticlient/7.4/ubuntu22/DEB-GPG-KEY"
+klucz_format = "ascii"
+keyring = "/usr/share/keyrings/repo.fortinet.com.gpg"
+plik_listy = "/etc/apt/sources.list.d/repo.fortinet.com.list"
+linia_deb = "deb [arch=amd64 signed-by=/usr/share/keyrings/repo.fortinet.com.gpg] https://repo.fortinet.com/repo/forticlient/7.4/ubuntu22/ stable non-free"
+pakiety = ["forticlient"]
+uwagi = "FortiClient (Linux) 7.4 — klient VPN [176]. Ścieżka `ubuntu22` obowiązuje TEŻ dla Ubuntu 24.04 wg oficjalnych release notes 7.4.7 (czerwiec 2026); sprawdzone 25.08: .../ubuntu22/dists/stable/Release = HTTP 200, .../ubuntu24/... = 404. Pakiet `forticlient` = pełny klient (VPN bez rejestracji w EMS)."
+
+[[zrodlo]]
+nazwa = "tailscale"
+url = "https://pkgs.tailscale.com/stable/ubuntu"
+klucz_url = "https://pkgs.tailscale.com/stable/ubuntu/{codename}.noarmor.gpg"
+klucz_format = "binarny"
+keyring = "/usr/share/keyrings/tailscale-archive-keyring.gpg"
+plik_listy = "/etc/apt/sources.list.d/tailscale.list"
+linia_deb = "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu {codename} main"
+pakiety = ["tailscale"]
+uwagi = "Sieć prywatna między maszynami [149]. Na Vostro dodane 24.08 skryptem obszaru 6 (klucz i lista pobrane z pkgs.tailscale.com: noble.noarmor.gpg + noble.tailscale-keyring.list); ten blok odtwarza dokładnie to, co tam powstało — zweryfikowane 25.08 z /etc/apt/sources.list.d/tailscale.list."

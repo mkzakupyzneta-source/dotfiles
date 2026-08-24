@@ -39,6 +39,8 @@ MAPA_USTAWIEN = KATALOG / "ustawienia-map.txt"
 PLIK_PULPITU = PULPIT / "pulpit.ini"
 PLIK_ROZSZERZEN = PULPIT / "dconf-rozszerzenia.txt"
 PLIK_ROZSZERZEN_GNOME = PULPIT / "rozszerzenia-gnome.txt"
+ZRODLA_APT = KATALOG / "zrodla-apt.toml"           # zewnętrzne repozytoria apt [176]
+SOURCES_D = Path("/etc/apt/sources.list.d")
 KOPIE = DOM / ".local/share/lustro/kopie"
 
 EXTENSIONS_GNOME_ORG = "https://extensions.gnome.org"
@@ -486,6 +488,181 @@ def dopisz_pomijane(kanal, ident, powod=""):
             "# Format: <kanal> <id>   # powód\n", encoding="utf-8")
     with plik.open("a", encoding="utf-8") as f:
         f.write(f"{kanal} {ident}" + (f"    # {powod}\n" if powod else "\n"))
+
+
+# ---------------------------------------------------------------- zewnętrzne źródła apt [176]
+
+def wczytaj_zrodla_apt():
+    """
+    Czyta lustra/zrodla-apt.toml → lista słowników [[zrodlo]] (patrz nagłówek pliku).
+    Zastępnik {codename} podstawiany od razu. Brak pliku = pusta lista (nic nie blokuje).
+    """
+    if not ZRODLA_APT.exists():
+        return []
+    import tomllib
+    try:
+        dane = tomllib.loads(ZRODLA_APT.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError) as e:
+        print(f"⚠ nie umiem odczytać {ZRODLA_APT.name}: {e} — źródła apt pomijam")
+        return []
+    codename = _codename_wydania()
+    wynik = []
+    for z in dane.get("zrodlo", []):
+        z = dict(z)
+        for pole in ("url", "klucz_url", "linia_deb"):
+            if isinstance(z.get(pole), str):
+                z[pole] = z[pole].replace("{codename}", codename)
+        z.setdefault("pakiety", [])
+        z.setdefault("klucz_format", "ascii")
+        wynik.append(z)
+    return wynik
+
+
+def _codename_wydania():
+    """VERSION_CODENAME z /etc/os-release (np. noble); gdy brak — pusty napis."""
+    try:
+        for linia in Path("/etc/os-release").read_text(encoding="utf-8").splitlines():
+            if linia.startswith("VERSION_CODENAME="):
+                return linia.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+    return ""
+
+
+def _tresc_zrodel_apt():
+    """Sklejona treść wszystkich plików .list/.sources w /etc/apt/sources.list.d/
+    (linie-komentarze pominięte). Po niej poznajemy, czy źródło już jest."""
+    kawalki = []
+    if SOURCES_D.is_dir():
+        for plik in sorted(SOURCES_D.iterdir()):
+            if plik.suffix not in (".list", ".sources"):
+                continue
+            try:
+                for linia in plik.read_text(encoding="utf-8", errors="replace").splitlines():
+                    if not linia.lstrip().startswith("#"):
+                        kawalki.append(linia)
+            except OSError:
+                continue
+    return "\n".join(kawalki)
+
+
+def zrodlo_obecne(zrodlo, tresc=None):
+    """Źródło uznajemy za dodane, gdy jego `url` stoi w którymś pliku źródeł
+    (bez końcowego ukośnika, żeby `…/ubuntu22/` i `…/ubuntu22` były tym samym)
+    ORAZ plik `keyring` istnieje. Samo `url` bez klucza = apt i tak odrzuci repo."""
+    tresc = _tresc_zrodel_apt() if tresc is None else tresc
+    url = (zrodlo.get("url") or "").rstrip("/")
+    jest_url = bool(url) and url in tresc
+    jest_klucz = bool(zrodlo.get("keyring")) and Path(zrodlo["keyring"]).exists()
+    return jest_url and jest_klucz
+
+
+def zrodla_brakujace(zrodla=None):
+    """Lista bloków z zrodla-apt.toml, których na tej maszynie nie ma."""
+    zrodla = wczytaj_zrodla_apt() if zrodla is None else zrodla
+    tresc = _tresc_zrodel_apt()
+    return [z for z in zrodla if not zrodlo_obecne(z, tresc)]
+
+
+def zrodlo_dla_pakietu(pakiet, zrodla=None):
+    """Blok źródła, w którego polu `pakiety` stoi ten pakiet; None gdy żaden."""
+    zrodla = wczytaj_zrodla_apt() if zrodla is None else zrodla
+    for z in zrodla:
+        if pakiet in z.get("pakiety", []):
+            return z
+    return None
+
+
+def dodaj_zrodlo_apt(zrodlo):
+    """
+    Dodaje zewnętrzne źródło apt: klucz + plik listy + `apt-get update`.
+    Pobranie klucza dzieje się jako zwykły user (urllib, do pliku tymczasowego),
+    `gpg --dearmor` też bez roota. Do roota idzie JEDEN krótki skrypt `sh`
+    (jedno sudo / jedno okienko pkexec): install klucza, zapis listy, update.
+    Zwraca True, gdy po wszystkim `zrodlo_obecne` potwierdza obecność.
+    Idempotentne — ponowne uruchomienie tylko nadpisze te same pliki.
+    """
+    import tempfile
+    import urllib.error
+    import urllib.request
+
+    nazwa = zrodlo.get("nazwa", "?")
+    for pole in ("klucz_url", "keyring", "plik_listy", "linia_deb"):
+        if not zrodlo.get(pole):
+            print(f"    ⚠ źródło „{nazwa}”: brak pola `{pole}` w {ZRODLA_APT.name} — nie dodaję")
+            return False
+
+    katalog_tmp = Path(tempfile.mkdtemp(prefix="lustro-zrodlo-"))
+    surowy = katalog_tmp / "klucz.pobrany"
+    gotowy = katalog_tmp / "klucz.gpg"
+    print(f"    → pobieram klucz: {zrodlo['klucz_url']}")
+    try:
+        with urllib.request.urlopen(zrodlo["klucz_url"], timeout=30) as odp:
+            surowy.write_bytes(odp.read())
+    except (urllib.error.URLError, OSError) as e:
+        print(f"    ⚠ nie udało się pobrać klucza: {e}")
+        return False
+    if surowy.stat().st_size == 0:
+        print("    ⚠ pobrany klucz jest pusty — nie dodaję")
+        return False
+
+    if zrodlo.get("klucz_format") == "binarny":
+        gotowy.write_bytes(surowy.read_bytes())
+    else:
+        if not czy_jest("gpg"):
+            print("    ⚠ brak programu gpg (potrzebny do `--dearmor`) — nie dodaję")
+            return False
+        kod, _ = uruchom(["gpg", "--batch", "--yes", "--dearmor", "-o", str(gotowy),
+                          str(surowy)])
+        if kod != 0 or not gotowy.exists():
+            print(f"    ⚠ `gpg --dearmor` nie powiodło się (kod {kod}) — nie dodaję")
+            return False
+
+    skrypt = katalog_tmp / "dodaj-zrodlo.sh"
+    skrypt.write_text(
+        "#!/bin/sh\n"
+        "# lustro: dodanie zewnętrznego źródła apt „" + nazwa + "” — jeden krok pod rootem\n"
+        "set -e\n"
+        f"install -m 644 -o root -g root '{gotowy}' '{zrodlo['keyring']}'\n"
+        f"printf '%s\\n' '{zrodlo['linia_deb']}' > '{zrodlo['plik_listy']}'\n"
+        f"chmod 644 '{zrodlo['plik_listy']}'\n"
+        "apt-get update\n",
+        encoding="utf-8")
+    skrypt.chmod(0o755)
+    print(f"    → klucz do {zrodlo['keyring']}, lista do {zrodlo['plik_listy']}, "
+          f"potem apt-get update (jedno pytanie o hasło)")
+    kod = uruchom_widoczne(jako_root(["sh", str(skrypt)]))
+    shutil.rmtree(katalog_tmp, ignore_errors=True)
+    if kod != 0:
+        print(f"    ⚠ skrypt zakończył się kodem {kod}")
+    if zrodlo_obecne(zrodlo):
+        print(f"    ✓ źródło „{nazwa}” jest na maszynie")
+        return True
+    print(f"    ⚠ po wykonaniu nadal nie widzę źródła „{nazwa}”")
+    return False
+
+
+def zapewnij_zrodlo_dla(pakiet, args):
+    """
+    Wołane z `dodaj` PRZED wykrywaniem kanału. Jeśli pakiet ma przypisane źródło
+    w zrodla-apt.toml, a źródła nie ma — mówi to jasno, pyta i dodaje.
+    Zwraca False tylko, gdy źródło było potrzebne i NIE udało się go dodać
+    (albo user odmówił); w każdym innym przypadku True.
+    """
+    z = zrodlo_dla_pakietu(pakiet)
+    if z is None or zrodlo_obecne(z):
+        return True
+    print(f"„{pakiet}” pochodzi z zewnętrznego repozytorium „{z.get('nazwa')}” "
+          f"({z.get('url')}),")
+    print(f"którego NIE MA jeszcze na tej maszynie (wpis w lustra/{ZRODLA_APT.name}).")
+    if z.get("uwagi"):
+        print(f"    uwagi: {z['uwagi']}")
+    print("Bez tego źródła apt nie znajdzie pakietu.")
+    if not getattr(args, "zatwierdzam_wszystko", False):
+        if pytaj("Dodać źródło (klucz + lista + apt-get update)?", "Tn", "t") != "t":
+            print("Nic nie zmieniam. Źródło można dodać ręcznie wg zrodla-apt.toml.")
+            return False
+    return dodaj_zrodlo_apt(z)
 
 
 # ---------------------------------------------------------------- pulpit (dconf)
@@ -1279,6 +1456,20 @@ def polecenie_status(args):
             print("    propozycja: dopisać do dziennika \"usunieto … zrodlo: reczne\"")
             print()
 
+    brak_zrodel = zrodla_brakujace()
+    if brak_zrodel:
+        print(f"ZEWNĘTRZNE ŹRÓDŁA APT, KTÓRYCH TU NIE MA ({len(brak_zrodel)}) "
+              f"— wg lustra/{ZRODLA_APT.name}")
+        print()
+        for z in brak_zrodel:
+            numer += 1
+            pak = ", ".join(z.get("pakiety") or []) or "—"
+            print(f"{numer:2}. źródło „{z.get('nazwa')}” ({z.get('url')}) — brak klucza "
+                  f"lub wpisu w /etc/apt/sources.list.d/")
+            print(f"    pakiety z tego źródła: {pak}")
+            print("    propozycja: `lustro dodaj <pakiet>` doda je samo przed instalacją")
+            print()
+
     numer = _wypisz_pulpit(numer)
 
     obce = instalacje_obce()
@@ -1812,6 +2003,10 @@ def polecenie_dodaj(args):
             print(f"„{ident}” już jest na tej maszynie ({kanal}, {inw[(kanal, ident)]}).")
         print("Jeśli brakuje go w dzienniku — `lustro sync` to zaproponuje.")
         return 0
+
+    # [176] zewnętrzne repozytorium apt — najpierw źródło, potem dopiero szukanie pakietu
+    if not zapewnij_zrodlo_dla(nazwa, args):
+        return 1
 
     kanal = args.kanal
     if not kanal:
