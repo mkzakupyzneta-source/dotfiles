@@ -1,5 +1,5 @@
 # Rozszerzenia GNOME Shell, które mają być NA DYSKU (zainstalowane) na każdym lustrze
-# — dane, nie kod. Sprawa [150] (do potwierdzenia w puli Architekta), 2026-08-24.
+# — dane, nie kod. Sprawa [154] (numer nadany przez Architekta 24.08; [150] = Katana), 2026-08-24.
 #
 # WŁĄCZENIE (które z zainstalowanych rozszerzeń są aktywne) to INNA warstwa: klucz dconf
 # `enabled-extensions`, wożony przez pulpit.ini (spec 8.3, plik dconf-wyjatki.txt). Ten plik
