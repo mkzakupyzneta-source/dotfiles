@@ -1,6 +1,6 @@
 # Lista programów lustra — plik GENEROWANY przez `lustro lista`.
 # Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.
-# Wygenerowane: 2026-08-24 20:14 na maszynie vostro.
+# Wygenerowane: 2026-08-24 20:18 na maszynie vostro.
 packages:
   apt:
     - btop
@@ -59,6 +59,7 @@ packages:
     - smartmontools
     - solaar
     - syncthing
+    - tailscale
     - tesseract-ocr
     - tesseract-ocr-eng
     - tesseract-ocr-pol

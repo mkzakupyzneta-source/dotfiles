@@ -83,4 +83,4 @@
 {"ts": "2026-08-23T18:11:33+02:00", "maszyna": "vostro", "zdarzenie": "usunieto", "kanal": "flatpak", "id": "org.videolan.VLC", "zrodlo": "apka", "notatka": "decyzja usera [133]: VLC zostaje w lustrze, ale ze źródła apt zamiast flatpaka"}
 {"ts": "2026-08-23T18:19:09+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "vlc", "wersja": "3.0.20-3build6", "zrodlo": "apka", "notatka": "decyzja usera [133]: odtworzone z apt zamiast flatpaka"}
 {"ts": "2026-08-24T20:12:33+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "flatpak", "id": "org.ferdium.Ferdium", "wersja": "7.2.1", "zrodlo": "apka", "notatka": "agregator komunikatorow - test od 24.08 [155]"}
-{"ts": "2026-08-24T20:17:53+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "tailscale", "wersja": "1.102.3", "zrodlo": "reczne", "notatka": "dopisane przez `lustro sync` — instalacja poza apką"}
+{"ts": "2026-08-24T20:17:53+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "tailscale", "wersja": "1.102.3", "zrodlo": "reczne", "notatka": "sieć prywatna między maszynami, instalacja skryptem obszaru 6 [149]"}
