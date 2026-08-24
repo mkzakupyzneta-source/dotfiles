@@ -1,6 +1,6 @@
 # Lista programów lustra — plik GENEROWANY przez `lustro lista`.
 # Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.
-# Wygenerowane: 2026-08-25 00:32 na maszynie vostro.
+# Wygenerowane: 2026-08-25 00:47 na maszynie vostro.
 packages:
   apt:
     - btop
@@ -48,6 +48,7 @@ packages:
     - m17n-db
     - mesa-utils
     - meson
+    - network-manager-fortisslvpn-gnome
     - ninja-build
     - nvtop
     - okular
