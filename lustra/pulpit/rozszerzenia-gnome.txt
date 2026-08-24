@@ -22,6 +22,8 @@
 #   (bez sudo — instalacja per-user do ~/.local/share/gnome-shell/extensions/).
 
 Vitals@CoreCoding.com   ego   # dziś jedyne włączone spoza systemowych (enabled-extensions w pulpit.ini)
+gsconnect@andyholmes.github.io   ego   # KDE Connect dla GNOME — telefon↔komputer (powiadomienia, schowek, pliki) [155] test od 24.08
+gTile@vibou   ego   # siatka i własne układy okien (odpowiednik FancyZones z PowerToys) [155] test od 24.08
 
 # --- NIE wpisane, do decyzji usera (nie instalujemy, nie pytamy) ---
 # hidetopbar@mathieu.bidon.ca — zainstalowane na Vostro (v126), ale WYŁĄCZONE

@@ -1,6 +1,6 @@
 # Lista programów lustra — plik GENEROWANY przez `lustro lista`.
 # Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.
-# Wygenerowane: 2026-08-24 20:18 na maszynie vostro.
+# Wygenerowane: 2026-08-24 21:44 na maszynie vostro.
 packages:
   apt:
     - btop
