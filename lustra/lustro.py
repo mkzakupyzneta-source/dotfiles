@@ -158,16 +158,23 @@ def pytaj(tresc, opcje="Tnps", domyslna="n"):
     """
     Zadaje JEDNO pytanie i zwraca małą literę odpowiedzi.
     `opcje` to litery dozwolonych odpowiedzi; wielka litera = wartość domyślna.
-    Gdy nie ma z kim rozmawiać (brak stdin) — zwraca wartość domyślną i mówi o tym głośno.
+
+    ⚠️ Gdy nie ma z kim rozmawiać (stdin zamknięty/wyczerpany) — zwraca odpowiedź
+    BEZPIECZNĄ: „n", jeśli jest wśród opcji, inaczej wartość domyślną (brak 15
+    z Katany, 25.08: `pulpit wgraj` bez terminala odpowiadał sam sobie „t"
+    i wgrywał pulpit bez realnego pytania). Zasada „nic bez zgody": tryb
+    automatyczny mówi zgodę JAWNIE, flagą `--zatwierdzam-wszystko`.
     """
     litery = [o.lower() for o in opcje]
+    bezpieczna = "n" if "n" in litery else domyslna
     podpowiedz = "/".join(opcje)
     while True:
         try:
             odp = input(f"    {tresc} [{podpowiedz}]: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
-            print(f"    (brak odpowiedzi z terminala — przyjmuję „{domyslna}”)")
-            return domyslna
+            print(f"    (brak odpowiedzi z terminala — przyjmuję „{bezpieczna}”, "
+                  f"nic-bez-zgody)")
+            return bezpieczna
         if not odp:
             return domyslna
         if odp[0] in litery:
@@ -1711,7 +1718,15 @@ def polecenie_pulpit_zasiew(args):
 
 
 def polecenie_pulpit_oddaj(args):
-    """Bieżące ustawienia pulpitu TEJ maszyny → do lustra + zdarzenie (spec 8.9)."""
+    """Bieżące ustawienia pulpitu TEJ maszyny → do lustra + zdarzenie (spec 8.9).
+
+    ⚠️ Jak `wgraj`: bez terminala tylko z jawną flagą — `oddaj` nadpisuje WZORZEC
+    dla wszystkich maszyn (decyzja [195]: oddawanie pulpitu to świadoma komenda)."""
+    if not getattr(args, "zatwierdzam_wszystko", False) and not sys.stdin.isatty():
+        print("Brak terminala (tryb nieinteraktywny): `pulpit oddaj` nadpisuje wzorzec")
+        print("pulpitu dla WSZYSTKICH maszyn — bez realnego pytania ODMAWIAM.")
+        print("Jawna zgoda: lustro pulpit oddaj --zatwierdzam-wszystko")
+        return 1
     git_pull_rebase()
     del _BLEDY_DCONF[:]
     stan = eksport_pulpitu()
@@ -1750,7 +1765,15 @@ def polecenie_pulpit_oddaj(args):
 
 
 def polecenie_pulpit_wgraj(args):
-    """Ustawienia z lustra → na tę maszynę. ZAWSZE kopia przed nadpisaniem (8.11)."""
+    """Ustawienia z lustra → na tę maszynę. ZAWSZE kopia przed nadpisaniem (8.11).
+
+    ⚠️ Bez terminala (tryb nieinteraktywny) wgrywa TYLKO z jawną flagą
+    `--zatwierdzam-wszystko` — inaczej odmawia (brak 15 z Katany, 25.08)."""
+    if not getattr(args, "zatwierdzam_wszystko", False) and not sys.stdin.isatty():
+        print("Brak terminala (tryb nieinteraktywny): `pulpit wgraj` ZMIENIA ustawienia,")
+        print("więc bez realnego pytania ODMAWIAM. Jawna zgoda automatu:")
+        print("    lustro pulpit wgraj --zatwierdzam-wszystko")
+        return 1
     git_pull_rebase()          # świeży wzorzec pulpitu z GitHuba
     if wczytaj_pulpit_z_lustra() is None:
         print("Lustro nie ma jeszcze zapisanych ustawień pulpitu — nie ma czego wgrywać.")
