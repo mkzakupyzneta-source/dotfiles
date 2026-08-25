@@ -113,3 +113,4 @@
 {"ts": "2026-08-25T18:35:57+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-cairosvg", "wersja": "2.7.1-1", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
 {"ts": "2026-08-25T18:35:58+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-pytest", "wersja": "7.4.4-1", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
 {"ts": "2026-08-25T18:36:03+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-bleak", "wersja": "0.21.1-1", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
+{"ts": "2026-08-25T18:43:40+02:00", "maszyna": "vostro", "zdarzenie": "ustawienia", "kanal": "dconf", "id": "pulpit", "zrodlo": "apka", "pliki": ["/org/gnome/shell/enabled-extensions", "/org/gnome/shell/extensions/dash-to-dock/dash-max-icon-size"]}
