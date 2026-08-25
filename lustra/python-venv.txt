@@ -1,0 +1,11 @@
+# Pakiety Pythona we wspolnym venv ~/.venv/narzedzia — DANE lustra, nie kod. Sprawa [179c], 25.08.2026.
+# Tutaj trafiaja TYLKO pakiety bez odpowiednika apt python3-* (te ida przez `lustro dodaj`).
+# Budowa/wyrownanie venv na maszynie:
+#   python3 -m venv --system-site-packages ~/.venv/narzedzia
+#   ~/.venv/narzedzia/bin/pip install -r ~/.local/share/chezmoi/lustra/python-venv.txt
+# (--system-site-packages: venv widzi tez pakiety apt python3-*, wiec skrypty maja wszystko z jednego interpretera)
+# Serwer (OptiPlex): venv ~/.venv/narzedzia istnieje od 25.08 rano z google-genai 2.19.0 (obszar 1)
+# — zgodny z ta lista; markitdown do doinstalowania na serwerze tylko, jesli bedzie tam potrzebny.
+# Format jak requirements.txt. Aplikacje CLI (np. academic-refchecker) ida przez pipx, NIE tutaj.
+google-genai
+markitdown
