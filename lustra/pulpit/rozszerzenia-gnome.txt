@@ -25,9 +25,6 @@ Vitals@CoreCoding.com   ego   # dziś jedyne włączone spoza systemowych (enabl
 gsconnect@andyholmes.github.io   ego   # KDE Connect dla GNOME — telefon↔komputer (powiadomienia, schowek, pliki) [155] test od 24.08
 gTile@vibou   ego   # siatka i własne układy okien (odpowiednik FancyZones z PowerToys) [155] test od 24.08
 
-# --- NIE wpisane, do decyzji usera (nie instalujemy, nie pytamy) ---
-# hidetopbar@mathieu.bidon.ca — zainstalowane na Vostro (v126), ale WYŁĄCZONE
-# (`enabled-extensions` go nie zawiera). Jest też na extensions.gnome.org (API odpowiada,
-# sprawdzone 24.08) — czyli formalnie mogłoby być "ego". Dopóki user nie zdecyduje, że ma
-# wejść na lustro, apka o niego nie pyta i nie instaluje. Zgłoszone w TODO.md tego obszaru
-# i w „DO ARCHITEKTA”.
+# --- ROZSTRZYGNIĘTE ---
+# hidetopbar@mathieu.bidon.ca — decyzja usera 24.08: NIE wchodzi do lustra.
+# Odinstalowane z Vostro 25.08 (gnome-extensions uninstall, wpis w dzienniku, zrodlo: reczne).
