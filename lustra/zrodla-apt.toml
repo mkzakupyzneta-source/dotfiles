@@ -33,8 +33,14 @@
 #   {codename}   — nazwa wydania z /etc/os-release (VERSION_CODENAME, np. noble)
 #                  Użyć TYLKO tam, gdzie producent naprawdę ma osobne repo per wydanie.
 #
-# ⚠ Ubuntu Pro / Chrome / VS Code / OneDrive: jeszcze NIE spisane (TODO E3) — zainstalowane
-#   na Vostro ręcznie przed powstaniem tego pliku. Dopisać, gdy będą potrzebne apce.
+# ⚠ Ubuntu Pro / OneDrive: jeszcze NIE spisane — zainstalowane na Vostro ręcznie przed
+#   powstaniem tego pliku. Dopisać, gdy będą potrzebne apce. (Chrome / VS Code / WezTerm
+#   spisane 25.08, poprawka 6 planu automatu.)
+#
+# ⚠ Format plików: apka pisze jednolinijkowe `.list` (pole `linia_deb`). Na Vostro
+#   i Katanie Chrome i VS Code stoją jako `.sources` (deb822) pisane przez pakiety —
+#   apka poznaje obecność źródła po `url` w KAŻDYM pliku .list/.sources, więc nie
+#   zdubluje istniejącego; nowa maszyna dostanie `.list` o tej samej treści.
 
 [[zrodlo]]
 nazwa = "fortinet"
@@ -57,3 +63,36 @@ plik_listy = "/etc/apt/sources.list.d/tailscale.list"
 linia_deb = "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu {codename} main"
 pakiety = ["tailscale"]
 uwagi = "Sieć prywatna między maszynami [149]. Na Vostro dodane 24.08 skryptem obszaru 6 (klucz i lista pobrane z pkgs.tailscale.com: noble.noarmor.gpg + noble.tailscale-keyring.list); ten blok odtwarza dokładnie to, co tam powstało — zweryfikowane 25.08 z /etc/apt/sources.list.d/tailscale.list."
+
+[[zrodlo]]
+nazwa = "google-chrome"
+url = "https://dl.google.com/linux/chrome-stable/deb/"
+klucz_url = "https://dl.google.com/linux/linux_signing_key.pub"
+klucz_format = "ascii"
+keyring = "/usr/share/keyrings/google-chrome.gpg"
+plik_listy = "/etc/apt/sources.list.d/google-chrome.list"
+linia_deb = "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome-stable/deb/ stable main"
+pakiety = ["google-chrome-stable"]
+uwagi = "Przeglądarka [126: synchronizacja przez konto Google, pliki NIE lustrzone]. Dane spisane 25.08 z /etc/apt/sources.list.d/google-chrome.sources na Katanie (kopia z Vostro): URI chrome-stable/deb, keyring google-chrome.gpg; klucz_url = HTTP 200 (sprawdzone 25.08 z Katany). Pakiet sam dba o swoje źródło po instalacji — apka potrzebuje bloku na PIERWSZĄ instalację na świeżej maszynie."
+
+[[zrodlo]]
+nazwa = "vscode"
+url = "https://packages.microsoft.com/repos/code"
+klucz_url = "https://packages.microsoft.com/keys/microsoft.asc"
+klucz_format = "ascii"
+keyring = "/usr/share/keyrings/microsoft.gpg"
+plik_listy = "/etc/apt/sources.list.d/vscode.list"
+linia_deb = "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main"
+pakiety = ["code"]
+uwagi = "VS Code [126: synchronizacja przez konto Microsoft/GitHub, pliki NIE lustrzone]. Dane spisane 25.08 z /etc/apt/sources.list.d/vscode.sources na Katanie (kopia z Vostro); klucz_url = HTTP 200 (sprawdzone 25.08 z Katany)."
+
+[[zrodlo]]
+nazwa = "wezterm"
+url = "https://apt.fury.io/wez/"
+klucz_url = "https://apt.fury.io/wez/gpg.key"
+klucz_format = "ascii"
+keyring = "/usr/share/keyrings/wezterm-fury.gpg"
+plik_listy = "/etc/apt/sources.list.d/wezterm.list"
+linia_deb = "deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *"
+pakiety = ["wezterm"]
+uwagi = "Terminal WezTerm — OFICJALNE repo apt autora (Gemfury, metoda z dokumentacji wezterm dla Linuksa). Zweryfikowane 25.08 z Katany: gpg.key = HTTP 200, dists/*/Release = HTTP 200 (Codename: *, amd64). Dotąd instalowany RĘCZNIE z .deb 20240203-110809-5046fc22 (GitHub releases) na Vostro i Katanie — bez źródła nie miał aktualizacji; po dodaniu źródła apt aktualizuje. Uwaga: repo zawiera też pakiet wezterm-nightly — lustro wozi tylko `wezterm` (wydania)."
