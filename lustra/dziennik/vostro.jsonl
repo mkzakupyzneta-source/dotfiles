@@ -99,3 +99,4 @@
 {"ts": "2026-08-25T18:34:35+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-dotenv", "wersja": "1.0.1-1", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
 {"ts": "2026-08-25T18:34:41+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-openai", "wersja": "1.12.0-1", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
 {"ts": "2026-08-25T18:34:44+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-tenacity", "wersja": "8.2.3-2", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
+{"ts": "2026-08-25T18:34:49+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-docx", "wersja": "1.1.0+dfsg-2", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
