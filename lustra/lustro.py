@@ -1149,8 +1149,30 @@ def git_ma_remote():
     return kod == 0 and bool(out.strip())
 
 
+def git_pull_rebase():
+    """
+    Dociąga cudze commity z GitHuba PRZED operacją zapisującą (brak 16 z Katany,
+    poprawka 1 planu 25.08). Dzienniki są per maszyna, więc konflikt z założenia
+    nie powstaje; `--autostash` chroni przed zastanym, niezacommitowanym dryfem.
+
+    ODPORNOŚĆ NA OFFLINE: nieudane pobranie NIE blokuje operacji — apka mówi o tym
+    i pracuje na stanie lokalnym; commit wyjedzie przy najbliższym udanym pushu.
+    """
+    if not git_ma_remote():
+        return
+    kod, _ = uruchom(["git", "-C", str(REPO), "pull", "--rebase", "--autostash"],
+                     timeout=90)
+    if kod == 0:
+        print("Repozytorium dociągnięte z serwera (git pull --rebase).")
+    else:
+        print("⚠ Nie udało się pobrać z serwera (offline?) — pracuję na stanie "
+              "lokalnym; zmiany wyślą się przy najbliższej okazji.")
+
+
 def git_zapisz(wiadomosc):
-    """Jeden commit na koniec przebiegu + push, jeśli repozytorium ma remote (spec 9.3)."""
+    """Jeden commit na koniec przebiegu + push, jeśli repozytorium ma remote (spec 9.3).
+    Gdy push odbije się o cudze świeże commity — jedna próba `pull --rebase` + push
+    jeszcze raz; dalej nieudany push zostawia commit lokalnie (wyśle się później)."""
     kod, out = uruchom(["git", "-C", str(REPO), "status", "--porcelain"])
     if kod != 0:
         print("⚠ Nie umiem sprawdzić stanu repozytorium — pomijam commit.")
@@ -1163,8 +1185,13 @@ def git_zapisz(wiadomosc):
     print(f"Commit w repozytorium konfiguracji: {wiadomosc}")
     if git_ma_remote():
         kod, _ = uruchom(["git", "-C", str(REPO), "push"], timeout=180)
+        if kod != 0:
+            uruchom(["git", "-C", str(REPO), "pull", "--rebase", "--autostash"],
+                    timeout=120)
+            kod, _ = uruchom(["git", "-C", str(REPO), "push"], timeout=180)
         print("Wysłane na serwer (git push)." if kod == 0
-              else "⚠ `git push` się nie udał — commit został lokalnie.")
+              else "⚠ `git push` się nie udał (offline?) — commit został lokalnie, "
+                   "wyśle się przy następnej operacji z siecią.")
     else:
         print("Repozytorium nie ma jeszcze serwera (remote) — commit został lokalnie.")
 
@@ -1581,6 +1608,7 @@ def polecenie_pulpit_rozszerzenia(args):
     WŁĄCZANIE rozszerzenia to inna warstwa (dconf `enabled-extensions`, `pulpit wgraj`) —
     ta komenda jej nie dotyka, żeby nie dublować dwóch źródeł prawdy o tym, co ma być włączone.
     """
+    git_pull_rebase()
     maszyna = nazwa_maszyny()
     print(f"LUSTRO / PULPIT / ROZSZERZENIA GNOME — {maszyna}")
     print()
@@ -1684,6 +1712,7 @@ def polecenie_pulpit_zasiew(args):
 
 def polecenie_pulpit_oddaj(args):
     """Bieżące ustawienia pulpitu TEJ maszyny → do lustra + zdarzenie (spec 8.9)."""
+    git_pull_rebase()
     del _BLEDY_DCONF[:]
     stan = eksport_pulpitu()
     powody = powody_niepewnosci()
@@ -1722,6 +1751,7 @@ def polecenie_pulpit_oddaj(args):
 
 def polecenie_pulpit_wgraj(args):
     """Ustawienia z lustra → na tę maszynę. ZAWSZE kopia przed nadpisaniem (8.11)."""
+    git_pull_rebase()          # świeży wzorzec pulpitu z GitHuba
     if wczytaj_pulpit_z_lustra() is None:
         print("Lustro nie ma jeszcze zapisanych ustawień pulpitu — nie ma czego wgrywać.")
         return 1
@@ -1789,6 +1819,7 @@ def polecenie_sync(args):
         print()
         return polecenie_status(args)
 
+    git_pull_rebase()
     dane = zbierz_pozycje()
     naglowek(dane)
 
@@ -1995,6 +2026,7 @@ def wykonaj_pozycje(poz, args):
 # ---------------------------------------------------------------- dodaj / usun / ustawienia
 
 def polecenie_dodaj(args):
+    git_pull_rebase()          # świeży dziennik z GitHuba; offline nie blokuje instalacji
     nazwa = args.program
     inw = inwentaryzacja()
     juz = znajdz_zainstalowany(nazwa, inw)
@@ -2053,6 +2085,7 @@ def polecenie_dodaj(args):
 
 
 def polecenie_usun(args):
+    git_pull_rebase()
     nazwa = args.program
     inw = inwentaryzacja()
     trafienia = znajdz_zainstalowany(nazwa, inw)
@@ -2122,6 +2155,7 @@ def polecenie_usun(args):
 
 def polecenie_ustawienia(args):
     """Oddaje bieżące ustawienia programu do lustra (chezmoi + zdarzenie)."""
+    git_pull_rebase()
     program = args.program
     mapa = wczytaj_mape_ustawien()
     sciezki = list(args.pliki) if args.pliki else list(mapa.get(program, []))
