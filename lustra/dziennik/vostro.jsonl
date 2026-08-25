@@ -107,3 +107,4 @@
 {"ts": "2026-08-25T18:35:13+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-nltk", "wersja": "3.8.1-1", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
 {"ts": "2026-08-25T18:35:33+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-matplotlib", "wersja": "3.6.3-1ubuntu5", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
 {"ts": "2026-08-25T18:35:34+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-numpy", "wersja": "1:1.26.4+ds-6ubuntu1", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
+{"ts": "2026-08-25T18:35:35+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-scipy", "wersja": "1.11.4-6build1", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
