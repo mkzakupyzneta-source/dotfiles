@@ -95,3 +95,4 @@
 {"ts": "2026-08-25T18:34:15+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-pip", "wersja": "24.0+dfsg-1ubuntu1.3", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
 {"ts": "2026-08-25T18:34:20+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "pipx", "wersja": "1.4.3-1", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
 {"ts": "2026-08-25T18:34:26+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "pandoc", "wersja": "3.1.3+ds-2", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
+{"ts": "2026-08-25T18:34:31+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "gh", "wersja": "2.45.0-1ubuntu0.3", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
