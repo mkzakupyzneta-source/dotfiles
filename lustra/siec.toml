@@ -1,0 +1,17 @@
+# Sieć domowa — DANE, nie kod (poprawka 7 planu 25.08, brak 17 z Katany).
+#
+# Dom ma DWIE podsieci LAN: kabel 192.168.1.x i Wi-Fi 192.168.100.x. Maszyna bywa
+# raz w jednej, raz w drugiej (adres Wi-Fi bywa zmienny — 25.08 Katana sama była
+# chwilowo w .1.x), więc reguły zapory stacji muszą wpuszczać OBIE. Dawny wzorzec
+# zakładał jedną zaszytą podsieć (192.168.1.0/24) — przez to maszyny na Wi-Fi
+# nie dogadywały się po LAN z maszynami na kablu.
+#
+# Kto to czyta:
+#   • lustra/ufw-stacja.sh — buduje z tej listy reguły ufw stacji (wzorzec reguł:
+#     audyt Vostro 24.08, 7_Bezpieczenstwo/zapora-vostro-audyt-2026-08-24.md),
+#   • procedura-nowej-stacji.md (Etap 2) — odsyła tutaj zamiast wpisywać adresy.
+#
+# Nowa podsieć w domu = nowa pozycja TUTAJ (i przelanie reguł ufw-stacja.sh),
+# bez ruszania kodu.
+
+podsieci_lan = ["192.168.1.0/24", "192.168.100.0/24"]
