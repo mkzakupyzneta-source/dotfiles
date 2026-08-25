@@ -3,6 +3,7 @@
 #
 # Skąd bierze listę: .chezmoidata/packages.yaml, plik GENEROWANY przez
 # `lustro lista` z dzienników (lustra/dziennik/*.jsonl). Nie edytować ręcznie.
+# Zewnętrzne źródła apt: lustra/zrodla-apt.toml (dane wklejane niżej przez szablon).
 #
 # ⚠️ ZASADA „NIC BEZ ZGODY USERA" (spec rozdz. 11.1):
 #    chezmoi umie uruchomić ten skrypt sam, bez pytania. Dlatego skrypt
@@ -10,6 +11,13 @@
 #    że ta maszyna nie ma jeszcze własnego dziennika lustra. Na działającym
 #    lustrze skrypt tylko WYPISUJE, czego brakuje, i odsyła do `lustro sync`,
 #    gdzie pytanie zadaje apka.
+#
+# Definicja „ZAINSTALOWANY" (poprawka 3 planu 25.08, brak 5 z Katany):
+#    pakiet apt liczy się jako zainstalowany, gdy dpkg go zna ORAZ jest oznaczony
+#    jako RĘCZNY (`apt-mark showmanual`) — tak samo liczy inwentaryzacja apki
+#    `lustro`. Pakiet obecny tylko jako zależność (auto) dostaje `apt-mark manual`,
+#    inaczej `lustro status` wiecznie zgłaszałby go jako rozbieżność
+#    (na Katanie: jq, unzip, wget, zip).
 #
 # Przedrostek `run_onchange_` sprawia, że chezmoi liczy odcisk treści tego pliku
 # i uruchamia go dopiero wtedy, gdy lista programów faktycznie się zmieniła.
@@ -25,50 +33,143 @@ ZRODLO="{{ .chezmoi.sourceDir }}"
 MASZYNA="$(hostname | tr '[:upper:]' '[:lower:]')"
 DZIENNIK="$ZRODLO/lustra/dziennik/$MASZYNA.jsonl"
 
+# ------------------------------------------------------------------ inwentaryzacja
+# apt: dwie listy — „nie ma wcale" i „jest, ale tylko jako zależność (auto)".
+RECZNE_APT="$(apt-mark showmanual 2>/dev/null || true)"
 brakuje_apt=""
+auto_apt=""
+for p in $APT; do
+    if dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q "install ok installed"; then
+        printf '%s\n' "$RECZNE_APT" | grep -qx "$p" || auto_apt="$auto_apt $p"
+    else
+        brakuje_apt="$brakuje_apt $p"
+    fi
+done
+
+# snap / flatpak: BRAK menedżera = brakuje WSZYSTKO z jego listy (poprawka 2 planu
+# 25.08, brak 4 z Katany: dawne `command -v flatpak` przed instalacją flatpaka
+# po cichu pomijało całą sekcję — 0 z 8 zainstalowanych na świeżej maszynie).
 brakuje_snap=""
 brakuje_flatpak=""
-
-for p in $APT; do
-    dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q "install ok installed" \
-        || brakuje_apt="$brakuje_apt $p"
-done
 if command -v snap >/dev/null 2>&1; then
     for p in $SNAP; do
         snap list "$p" >/dev/null 2>&1 || brakuje_snap="$brakuje_snap $p"
     done
+else
+    brakuje_snap="$SNAP"
 fi
 if command -v flatpak >/dev/null 2>&1; then
     for p in $FLATPAK; do
         flatpak info "$p" >/dev/null 2>&1 || brakuje_flatpak="$brakuje_flatpak $p"
     done
+else
+    brakuje_flatpak="$FLATPAK"
 fi
 
-if [ -z "$brakuje_apt$brakuje_snap$brakuje_flatpak" ]; then
+if [ -z "$brakuje_apt$auto_apt$brakuje_snap$brakuje_flatpak" ]; then
     echo "lustro: wszystkie programy z listy są na miejscu."
     exit 0
 fi
 
+# ------------------------------------------------------------- działające lustro
 if [ -f "$DZIENNIK" ]; then
     echo "lustro: ta maszyna ma już własny dziennik ($MASZYNA) — NICZEGO NIE INSTALUJĘ."
-    echo "lustro: brakuje:"
+    [ -n "$brakuje_apt$brakuje_snap$brakuje_flatpak" ] && echo "lustro: brakuje:"
     [ -n "$brakuje_apt" ]     && echo "   apt:    $brakuje_apt"
     [ -n "$brakuje_snap" ]    && echo "   snap:   $brakuje_snap"
     [ -n "$brakuje_flatpak" ] && echo "   flatpak:$brakuje_flatpak"
+    if [ -n "$auto_apt" ]; then
+        echo "lustro: zainstalowane, ale tylko jako zależność (auto):$auto_apt"
+        echo "lustro: wyrównanie: sudo apt-mark manual$auto_apt"
+    fi
     echo "lustro: żeby to wyrównać — uruchom: lustro sync (zapyta przy każdej pozycji)."
     exit 0
 fi
 
+# ------------------------------------------------------------------ nowa maszyna
 echo "lustro: nowa maszyna ($MASZYNA, brak dziennika) — instaluję listę z lustra."
+export DEBIAN_FRONTEND=noninteractive
+
+# Zewnętrzne źródła apt z lustra/zrodla-apt.toml (poprawka 6 planu 25.08 — dotąd
+# skrypt o źródłach nic nie wiedział i np. `code` czy `tailscale` by poległy).
+# Dane wkleja szablon chezmoi; {codename} podstawiamy tutaj, w sh.
+CODENAME="$(. /etc/os-release 2>/dev/null; printf '%s' "${VERSION_CODENAME:-}")"
+
+pobierz() { # URL PLIK — curl albo wget, co jest pod ręką
+    if command -v curl >/dev/null 2>&1; then curl -fsSL "$1" -o "$2"
+    else wget -qO "$2" "$1"; fi
+}
+
+zrodlo_apt() { # nazwa url klucz_url klucz_format keyring plik_listy linia_deb
+    _url="$(printf '%s' "$2" | sed "s/{codename}/$CODENAME/g")"; _url="${_url%/}"
+    _klucz_url="$(printf '%s' "$3" | sed "s/{codename}/$CODENAME/g")"
+    _linia="$(printf '%s' "$7" | sed "s/{codename}/$CODENAME/g")"
+    if [ -f "$5" ] && grep -qsrF "$_url" /etc/apt/sources.list.d/; then
+        echo "lustro: źródło „$1” już jest — pomijam."
+        return 0
+    fi
+    echo "lustro: dodaję źródło apt „$1” ($_url)…"
+    _tmp="$(mktemp)"
+    if ! pobierz "$_klucz_url" "$_tmp"; then
+        echo "lustro: ⚠ nie udało się pobrać klucza „$1” — źródło pomijam (pakiety z niego polegną)"
+        rm -f "$_tmp"; return 0
+    fi
+    if [ "$4" = "binarny" ]; then
+        sudo install -m 644 -o root -g root "$_tmp" "$5"
+    else
+        gpg --batch --yes --dearmor -o "$_tmp.gpg" "$_tmp"
+        sudo install -m 644 -o root -g root "$_tmp.gpg" "$5"
+        rm -f "$_tmp.gpg"
+    fi
+    rm -f "$_tmp"
+    printf '%s\n' "$_linia" | sudo tee "$6" >/dev/null
+    sudo chmod 644 "$6"
+}
+
+{{ $zrodla := include "lustra/zrodla-apt.toml" | fromToml -}}
+{{ range $zrodla.zrodlo -}}
+zrodlo_apt '{{ .nazwa }}' '{{ .url }}' '{{ .klucz_url }}' '{{ .klucz_format | default "ascii" }}' '{{ .keyring }}' '{{ .plik_listy }}' '{{ .linia_deb }}'
+{{ end }}
+
+# EULA czcionek Microsoftu przez preseed (poprawka 12 planu 25.08, brak 3b z Katany):
+# bez tego `ttf-mscorefonts-installer` w trybie nienadzorowanym utyka na pytaniu
+# o licencję albo leci dalej bez czcionek.
+case " $brakuje_apt " in *" ttf-mscorefonts-installer "*)
+    echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" \
+        | sudo debconf-set-selections
+    ;;
+esac
+
 if [ -n "$brakuje_apt" ]; then
     sudo apt-get update
     # shellcheck disable=SC2086
     sudo apt-get install -y $brakuje_apt
 fi
-for p in $brakuje_snap; do sudo snap install "$p"; done
-for p in $brakuje_flatpak; do
-    flatpak remote-add --if-not-exists flathub \
-        https://dl.flathub.org/repo/flathub.flatpakrepo
-    sudo flatpak install -y flathub "$p"
+
+# Jednolita definicja „zainstalowany": wszystko z listy, co siedzi w dpkg,
+# ma być oznaczone jako RĘCZNE (poprawka 3 — patrz nagłówek).
+do_oznaczenia=""
+for p in $APT; do
+    dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q "install ok installed" \
+        && do_oznaczenia="$do_oznaczenia $p"
 done
+# shellcheck disable=SC2086
+[ -n "$do_oznaczenia" ] && sudo apt-mark manual $do_oznaczenia >/dev/null
+
+# snap / flatpak: najpierw sam menedżer (przez apt), dopiero potem jego pakiety
+# (poprawka 2 — kolejność, przez którą flatpaki były po cichu pomijane).
+if [ -n "$brakuje_snap" ] && ! command -v snap >/dev/null 2>&1; then
+    sudo apt-get install -y snapd
+fi
+if [ -n "$brakuje_flatpak" ] && ! command -v flatpak >/dev/null 2>&1; then
+    sudo apt-get install -y flatpak
+fi
+for p in $brakuje_snap; do sudo snap install "$p"; done
+if [ -n "$brakuje_flatpak" ]; then
+    flatpak remote-add --if-not-exists flathub \
+        https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null \
+        || sudo flatpak remote-add --if-not-exists flathub \
+            https://dl.flathub.org/repo/flathub.flatpakrepo
+    for p in $brakuje_flatpak; do sudo flatpak install -y flathub "$p"; done
+fi
 echo "lustro: gotowe. Dziennik tej maszyny załóż przez: lustro sync"
