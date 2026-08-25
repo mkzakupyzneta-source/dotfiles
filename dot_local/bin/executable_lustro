@@ -1,0 +1,11 @@
+#!/bin/sh
+# lustro — komenda mechanizmu luster (plik LUSTRA, wożony przez chezmoi do
+# ~/.local/bin/lustro; katalog jest w PATH przez ~/.profile na każdej stacji).
+#
+# Błąd nr 22 (25.08, dogrywka Fazy 2): dotąd komenda istniała najwyżej jako
+# RĘCZNY alias poza chezmoi (na Vostro `chezmoi apply` nadpisał ~/.bashrc wersją
+# z repo i alias zniknął — „lustro: command not found"; na Katanie nie istniała
+# nigdy; w repo nie była NIGDY — README lustra proponował alias, nie zastosowano).
+# Wniosek ogólny: komenda mechanizmu musi być PLIKIEM mechanizmu, nie ręcznym
+# dopiskiem, który pierwszy apply zmiata.
+exec python3 "$HOME/.local/share/chezmoi/lustra/lustro.py" "$@"
