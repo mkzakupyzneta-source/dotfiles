@@ -40,6 +40,7 @@ PLIK_PULPITU = PULPIT / "pulpit.ini"
 PLIK_ROZSZERZEN = PULPIT / "dconf-rozszerzenia.txt"
 PLIK_ROZSZERZEN_GNOME = PULPIT / "rozszerzenia-gnome.txt"
 ZRODLA_APT = KATALOG / "zrodla-apt.toml"           # zewnętrzne repozytoria apt [176]
+STATUSY_POZYCJI = KATALOG / "statusy-pozycji.toml" # wspolne/wyjatek/testowe (poprawka 11)
 SOURCES_D = Path("/etc/apt/sources.list.d")
 KOPIE = DOM / ".local/share/lustro/kopie"
 
@@ -495,6 +496,41 @@ def dopisz_pomijane(kanal, ident, powod=""):
             "# Format: <kanal> <id>   # powód\n", encoding="utf-8")
     with plik.open("a", encoding="utf-8") as f:
         f.write(f"{kanal} {ident}" + (f"    # {powod}\n" if powod else "\n"))
+
+
+# ---------------------------------------------------------------- statusy pozycji (poprawka 11)
+
+def wczytaj_statusy_pozycji():
+    """
+    Czyta lustra/statusy-pozycji.toml → {(kanal, id): {"status", "maszyna", "uwagi"}}.
+    Struktura danych pod przyszłego MENADŻERA LUSTER (pomysł usera 25.08):
+    brak wpisu = "wspolne" (pozycja propaguje się normalnie);
+    "testowe"  = kwarantanna — automat NIE propaguje, dopóki user nie skasuje wpisu;
+    "wyjatek"  = maszyna z pola `maszyna` świadomie odstaje (pusta = każda).
+    Brak pliku / błąd = pusty słownik (nic nie blokuje, wszystko "wspolne").
+    """
+    if not STATUSY_POZYCJI.exists():
+        return {}
+    import tomllib
+    try:
+        dane = tomllib.loads(STATUSY_POZYCJI.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError) as e:
+        print(f"⚠ nie umiem odczytać {STATUSY_POZYCJI.name}: {e} — statusy pozycji pomijam")
+        return {}
+    wynik = {}
+    for p in dane.get("pozycja", []):
+        kanal, ident = p.get("kanal"), p.get("id")
+        status = p.get("status", "wspolne")
+        if not kanal or not ident:
+            continue
+        if status not in ("wspolne", "wyjatek", "testowe"):
+            print(f"⚠ {STATUSY_POZYCJI.name}: nieznany status „{status}” dla "
+                  f"{ident} ({kanal}) — traktuję jak wspolne")
+            status = "wspolne"
+        wynik[(kanal, ident)] = {"status": status,
+                                 "maszyna": (p.get("maszyna") or "").lower(),
+                                 "uwagi": p.get("uwagi", "")}
+    return wynik
 
 
 # ---------------------------------------------------------------- zewnętrzne źródła apt [176]
@@ -1438,11 +1474,20 @@ def zbierz_pozycje():
     ostatnie, historia = stan_oczekiwany(zdarzenia)
     moje = stan_wg_tej_maszyny(zdarzenia, maszyna)
     pomijane = wczytaj_pomijane()
+    statusy = wczytaj_statusy_pozycji()
 
-    rozbieznosci, niezapisane, usuniete_poza = [], [], []
+    rozbieznosci, niezapisane, usuniete_poza, kwarantanna = [], [], [], []
 
     for klucz, zdarz in sorted(ostatnie.items()):
         if klucz in pomijane:
+            continue
+        # statusy pozycji (poprawka 11): "testowe" = kwarantanna, automat nie rusza;
+        # "wyjatek" = ta maszyna świadomie odstaje — rozbieżności nie zgłaszamy.
+        st = statusy.get(klucz)
+        if st and st["status"] == "testowe":
+            kwarantanna.append((klucz, st))
+            continue
+        if st and st["status"] == "wyjatek" and st["maszyna"] in ("", maszyna):
             continue
         jest_tutaj = klucz in inw
         ma_byc = zdarz.get("zdarzenie") == "dodano"
@@ -1468,7 +1513,7 @@ def zbierz_pozycje():
     return {"maszyna": maszyna, "zdarzenia": zdarzenia, "inwentarz": inw,
             "rozbieznosci": rozbieznosci, "niezapisane": niezapisane,
             "usuniete_poza": usuniete_poza, "pomijane": pomijane,
-            "historia": historia}
+            "historia": historia, "kwarantanna": kwarantanna}
 
 
 # ---------------------------------------------------------------- polecenie: status
@@ -1488,6 +1533,13 @@ def naglowek(dane):
     if dane["pomijane"]:
         print(f"Świadomie pomijane na tej maszynie: {len(dane['pomijane'])} "
               f"(plik {plik_pomijanych().name})")
+    if dane.get("kwarantanna"):
+        print(f"Kwarantanna (status `testowe`, automat nie propaguje — "
+              f"plik statusy-pozycji.toml): {len(dane['kwarantanna'])}")
+        for (kanal, ident), st in dane["kwarantanna"]:
+            gdzie = f" — testowane na: {st['maszyna']}" if st["maszyna"] else ""
+            uwagi = f" ({st['uwagi']})" if st["uwagi"] else ""
+            print(f"   ⏳ {ident} ({kanal}){gdzie}{uwagi}")
     print()
 
 
@@ -2439,6 +2491,7 @@ def polecenie_lista(args):
         maszyny = [nazwa_maszyny()]
 
     reczne = wczytaj_reczne_kolumny(args.reczne or args.do)
+    statusy = wczytaj_statusy_pozycji()
 
     per_maszyna = {}
     for z in zdarzenia:
@@ -2466,8 +2519,15 @@ def polecenie_lista(args):
             # notatka z zasiewu bywa powtórzeniem opisu — nie dublujemy tekstu
             if do_czego and uwagi.startswith(do_czego):
                 uwagi = uwagi[len(do_czego):].lstrip("; ").strip()
+        st = statusy.get((kanal, ident))
+        if st and st["status"] == "testowe" and not uwagi:
+            uwagi = "⏳ testowe (kwarantanna) — nie propaguje się automatem"
         wiersze.append((ident, kanal, komorki, do_czego, uwagi))
         if ost.get("zdarzenie") == "dodano" and kanal in pakiety:
+            # kwarantanna (poprawka 11): pozycja `testowe` NIE wchodzi do listy
+            # wykonawczej — bootstrap nowej maszyny jej nie postawi
+            if st and st["status"] == "testowe":
+                continue
             pakiety[kanal].append(ident)
 
     linie = [
