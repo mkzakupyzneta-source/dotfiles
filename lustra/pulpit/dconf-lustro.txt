@@ -23,3 +23,10 @@
 /org/gnome/mutter/                               # np. edge-tiling
 /org/gnome/desktop/session/                      # po ilu minutach bezczynności
 /org/gnome/nautilus/preferences/                 # menedżer plików: widok, sortowanie
+
+# --- programy z ustawieniami w dconf ---
+/org/gnome/terminal/legacy/                      # GNOME Terminal: profile (m.in. czarny profil
+                                                 # z Vostro — user zauwazyl brak na Katanie 25.08,
+                                                 # poprawka 9 planu automatu), skroty, menu.
+                                                 # Wejdzie do wzorca przy najblizszym
+                                                 # pulpit-oddaj na Vostro (recznym, [195]).
