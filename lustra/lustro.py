@@ -836,18 +836,60 @@ def wczytaj_rozszerzenia_gnome():
     return wynik
 
 
+KATALOGI_ROZSZERZEN = (DOM / ".local/share/gnome-shell/extensions",
+                       Path("/usr/share/gnome-shell/extensions"))
+
+
+def _rozszerzenia_z_katalogu(kat):
+    """{uuid: wersja} z jednego katalogu rozszerzeń (katalog z metadata.json = rozszerzenie)."""
+    wynik = {}
+    if not kat.is_dir():
+        return wynik
+    for p in sorted(kat.iterdir()):
+        meta = p / "metadata.json"
+        if not meta.is_file():
+            continue
+        uuid, wersja = p.name, "?"
+        try:
+            dane = json.loads(meta.read_text(encoding="utf-8"))
+            uuid = dane.get("uuid") or p.name
+            wersja = str(dane.get("version", "?"))
+        except (json.JSONDecodeError, OSError):
+            pass
+        wynik[uuid] = wersja
+    return wynik
+
+
+def rozszerzenia_na_dysku(tylko_uzytkownika=False):
+    """
+    ⚠️ NAPRAWA braku 14 z Katany (25.08): inwentaryzacja rozszerzeń GNOME Z DYSKU,
+    nie z żywej powłoki. `gnome-extensions list` NIE WIDZI świeżo zainstalowanych
+    rozszerzeń aż do przelogowania (na Katanie: 3 zainstalowane, apka widziała 0,
+    zdarzenia nie trafiły do dziennika, `status` fałszywie meldował brak).
+    Dysk widzi zawsze. Żywa powłoka zostaje źródłem stanu „uruchomione"
+    (rozszerzenia_chwilowo_nieaktywne) — nie „zainstalowane".
+
+    Zwraca {uuid: wersja}. `tylko_uzytkownika=True` = tylko ~/.local/share/…
+    (rozszerzenia systemowe w /usr/share należą do pakietów apt, nie do usera —
+    do porównania z dziennikiem liczą się tylko instalacje usera).
+    """
+    katalogi = KATALOGI_ROZSZERZEN[:1] if tylko_uzytkownika else KATALOGI_ROZSZERZEN
+    wynik = {}
+    for kat in katalogi:
+        for uuid, wersja in _rozszerzenia_z_katalogu(kat).items():
+            wynik.setdefault(uuid, wersja)
+    return wynik
+
+
 def rozszerzenia_zainstalowane_lokalnie():
     """
-    Zbiór UUID rozszerzeń GNOME Shell zainstalowanych na TEJ maszynie
-    (`gnome-extensions list` — wszystkie, nie tylko włączone).
-    None = nie umiem sprawdzić (brak `gnome-extensions`, np. maszyna bez GNOME/bez pulpitu).
+    Zbiór UUID rozszerzeń GNOME Shell zainstalowanych na TEJ maszynie — Z DYSKU
+    (~/.local/share/gnome-shell/extensions/ + /usr/share/gnome-shell/extensions/).
+    None = maszyna bez GNOME (nie ma ani katalogów rozszerzeń, ani gnome-shell).
     """
-    if not czy_jest("gnome-extensions"):
+    if not any(k.is_dir() for k in KATALOGI_ROZSZERZEN) and not czy_jest("gnome-shell"):
         return None
-    kod, out = uruchom(["gnome-extensions", "list"])
-    if kod != 0:
-        return None
-    return {l.strip() for l in out.splitlines() if l.strip()}
+    return set(rozszerzenia_na_dysku())
 
 
 def gnome_shell_wersja():
@@ -1385,6 +1427,14 @@ def zbierz_pozycje():
     maszyna = nazwa_maszyny()
     zdarzenia = wczytaj_dzienniki()
     inw = inwentaryzacja()
+
+    # Kanał gnome-extension w inwentarzu (naprawa braku 14 + luki „wieczny fałszywy
+    # alarm" z 25.08): dziennik ma zdarzenia `kanal: gnome-extension`, więc porównanie
+    # musi widzieć, co jest NAPRAWDĘ na dysku. Tylko katalog USERA — rozszerzenia
+    # systemowe (/usr/share) należą do pakietów apt i nie są instalacjami usera.
+    if any(k.is_dir() for k in KATALOGI_ROZSZERZEN) or czy_jest("gnome-shell"):
+        for uuid, wersja in rozszerzenia_na_dysku(tylko_uzytkownika=True).items():
+            inw[("gnome-extension", uuid)] = wersja
     ostatnie, historia = stan_oczekiwany(zdarzenia)
     moje = stan_wg_tej_maszyny(zdarzenia, maszyna)
     pomijane = wczytaj_pomijane()
@@ -1998,6 +2048,36 @@ def wykonaj_pozycje(poz, args):
     za = ({"maszyna": zrodlowe.get("maszyna"), "ts": zrodlowe.get("ts")}
           if zrodlowe.get("maszyna") and zrodlowe.get("maszyna") != nazwa_maszyny()
           else None)
+
+    # rozszerzenia GNOME — osobna droga (nie ma komendy apt/snap/flatpak);
+    # instalacja z extensions.gnome.org, usunięcie z katalogu usera, weryfikacja Z DYSKU
+    if kanal == "gnome-extension" and rodzaj in ("instaluj", "usun"):
+        if rodzaj == "instaluj":
+            print(f"[{ident}] instaluję (gnome-extension, extensions.gnome.org)…")
+            ok, komunikat = pobierz_i_zainstaluj_rozszerzenie(ident, gnome_shell_wersja())
+            print(f"    {komunikat}")
+            po = rozszerzenia_na_dysku(tylko_uzytkownika=True)
+            if not ok or ident not in po:
+                print("    ⚠ rozszerzenia nie widzę na dysku — dziennika NIE ruszam")
+                return 0
+            dopisz_zdarzenie("dodano", kanal=kanal, ident=ident, wersja=po.get(ident),
+                             zrodlo="sync", za=za,
+                             notatka="włączenie zostaje warstwie pulpitu (dconf); "
+                                     "żywa powłoka zobaczy rozszerzenie po przelogowaniu")
+            print("    ✓ zainstalowane, zapisane w dzienniku (włączy pulpit/relog)")
+            return 1
+        print(f"[{ident}] usuwam (gnome-extension)…")
+        kod, out = uruchom(["gnome-extensions", "uninstall", ident])
+        if ident in rozszerzenia_na_dysku(tylko_uzytkownika=True):
+            # gnome-extensions bywa ślepy na świeże instalacje — katalog usera wprost
+            shutil.rmtree(KATALOGI_ROZSZERZEN[0] / ident, ignore_errors=True)
+        if ident in rozszerzenia_na_dysku(tylko_uzytkownika=True):
+            print(f"    ⚠ rozszerzenie nadal jest na dysku (kod {kod}) — dziennika NIE ruszam")
+            return 0
+        dopisz_zdarzenie("usunieto", kanal=kanal, ident=ident, zrodlo="sync", za=za,
+                         notatka=zrodlowe.get("notatka"))
+        print("    ✓ usunięte, zapisane w dzienniku")
+        return 1
 
     if rodzaj == "instaluj":
         print(f"[{ident}] instaluję ({kanal})…")
