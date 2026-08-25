@@ -93,3 +93,4 @@
 {"ts": "2026-08-25T18:34:05+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python-is-python3", "wersja": "3.11.4-1", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
 {"ts": "2026-08-25T18:34:08+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-venv", "wersja": "3.12.3-0ubuntu2.1", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
 {"ts": "2026-08-25T18:34:15+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "python3-pip", "wersja": "24.0+dfsg-1ubuntu1.3", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
+{"ts": "2026-08-25T18:34:20+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "pipx", "wersja": "1.4.3-1", "zrodlo": "apka", "notatka": "[179] narzedzia projektow po przesiadce"}
