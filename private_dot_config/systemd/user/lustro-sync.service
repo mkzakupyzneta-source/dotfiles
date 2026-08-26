@@ -1,0 +1,16 @@
+[Unit]
+Description=Lustro — pobranie zmian z repozytorium i zastosowanie (chezmoi update)
+# Faza 3 planu automatu (0_Architekt/plan-automat-lustra-2026-08-25.md): stacja ma
+# nadazac za zmianami bez recznego dociagania. `chezmoi update` = git pull --rebase
+# --autostash + `chezmoi apply`; apply odpala run_onchange_install-packages.sh.tmpl,
+# ktory na maszynie z WLASNYM dziennikiem lustra (kazda stacja juz zasiana) TYLKO
+# RAPORTUJE braki apt/snap/flatpak (nie instaluje) — instalacja wymaga sudo, ktorego
+# ten timer nie moze kliknac. Dopoki reguly [194] (NOPASSWD dla menedzerow pakietow)
+# nie ma na tej maszynie, rozbieznosci apt zglaszane w `lustro status` NIE znikna
+# same — to znany, celowy stan, nie usterka tego timera.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/chezmoi update --force

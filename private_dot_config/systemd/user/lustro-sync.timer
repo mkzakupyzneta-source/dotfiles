@@ -1,0 +1,16 @@
+[Unit]
+Description=Lustro — synchronizacja przy zalogowaniu i co 60 minut
+
+[Timer]
+# Przy zalogowaniu: uruchomienie usera systemd --user startuje przy logowaniu
+# (Linger=no na stacjach) — OnStartupSec liczy od tego momentu.
+OnStartupSec=2min
+OnUnitActiveSec=60min
+# Persistent=true: jesli stacja byla wylaczona/wylogowana dluzej niz okres (test
+# T4 planu automatu — maszyna offline), pierwsze uruchomienie po powrocie liczy
+# sie jako "spoznione" i odpala od razu, zamiast czekac pelne 60 minut.
+Persistent=true
+Unit=lustro-sync.service
+
+[Install]
+WantedBy=timers.target
