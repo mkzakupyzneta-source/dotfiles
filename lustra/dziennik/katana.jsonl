@@ -120,3 +120,4 @@
 {"ts": "2026-08-27T00:20:53+02:00", "maszyna": "katana", "zdarzenie": "dodano", "kanal": "apt", "id": "cmatrix", "wersja": "2.0-6", "zrodlo": "apka", "notatka": "test [213] (c) — dedup hooka"}
 {"ts": "2026-08-27T00:21:21+02:00", "maszyna": "katana", "zdarzenie": "usunieto", "kanal": "apt", "id": "cowsay", "zrodlo": "apka", "notatka": "sprzatanie testu [213]"}
 {"ts": "2026-08-27T00:21:26+02:00", "maszyna": "katana", "zdarzenie": "usunieto", "kanal": "apt", "id": "sl", "zrodlo": "apka", "notatka": "sprzatanie testu [213]"}
+{"ts": "2026-08-27T00:21:33+02:00", "maszyna": "katana", "zdarzenie": "usunieto", "kanal": "apt", "id": "cmatrix", "zrodlo": "apka", "notatka": "sprzatanie testu [213]"}
