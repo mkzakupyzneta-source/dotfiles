@@ -17,6 +17,7 @@ systemowe — przydatne, gdy apkę uruchamia sesja bez terminala.
 
 import argparse
 import fnmatch
+import getpass
 import json
 import os
 import re
@@ -46,6 +47,17 @@ ZRODLA_GALEZI = PULPIT / "zrodla-galezi.toml"      # źródło per gałąź pulp
 PULPIT_STAN = PULPIT / "stan"                      # migawki <maszyna>.ini [209] 2.3.1
 SOURCES_D = Path("/etc/apt/sources.list.d")
 KOPIE = DOM / ".local/share/lustro/kopie"
+
+# --- dziennik przy KAŻDEJ zmianie [213] -------------------------------------
+# Znacznik podnoszony PRZEZ lustro.py TUŻ PRZED wywołaniem apt-get install/remove
+# (funkcja `_z_tlumikiem_haka`) i zdejmowany zaraz po — mówi hookowi dpkg
+# (`polecenie_hak_apt`), że apka SAMA zaraz zapisze zdarzenie (zrodlo: apka/sync),
+# więc hook ma tylko odświeżyć swoją migawkę, NIC nie logując (bez tego byłby
+# podwójny wpis dla każdej instalacji zrobionej przez `lustro dodaj`/`usun`/`sync`).
+HAK_APT_MARKER = Path("/tmp/.lustro-hak-apt-suppress")
+# Migawka ostatniego znanego `inwentarz_apt()` (poza gitem — to techniczny stan
+# hooka, nie zdarzenie do współdzielenia między maszynami).
+HAK_APT_STAN = DOM / ".local/share/lustro/hak-apt-stan.json"
 
 EXTENSIONS_GNOME_ORG = "https://extensions.gnome.org"
 
@@ -96,6 +108,30 @@ def jako_root(cmd):
         pelna = shutil.which(cmd[0]) or cmd[0]
         return ["pkexec", pelna] + list(cmd[1:])
     return ["sudo"] + list(cmd)
+
+
+def _z_tlumikiem_haka(cmd):
+    """Jak `uruchom_widoczne`, ale PODNOSI `HAK_APT_MARKER` na czas komendy [213].
+
+    Wszystkie miejsca, gdzie APKA SAMA wykonuje `apt-get install/remove` (przez
+    `lustro dodaj`/`usun`/`sync`), muszą przejść przez to opakowanie — inaczej
+    hook dpkg (`polecenie_hak_apt`, wołany PRZEZ TĘ SAMĄ transakcję apt-get)
+    dopisałby do dziennika DRUGIE, zbędne zdarzenie (zrodlo: wykryte) dla
+    dokładnie tej instalacji, o której apka i tak zaraz sama zapisze zdarzenie
+    (zrodlo: apka/sync) po własnej weryfikacji. Znacznik jest plikiem w /tmp,
+    nie zmienną środowiskową — `sudo` domyślnie czyści środowisko dziecka,
+    a apt-get i tak zawsze jest wywoływane pod rootem (`jako_root`)."""
+    try:
+        HAK_APT_MARKER.touch()
+    except OSError:
+        pass
+    try:
+        return uruchom_widoczne(cmd)
+    finally:
+        try:
+            HAK_APT_MARKER.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def czy_jest(program):
@@ -886,6 +922,189 @@ def zapewnij_zrodlo_dla(pakiet, args):
             print("Nic nie zmieniam. Źródło można dodać ręcznie wg zrodla-apt.toml.")
             return False
     return dodaj_zrodlo_apt(z)
+
+
+# ---------------------------------------------------------------- hook dpkg — dziennik przy KAŻDEJ zmianie [213]
+
+def _wczytaj_stan_hak_apt():
+    """Migawka poprzedniego `inwentarz_apt()`. `None` = hook jeszcze nigdy nie
+    zapisał migawki (pierwsze uruchomienie po instalacji pakietu `lustro-hak-apt`,
+    albo plik skasowany) — w tym wypadku hook SEEDUJE bez logowania (patrz
+    `polecenie_hak_apt`), żeby nie zalać dziennika „nowościami”, które są w
+    rzeczywistości starymi, dawno zainstalowanymi pakietami."""
+    if not HAK_APT_STAN.exists():
+        return None
+    try:
+        return json.loads(HAK_APT_STAN.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _zapisz_stan_hak_apt(inwentarz):
+    try:
+        HAK_APT_STAN.parent.mkdir(parents=True, exist_ok=True)
+        HAK_APT_STAN.write_text(json.dumps(inwentarz, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def polecenie_hak_apt(args):
+    """
+    Wołane z hooka dpkg (`/etc/apt/apt.conf.d/90lustro-hak-apt`, `DPkg::Post-Invoke`,
+    pakiet `lustro-hak-apt` — sprawa [213]) PO KAŻDEJ transakcji apt-get/apt/aptitude,
+    niezależnie od tego, kto ją zaczął (terminal usera, sklep GNOME, inny skrypt) —
+    to jest właśnie rozszerzenie „dziennik aktualizuje się przy każdej zmianie",
+    nie tylko przez `lustro dodaj`.
+
+    ZASADA: LEKKO i ODPORNIE. Żaden wyjątek stąd nie może wyjść na zewnątrz — apt/
+    dpkg NIE MOGĄ się wywalić z naszego powodu (stąd `except Exception: pass` na
+    końcu, a w pliku apt.conf.d dodatkowo `timeout` + `|| true` na wszelki wypadek
+    po stronie powłoki). Zero sieci, zero gita — tylko lokalny dopisek do pliku;
+    commit+push zrobi najbliższy bieg `lustro sync --auto` z timera (patrz tam:
+    ten bieg commituje WSZYSTKO, co zastanie w repo, nie tylko własne zmiany).
+
+    Porównuje BIEŻĄCY `inwentarz_apt()` (dokładnie ten sam kod co reszta mechanizmu
+    — te same wykluczenia/apt.txt) z zapisaną MIGAWKĄ poprzedniego stanu:
+      • nowa pozycja  → „dodano”   (zrodlo: wykryte)
+      • zniknięta     → „usunieto” (zrodlo: wykryte)
+
+    Kierunek „usunieto” TUTAJ jest bezpieczny (w odróżnieniu od okresowego
+    `sync`/`sync --auto` — patrz decyzja [213] pkt 3 w dokumentacji): to nie jest
+    zgadywanie z różnicy inwentarza po czasie, tylko zapis PRAWDZIWEJ, właśnie
+    zakończonej transakcji apt — dokładnie ta sama pewność co przy ręcznym
+    `lustro usun`. Zmienia to globalny konsensus lustra tak samo, jak zmieniłoby
+    go ręczne `lustro usun` — to znany i zaakceptowany skutek uboczny mechanizmu
+    „nowsze zdarzenie wygrywa" (spec 4.5), nie nowe ryzyko.
+
+    Gdy `HAK_APT_MARKER` jest podniesiony — apka SAMA (`lustro dodaj`/`usun`/`sync`)
+    właśnie wykonuje tę transakcję i zaraz zapisze zdarzenie sama (zrodlo: apka/
+    sync) — migawka jest odświeżana, ale NIC nie jest logowane (unikamy podwójnego
+    wpisu; test (c) w sprawie [213]).
+    """
+    try:
+        biezacy = inwentarz_apt()
+
+        if HAK_APT_MARKER.exists():
+            _zapisz_stan_hak_apt(biezacy)
+            return 0
+
+        poprzedni = _wczytaj_stan_hak_apt()
+        if poprzedni is None:
+            _zapisz_stan_hak_apt(biezacy)
+            return 0
+
+        for pkg in sorted(set(biezacy) - set(poprzedni)):
+            dopisz_zdarzenie("dodano", kanal="apt", ident=pkg, wersja=biezacy[pkg],
+                             zrodlo="wykryte",
+                             notatka="wykryte automatycznie hookiem dpkg — "
+                                     "zainstalowane poza `lustro dodaj` [213]")
+        for pkg in sorted(set(poprzedni) - set(biezacy)):
+            dopisz_zdarzenie("usunieto", kanal="apt", ident=pkg, zrodlo="wykryte",
+                             notatka="wykryte automatycznie hookiem dpkg — "
+                                     "usunięte poza `lustro usun` [213]")
+        _zapisz_stan_hak_apt(biezacy)
+    except Exception:
+        pass
+    return 0
+
+
+def polecenie_hak_apt_instaluj(args):
+    """
+    `lustro hak-apt --zainstaluj` — buduje i kładzie na TEJ maszynie mikro-pakiet
+    `.deb` z hookiem dpkg (sprawa [213]). Ten sam wzorzec co `dodaj_zrodlo_apt()`
+    (25/26.08, [176]/[194]): `dpkg-deb --root-owner-group` bez roota, `dpkg -i`
+    pod `jako_root` — `dpkg` JEST na liście NOPASSWD [194], `sudo install`/`tee`
+    NIE są. Jeden mechanizm, ten sam trik, druga sprawa.
+
+    Zawartość pakietu:
+      • /etc/apt/apt.conf.d/90lustro-hak-apt   — DPkg::Post-Invoke
+      • /usr/local/lib/lustro/hak-apt-hook.sh  — woła `lustro hak-apt` jako user
+        (nie root — dziennik i repozytorium chezmoi są WŁASNOŚCIĄ usera, hook
+        NIGDY nie ma pisać do nich jako root)
+
+    Idempotentne: ponowne uruchomienie nadpisuje te same pliki (ta sama wersja
+    pakietu, `dpkg -i` reinstaluje bez pytań).
+    """
+    import tempfile
+
+    if not czy_jest("dpkg-deb"):
+        print("⚠ brak programu dpkg-deb — nie umiem zbudować pakietu hooka")
+        return 1
+
+    user = getpass.getuser()
+    lustro_bin = str(DOM / ".local/bin/lustro")
+
+    skrypt = f"""#!/bin/sh
+# Hook dpkg (DPkg::Post-Invoke) — mechanizm luster [213], obszar 5_Wspolna_konfiguracja.
+# Wolany przez apt/apt-get/aptitude PO KAZDEJ transakcji dpkg (instalacja, usuniecie,
+# aktualizacja) — niezaleznie od tego, kto ja zaczal. Musi byc szybki i nigdy nie
+# zepsuc/nie zawiesic apt (timeout + `|| true` sa w apt.conf.d, na zewnatrz tego pliku).
+# Uruchamia `lustro` jako zwykly user ({user}), NIE jako root — dziennik i
+# repozytorium chezmoi naleza do usera, hook nie ma prawa zapisywac tam jako root.
+LUSTRO="{lustro_bin}"
+[ -x "$LUSTRO" ] || exit 0
+runuser -u {user} -- "$LUSTRO" hak-apt >/dev/null 2>&1
+exit 0
+"""
+
+    apt_conf = (
+        "// Hook mechanizmu luster [213] — dopisuje zdarzenia apt do dziennika `lustro`\n"
+        "// (zrodlo: wykryte) przy KAZDEJ zmianie, niezaleznie od tego, kto ja zaczal\n"
+        "// (terminal usera, sklep, skrypt) — nie tylko przez `lustro dodaj`/`usun`.\n"
+        "// Zarzadzany przez pakiet lustro-hak-apt, NIE edytowac recznie.\n"
+        "// timeout+|| true: apt/dpkg NIGDY nie moga zawiesic sie ani zawiesc z\n"
+        "// naszego powodu, nawet gdyby hak-apt-hook.sh kiedys zaczal dzialac zle.\n"
+        'DPkg::Post-Invoke {"timeout 10 /usr/local/lib/lustro/hak-apt-hook.sh '
+        '>/dev/null 2>&1 || true";};\n'
+    )
+
+    katalog_tmp = Path(tempfile.mkdtemp(prefix="lustro-hak-apt-"))
+    try:
+        korzen = katalog_tmp / "pakiet"
+        (korzen / "DEBIAN").mkdir(parents=True)
+
+        cel_skrypt = korzen / "usr/local/lib/lustro/hak-apt-hook.sh"
+        cel_skrypt.parent.mkdir(parents=True, exist_ok=True)
+        cel_skrypt.write_text(skrypt, encoding="utf-8")
+        cel_skrypt.chmod(0o755)
+
+        cel_conf = korzen / "etc/apt/apt.conf.d/90lustro-hak-apt"
+        cel_conf.parent.mkdir(parents=True, exist_ok=True)
+        cel_conf.write_text(apt_conf, encoding="utf-8")
+        cel_conf.chmod(0o644)
+
+        (korzen / "DEBIAN" / "control").write_text(
+            "Package: lustro-hak-apt\n"
+            "Version: 1\n"
+            "Section: misc\n"
+            "Priority: optional\n"
+            "Architecture: all\n"
+            "Maintainer: lustro (mechanizm luster) <mk@localhost>\n"
+            "Description: Hook dpkg mechanizmu luster — dziennik przy KAZDEJ zmianie apt\n"
+            " Dopisuje do dziennika lustra (zrodlo: wykryte) pakiety zainstalowane\n"
+            " lub usuniete golym apt-get/apt/aptitude, niezaleznie od `lustro dodaj`/\n"
+            " `usun` [213]. Zarzadzany przez apke `lustro`, nie ruszac recznie.\n",
+            encoding="utf-8")
+
+        deb = katalog_tmp / "lustro-hak-apt.deb"
+        kod, out = uruchom(["dpkg-deb", "--root-owner-group", "--build",
+                            str(korzen), str(deb)])
+        if kod != 0 or not deb.exists():
+            print(f"⚠ budowa pakietu .deb nie powiodła się (kod {kod}): {out.strip()}")
+            return 1
+
+        print("→ instaluję jako pakiet lustro-hak-apt (dpkg -i — w zakresie NOPASSWD [194])")
+        kod = uruchom_widoczne(jako_root(["dpkg", "-i", str(deb)]))
+        if kod != 0:
+            print(f"⚠ `dpkg -i` zakończone kodem {kod}")
+            return 1
+    finally:
+        shutil.rmtree(katalog_tmp, ignore_errors=True)
+
+    print("✓ hook dpkg zainstalowany. Pierwsza transakcja apt tylko SEEDUJE migawkę")
+    print("  (bez logowania) — patrz `polecenie_hak_apt`. Od drugiej transakcji hook")
+    print("  dopisuje zdarzenia do dziennika automatycznie.")
+    return 0
 
 
 # ---------------------------------------------------------------- pulpit (dconf)
@@ -2340,26 +2559,49 @@ def polecenie_pulpit_wgraj(args):
 def polecenie_sync_auto(args):
     """
     `lustro sync --auto` — Faza 3 planu automatu (0_Architekt/plan-automat-lustra-
-    2026-08-25.md): stacja ma dociągać braki SAMA, bez terminala i bez pytań
-    (wołane z timera `lustro-sync.service` po `chezmoi update --force`).
+    2026-08-25.md), rozszerzone w sprawie [213] („dziennik przy KAŻDEJ zmianie,
+    nie tylko przez `lustro dodaj`”): stacja ma dociągać braki i księgować
+    rozbieżności SAMA, bez terminala i bez pytań (wołane z timera `lustro-sync.
+    service` po `chezmoi update --force`, co 60 min).
 
-    Zakres CELOWO wąski (żeby automat nigdy nie zaskoczył usera):
-      • TAK: pakiet jest w dzienniku „dodano” gdzie indziej, a tu go nie ma (apt/
-        snap/flatpak) → instalacja + wpis do dziennika (`zrodlo: sync`) — dokładnie
-        ten sam kod co interaktywny `sync` (`wykonaj_pozycje`), więc zasada
-        „najpierw rób, potem zapisz” działa identycznie.
-      • TAK: brakujące zewnętrzne źródło apt z zrodla-apt.toml (klucz + wpis .list)
-        — dodawane niezależnie od tego, czy akurat instalujemy z niego pakiet,
-        żeby `lustro status` przestał je zgłaszać (patrz sekcja „ZEWNĘTRZNE ŹRÓDŁA”).
-      • NIE: rodzaj "usun" (dziennik mówi „usunięty gdzie indziej”) — auto NIGDY
-        nic nie odinstalowuje, zgodnie z zadaniem.
-      • NIE: "zapisz-dodano" / "zapisz-usunieto" (instalacja/usunięcie POZA apką,
-        jeszcze niezapisane) — to rozbieżność w drugą stronę („na maszynie jest,
-        w dzienniku brak”), zostaje wyłącznie raportowana, tak jak dziś.
+    Zakres:
+      • TAK — instalacja: pakiet jest w dzienniku „dodano” gdzie indziej, a tu go
+        nie ma (apt/snap/flatpak) → instalacja + wpis do dziennika (`zrodlo:
+        sync`) — dokładnie ten sam kod co interaktywny `sync` (`wykonaj_pozycje`).
+      • TAK — brakujące zewnętrzne źródło apt z zrodla-apt.toml (klucz + wpis
+        .list), niezależnie od tego, czy akurat instalujemy z niego pakiet.
+      • TAK [213] — księgowanie „na maszynie jest, w dzienniku brak” (kategoria
+        `niezapisane` z `zbierz_pozycje()`): dopisujemy „dodano” (zrodlo: wykryte)
+        automatycznie, bez pytania. To jest SIATKA BEZPIECZEŃSTWA dla apt (gdyby
+        hook dpkg z `polecenie_hak_apt` akurat zawiódł/nie był jeszcze wdrożony)
+        i JEDYNA droga księgowania dla kanałów bez hooka: snap, flatpak,
+        gnome-extension (te ostatnie trafiają do `niezapisane` przez inwentarz
+        rozszerzeń na dysku, patrz `zbierz_pozycje()`). Bezpieczne, bo WYŁĄCZNIE
+        dopisuje fakt „to tu jest” — nic nie instaluje, nic nie usuwa, nikomu
+        niczego nie każe zrobić.
+      • NIE — rodzaj "usun" (dziennik mówi „usunięty gdzie indziej”) — auto
+        NIGDY nic nie odinstalowuje, zgodnie z zasadą nadrzędną.
+      • NIE [213, decyzja pkt 3] — kategoria `usuniete_poza` („dziennik TEJ
+        maszyny mówi „jest”, na maszynie już nie ma”) NADAL tylko raportowana,
+        NIE księgowana automatycznie jako „usunieto”. Uzasadnienie: to jest
+        WNIOSKOWANIE z różnicy inwentarza po czasie, nie zapis realnej
+        transakcji — automat nie ma jak odróżnić „user świadomie usunął to
+        poleceniem, którego hook nie złapał” od „coś zniknęło samo, przy okazji
+        aktualizacji/autoremove”. Napisanie „usunieto” zmienia konsensus dla
+        CAŁEGO lustra (spec 4.5 — nowsze zdarzenie wygrywa) i przy błędnym
+        odgadnięciu wyglądałoby jak cichy rozkaz „usuńcie to wszędzie”, którego
+        nikt świadomie nie wydał. `polecenie_hak_apt` (hook dpkg) NIE ma tego
+        problemu — tam zdarzenie „usunieto” zapisuje się w chwili PRAWDZIWEJ,
+        jednoznacznej transakcji apt, więc jest bezpieczne mimo tego samego
+        wpływu na konsensus. Zgodnie z „zniknięcie z jednej maszyny-lustra to
+        rozbieżność DO DOCIĄGNIĘCIA NA NIEJ, nie usunięcie wszędzie" — właściwa
+        reakcja to `lustro usun` (świadomy zapis) albo ponowna instalacja, obie
+        ręczne.
       • NIE: pulpit (`dconf`) — decyzja usera [195]: `pulpit oddaj` tylko ręcznie.
-      • NIE: kanał `gnome-extension` — poza zakresem [194] (nie potrzebuje sudo,
-        ale ma własne, nieprzetestowane w pełni zachowanie przy świeżej instalacji
-        — zostaje w gestii `lustro pulpit rozszerzenia`, ręcznie).
+      • NIE: kanał `gnome-extension` INSTALACJA/USUNIĘCIE (tylko KSIĘGOWANIE
+        „obecne” wyżej) — poza zakresem [194] (nie potrzebuje sudo, ale ma
+        własne, nieprzetestowane w pełni zachowanie przy świeżej instalacji —
+        zostaje w gestii `lustro pulpit rozszerzenia`, ręcznie).
       • Statusy `testowe`/`wyjatek` (statusy-pozycji.toml) są już odsiane w
         `zbierz_pozycje()` — auto nie musi ich znać osobno.
     """
@@ -2370,7 +2612,7 @@ def polecenie_sync_auto(args):
     naglowek(dane)
     args.zatwierdzam_wszystko = True   # nigdy nie pytać — nie ma komu odpowiedzieć
 
-    zrobione, nieudane = 0, 0
+    zrobione, nieudane, zaksiegowane = 0, 0, 0
 
     brak_zrodel = zrodla_brakujace()
     if brak_zrodel:
@@ -2401,19 +2643,46 @@ def polecenie_sync_auto(args):
             else:
                 nieudane += 1
 
-    pominiete = (len(dane["usuniete_poza"]) + len(dane["niezapisane"])
-                + (1 if roznice_pulpitu() else 0))
-    if not do_instalacji and not brak_zrodel:
-        print("Nic do automatycznego dociągnięcia.")
+    # [213] — księgowanie „jest tutaj, w dzienniku brak" (patrz zakres wyżej).
+    # Celowo NIEZALEŻNE od członkostwa w lustrze — to zapis faktu o TEJ maszynie,
+    # nie o konsensusie fleety (działa tak samo na serwerze, `czlonek_lustra =
+    # false`, bo `zbierz_pozycje()` liczy `niezapisane` poza bramką reguły 4).
+    if dane["niezapisane"]:
+        print(f"KSIĘGOWANIE — NA MASZYNIE JEST, W DZIENNIKU BRAK ({len(dane['niezapisane'])}):")
+        for (kanal, ident), wersja in dane["niezapisane"]:
+            print(f"  • {ident} ({kanal}, {wersja}) → dopisuję „dodano” (zrodlo: wykryte)")
+            dopisz_zdarzenie("dodano", kanal=kanal, ident=ident, wersja=wersja,
+                             zrodlo="wykryte",
+                             notatka="wykryte automatycznie przez `lustro sync --auto` — "
+                                     "zainstalowane poza `lustro dodaj` (kanał bez hooka "
+                                     "dpkg — snap/flatpak/gnome-extension — albo siatka "
+                                     "bezpieczeństwa dla apt) [213]")
+            zaksiegowane += 1
+        print()
+
+    pominiete = len(dane["usuniete_poza"]) + (1 if roznice_pulpitu() else 0)
+    if not do_instalacji and not brak_zrodel and not dane["niezapisane"]:
+        print("Nic do automatycznego dociągnięcia/księgowania.")
     print()
     if pominiete:
         print(f"Pominięte celowo (poza zakresem --auto — patrz `lustro status`): "
-              f"{pominiete} pozycji (usunięcia / instalacje-i-usunięcia poza apką / "
+              f"{pominiete} pozycji (usunięcia gdzieś indziej / „dziennik mówi jest, "
+              f"na maszynie brak” — kierunek „usunieto” zostaje ręczny, [213] pkt 3 / "
               f"pulpit).")
-    print(f"Auto-sync: {zrobione} wykonanych, {nieudane} nieudanych.")
+    print(f"Auto-sync: {zrobione} wykonanych, {zaksiegowane} zaksięgowanych, "
+          f"{nieudane} nieudanych.")
+    # Zawsze (nie tylko gdy `zrobione`) — hook dpkg (`polecenie_hak_apt`) mógł
+    # dopisać zdarzenia do dziennika MIĘDZY biegami timera; `git_zapisz` i tak
+    # sam sprawdza `git status --porcelain` i nic nie robi, gdy repo jest czyste,
+    # więc to bezpieczne wywołać bezwarunkowo (spec „lekko i odpornie" [213]).
+    czesci = []
     if zrobione:
-        git_zapisz(f"lustra: auto-sync na {nazwa_maszyny()} — {zrobione} pozycji "
-                   f"dociągniętych automatycznie (--auto, Faza 3 automatu / [194])")
+        czesci.append(f"{zrobione} dociągniętych")
+    if zaksiegowane:
+        czesci.append(f"{zaksiegowane} zaksięgowanych (wykryte)")
+    opis = ", ".join(czesci) if czesci else "porządki (hook dpkg / zaległe commity)"
+    git_zapisz(f"lustra: auto-sync na {nazwa_maszyny()} — {opis} "
+               f"(--auto, [194]/[213])")
     return 1 if nieudane else 0
 
 
@@ -2620,7 +2889,7 @@ def wykonaj_pozycje(poz, args):
 
     if rodzaj == "instaluj":
         print(f"[{ident}] instaluję ({kanal})…")
-        kod = uruchom_widoczne(komenda_instalacji(kanal, ident))
+        kod = _z_tlumikiem_haka(komenda_instalacji(kanal, ident))
         wersja = sprawdz_jedna_pozycje(kanal, ident)
         if wersja is None:
             print(f"    ⚠ po instalacji programu NADAL nie widzę (kod {kod}) — "
@@ -2633,7 +2902,7 @@ def wykonaj_pozycje(poz, args):
 
     if rodzaj == "usun":
         print(f"[{ident}] usuwam ({kanal})…")
-        kod = uruchom_widoczne(komenda_usuniecia(kanal, ident))
+        kod = _z_tlumikiem_haka(komenda_usuniecia(kanal, ident))
         if sprawdz_jedna_pozycje(kanal, ident) is not None:
             print(f"    ⚠ program nadal jest na maszynie (kod {kod}) — "
                   f"dziennika NIE ruszam")
@@ -2707,7 +2976,7 @@ def polecenie_dodaj(args):
             return 0
 
     przed = zdjecie_katalogow()
-    kod = uruchom_widoczne(komenda_instalacji(kanal, nazwa))
+    kod = _z_tlumikiem_haka(komenda_instalacji(kanal, nazwa))
     wersja = sprawdz_jedna_pozycje(kanal, nazwa)
     if wersja is None:
         print(f"⚠ Po instalacji programu nie widzę (kod {kod}). Dziennika NIE ruszam.")
@@ -2748,7 +3017,7 @@ def polecenie_usun(args):
             print("Nic nie zmieniam.")
             return 0
 
-    kod = uruchom_widoczne(komenda_usuniecia(kanal, ident))
+    kod = _z_tlumikiem_haka(komenda_usuniecia(kanal, ident))
     if sprawdz_jedna_pozycje(kanal, ident) is not None:
         print(f"⚠ Program nadal jest na maszynie (kod {kod}). Dziennika NIE ruszam.")
         return 1
@@ -3190,6 +3459,12 @@ def main():
     nm = pod.add_parser("nowa-maszyna", help="bootstrap (E3 — niedostępne)")
     nm.add_argument("reszta", nargs="*")
 
+    hk = pod.add_parser("hak-apt", help="hook dpkg — dziennik przy KAŻDEJ zmianie apt [213]")
+    hk.add_argument("--zainstaluj", action="store_true",
+                    help="zbuduj i zainstaluj na TEJ maszynie pakiet .deb z hookiem "
+                         "dpkg (DPkg::Post-Invoke); bez tej flagi to jest wewnętrzne "
+                         "wywołanie SAMEGO hooka, nie do ręcznego użycia")
+
     args = p.parse_args()
     TRYB_ROOT = args.root
 
@@ -3210,6 +3485,8 @@ def main():
         return polecenie_dziennik(args)
     if args.polecenie == "lista":
         return polecenie_lista(args)
+    if args.polecenie == "hak-apt":
+        return polecenie_hak_apt_instaluj(args) if args.zainstaluj else polecenie_hak_apt(args)
     if args.polecenie == "pulpit":
         return {"status": polecenie_pulpit_status,
                 "zasiew": polecenie_pulpit_zasiew,

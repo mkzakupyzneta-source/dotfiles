@@ -48,3 +48,8 @@ ncurses-bin
 # wzorca inwentarz apt widziałby je jak każdy pakiet i `lustro status` zgłaszałby
 # je jako „zainstalowane poza apką, brak w dzienniku".
 lustro-zrodlo-*
+
+# `lustro hak-apt --zainstaluj` (26.08, [213]) kładzie tym samym trikiem hook
+# dpkg (dziennik przy KAŻDEJ zmianie apt, nie tylko przez `lustro dodaj`/`usun`) —
+# ten pakiet też jest ślad mechanizmu, nie program usera.
+lustro-hak-*
