@@ -618,12 +618,30 @@ def zrodlo_dla_pakietu(pakiet, zrodla=None):
 
 def dodaj_zrodlo_apt(zrodlo):
     """
-    Dodaje zewnętrzne źródło apt: klucz + plik listy + `apt-get update`.
-    Pobranie klucza dzieje się jako zwykły user (urllib, do pliku tymczasowego),
-    `gpg --dearmor` też bez roota. Do roota idzie JEDEN krótki skrypt `sh`
-    (jedno sudo / jedno okienko pkexec): install klucza, zapis listy, update.
+    Dodaje zewnętrzne źródło apt: klucz + plik listy.
+
+    Sposób od 26.08 (Faza 3 automatu, sprawa dociągania [194]): pliki NIE lecą
+    rootem przez `sudo sh skrypt.sh` (jak do 25.08) — zmierzone na Katanie, że
+    NOPASSWD z [194] obejmuje TYLKO literalnie `apt-get, apt, dpkg, snap, flatpak`
+    (`/etc/sudoers.d/90-lustro-pakiety`); `sudo sh …`, `sudo install …`, `sudo tee …`
+    nie pasują do żadnej z tych pozycji i sudo i tak pyta o hasło (`sudo -n sh -c
+    'echo x'` → „a password is required”, sprawdzone empirycznie). Zamiast tego
+    budujemy MINIMALNY pakiet .deb (`dpkg-deb --root-owner-group`, bez roota —
+    ta flaga wymusza właściciela root:root w archiwum BEZ potrzeby fakeroot,
+    dpkg ≥ 1.19, jest na Ubuntu 24.04) zawierający klucz i plik listy, i kładziemy
+    go poleceniem `dpkg -i` — `dpkg` JEST na liście NOPASSWD. Efekt identyczny jak
+    poprzednio (klucz w /usr/share/keyrings, linia `deb` w sources.list.d), ale
+    w całości mieszczący się w uprawnieniach [194] — działa też w pełni automatycznie
+    (`lustro sync --auto`, timer), bez okienka i bez hasła. Ten sam kod obsługuje
+    też wywołanie ręczne (`lustro dodaj`) — jeden mechanizm, nie dwa.
+
+    Ślad w systemie: pakiet `lustro-zrodlo-<nazwa>` widoczny w `dpkg -l` (czytelniejsze
+    niż niewidoczny ręczny zapis) — wzorzec `lustro-zrodlo-*` wykluczony w
+    wykluczenia/apt.txt, żeby `lustro status` nie zgłaszał go jako obcej instalacji.
+
     Zwraca True, gdy po wszystkim `zrodlo_obecne` potwierdza obecność.
-    Idempotentne — ponowne uruchomienie tylko nadpisze te same pliki.
+    Idempotentne — ponowne uruchomienie tylko nadpisze te same pliki (ta sama
+    wersja pakietu, `dpkg -i` reinstaluje bez pytań).
     """
     import tempfile
     import urllib.error
@@ -636,48 +654,82 @@ def dodaj_zrodlo_apt(zrodlo):
             return False
 
     katalog_tmp = Path(tempfile.mkdtemp(prefix="lustro-zrodlo-"))
-    surowy = katalog_tmp / "klucz.pobrany"
-    gotowy = katalog_tmp / "klucz.gpg"
-    print(f"    → pobieram klucz: {zrodlo['klucz_url']}")
     try:
-        with urllib.request.urlopen(zrodlo["klucz_url"], timeout=30) as odp:
-            surowy.write_bytes(odp.read())
-    except (urllib.error.URLError, OSError) as e:
-        print(f"    ⚠ nie udało się pobrać klucza: {e}")
-        return False
-    if surowy.stat().st_size == 0:
-        print("    ⚠ pobrany klucz jest pusty — nie dodaję")
-        return False
-
-    if zrodlo.get("klucz_format") == "binarny":
-        gotowy.write_bytes(surowy.read_bytes())
-    else:
-        if not czy_jest("gpg"):
-            print("    ⚠ brak programu gpg (potrzebny do `--dearmor`) — nie dodaję")
+        surowy = katalog_tmp / "klucz.pobrany"
+        print(f"    → pobieram klucz: {zrodlo['klucz_url']}")
+        try:
+            with urllib.request.urlopen(zrodlo["klucz_url"], timeout=30) as odp:
+                surowy.write_bytes(odp.read())
+        except (urllib.error.URLError, OSError) as e:
+            print(f"    ⚠ nie udało się pobrać klucza: {e}")
             return False
-        kod, _ = uruchom(["gpg", "--batch", "--yes", "--dearmor", "-o", str(gotowy),
-                          str(surowy)])
-        if kod != 0 or not gotowy.exists():
-            print(f"    ⚠ `gpg --dearmor` nie powiodło się (kod {kod}) — nie dodaję")
+        if surowy.stat().st_size == 0:
+            print("    ⚠ pobrany klucz jest pusty — nie dodaję")
             return False
 
-    skrypt = katalog_tmp / "dodaj-zrodlo.sh"
-    skrypt.write_text(
-        "#!/bin/sh\n"
-        "# lustro: dodanie zewnętrznego źródła apt „" + nazwa + "” — jeden krok pod rootem\n"
-        "set -e\n"
-        f"install -m 644 -o root -g root '{gotowy}' '{zrodlo['keyring']}'\n"
-        f"printf '%s\\n' '{zrodlo['linia_deb']}' > '{zrodlo['plik_listy']}'\n"
-        f"chmod 644 '{zrodlo['plik_listy']}'\n"
-        "apt-get update\n",
-        encoding="utf-8")
-    skrypt.chmod(0o755)
-    print(f"    → klucz do {zrodlo['keyring']}, lista do {zrodlo['plik_listy']}, "
-          f"potem apt-get update (jedno pytanie o hasło)")
-    kod = uruchom_widoczne(jako_root(["sh", str(skrypt)]))
-    shutil.rmtree(katalog_tmp, ignore_errors=True)
-    if kod != 0:
-        print(f"    ⚠ skrypt zakończył się kodem {kod}")
+        if zrodlo.get("klucz_format") == "binarny":
+            klucz_bajty = surowy.read_bytes()
+        else:
+            if not czy_jest("gpg"):
+                print("    ⚠ brak programu gpg (potrzebny do `--dearmor`) — nie dodaję")
+                return False
+            gotowy = katalog_tmp / "klucz.gpg"
+            kod, _ = uruchom(["gpg", "--batch", "--yes", "--dearmor", "-o", str(gotowy),
+                              str(surowy)])
+            if kod != 0 or not gotowy.exists():
+                print(f"    ⚠ `gpg --dearmor` nie powiodło się (kod {kod}) — nie dodaję")
+                return False
+            klucz_bajty = gotowy.read_bytes()
+
+        if not czy_jest("dpkg-deb"):
+            print("    ⚠ brak programu dpkg-deb — nie umiem zbudować pakietu źródła")
+            return False
+
+        pakiet_id = f"lustro-zrodlo-{nazwa}"
+        korzen = katalog_tmp / "pakiet"
+        (korzen / "DEBIAN").mkdir(parents=True)
+
+        cel_keyring = korzen / Path(zrodlo["keyring"]).relative_to("/")
+        cel_keyring.parent.mkdir(parents=True, exist_ok=True)
+        cel_keyring.write_bytes(klucz_bajty)
+        cel_keyring.chmod(0o644)
+
+        cel_lista = korzen / Path(zrodlo["plik_listy"]).relative_to("/")
+        cel_lista.parent.mkdir(parents=True, exist_ok=True)
+        cel_lista.write_text(zrodlo["linia_deb"] + "\n", encoding="utf-8")
+        cel_lista.chmod(0o644)
+
+        (korzen / "DEBIAN" / "control").write_text(
+            f"Package: {pakiet_id}\n"
+            "Version: 1\n"
+            "Section: misc\n"
+            "Priority: optional\n"
+            "Architecture: all\n"
+            "Maintainer: lustro (mechanizm luster) <mk@localhost>\n"
+            f"Description: Zrodlo apt „{nazwa}” dodane przez mechanizm luster\n"
+            f" Klucz i wpis .list z lustra/{ZRODLA_APT.name}. Zarzadzany przez apke\n"
+            " `lustro`, nie ruszac recznie.\n",
+            encoding="utf-8")
+
+        deb = katalog_tmp / f"{pakiet_id}.deb"
+        kod, out = uruchom(["dpkg-deb", "--root-owner-group", "--build",
+                            str(korzen), str(deb)])
+        if kod != 0 or not deb.exists():
+            print(f"    ⚠ budowa pakietu .deb nie powiodła się (kod {kod}): {out.strip()}")
+            return False
+
+        print(f"    → instaluję jako pakiet {pakiet_id} (dpkg -i — w zakresie NOPASSWD [194])")
+        kod = uruchom_widoczne(jako_root(["dpkg", "-i", str(deb)]))
+        if kod != 0:
+            print(f"    ⚠ `dpkg -i` zakończone kodem {kod}")
+
+        print("    → apt-get update")
+        kod = uruchom_widoczne(jako_root(["apt-get", "update"]))
+        if kod != 0:
+            print(f"    ⚠ `apt-get update` zakończone kodem {kod}")
+    finally:
+        shutil.rmtree(katalog_tmp, ignore_errors=True)
+
     if zrodlo_obecne(zrodlo):
         print(f"    ✓ źródło „{nazwa}” jest na maszynie")
         return True
@@ -1938,7 +1990,90 @@ def polecenie_pulpit_wgraj(args):
 
 # ---------------------------------------------------------------- polecenie: sync
 
+def polecenie_sync_auto(args):
+    """
+    `lustro sync --auto` — Faza 3 planu automatu (0_Architekt/plan-automat-lustra-
+    2026-08-25.md): stacja ma dociągać braki SAMA, bez terminala i bez pytań
+    (wołane z timera `lustro-sync.service` po `chezmoi update --force`).
+
+    Zakres CELOWO wąski (żeby automat nigdy nie zaskoczył usera):
+      • TAK: pakiet jest w dzienniku „dodano” gdzie indziej, a tu go nie ma (apt/
+        snap/flatpak) → instalacja + wpis do dziennika (`zrodlo: sync`) — dokładnie
+        ten sam kod co interaktywny `sync` (`wykonaj_pozycje`), więc zasada
+        „najpierw rób, potem zapisz” działa identycznie.
+      • TAK: brakujące zewnętrzne źródło apt z zrodla-apt.toml (klucz + wpis .list)
+        — dodawane niezależnie od tego, czy akurat instalujemy z niego pakiet,
+        żeby `lustro status` przestał je zgłaszać (patrz sekcja „ZEWNĘTRZNE ŹRÓDŁA”).
+      • NIE: rodzaj "usun" (dziennik mówi „usunięty gdzie indziej”) — auto NIGDY
+        nic nie odinstalowuje, zgodnie z zadaniem.
+      • NIE: "zapisz-dodano" / "zapisz-usunieto" (instalacja/usunięcie POZA apką,
+        jeszcze niezapisane) — to rozbieżność w drugą stronę („na maszynie jest,
+        w dzienniku brak”), zostaje wyłącznie raportowana, tak jak dziś.
+      • NIE: pulpit (`dconf`) — decyzja usera [195]: `pulpit oddaj` tylko ręcznie.
+      • NIE: kanał `gnome-extension` — poza zakresem [194] (nie potrzebuje sudo,
+        ale ma własne, nieprzetestowane w pełni zachowanie przy świeżej instalacji
+        — zostaje w gestii `lustro pulpit rozszerzenia`, ręcznie).
+      • Statusy `testowe`/`wyjatek` (statusy-pozycji.toml) są już odsiane w
+        `zbierz_pozycje()` — auto nie musi ich znać osobno.
+    """
+    git_pull_rebase()          # świeży dziennik — timer i tak woła to przez `chezmoi
+                                # update` wcześniej, ale `sync --auto` ma być bezpieczne
+                                # też uruchomione osobno (ta sama zasada co `sync`/`dodaj`)
+    dane = zbierz_pozycje()
+    naglowek(dane)
+    args.zatwierdzam_wszystko = True   # nigdy nie pytać — nie ma komu odpowiedzieć
+
+    zrobione, nieudane = 0, 0
+
+    brak_zrodel = zrodla_brakujace()
+    if brak_zrodel:
+        print(f"ŹRÓDŁA APT DO DODANIA ({len(brak_zrodel)}):")
+        for z in brak_zrodel:
+            print(f"  • {z.get('nazwa')} ({z.get('url')})")
+            if dodaj_zrodlo_apt(z):
+                zrobione += 1
+            else:
+                nieudane += 1
+        print()
+
+    do_instalacji = [(kanal, ident, zdarz)
+                     for (kanal, ident), zdarz, rodzaj in dane["rozbieznosci"]
+                     if rodzaj == "brak-tutaj" and kanal in KANALY]
+
+    if do_instalacji:
+        print(f"PAKIETY DO DOCIĄGNIĘCIA ({len(do_instalacji)}):")
+        for kanal, ident, zdarz in do_instalacji:
+            print(f"  • {ident} ({kanal}) — wg dziennika {zdarz.get('maszyna')}")
+        print()
+        for kanal, ident, zdarz in do_instalacji:
+            if kanal == "apt":
+                zapewnij_zrodlo_dla(ident, args)   # sieć bezpieczeństwa — patrz wyżej
+            poz = {"rodzaj": "instaluj", "kanal": kanal, "id": ident, "zdarz": zdarz}
+            if wykonaj_pozycje(poz, args):
+                zrobione += 1
+            else:
+                nieudane += 1
+
+    pominiete = (len(dane["usuniete_poza"]) + len(dane["niezapisane"])
+                + (1 if roznice_pulpitu() else 0))
+    if not do_instalacji and not brak_zrodel:
+        print("Nic do automatycznego dociągnięcia.")
+    print()
+    if pominiete:
+        print(f"Pominięte celowo (poza zakresem --auto — patrz `lustro status`): "
+              f"{pominiete} pozycji (usunięcia / instalacje-i-usunięcia poza apką / "
+              f"pulpit).")
+    print(f"Auto-sync: {zrobione} wykonanych, {nieudane} nieudanych.")
+    if zrobione:
+        git_zapisz(f"lustra: auto-sync na {nazwa_maszyny()} — {zrobione} pozycji "
+                   f"dociągniętych automatycznie (--auto, Faza 3 automatu / [194])")
+    return 1 if nieudane else 0
+
+
 def polecenie_sync(args):
+    if getattr(args, "auto", False):
+        return polecenie_sync_auto(args)
+
     if args.tylko_pokaz:
         print("(tryb --tylko-pokaz: niczego nie zmieniam, o nic nie pytam)")
         print()
@@ -2631,6 +2766,15 @@ def main():
                     help="to samo co `status` — do powiadomienia na pulpicie")
     sy.add_argument("--tylko-instaluj", action="store_true", dest="tylko_instaluj",
                     help="nigdy nic nie usuwa — najbezpieczniejszy tryb")
+    sy.add_argument("--auto", action="store_true",
+                    help="tryb bez pytań i bez terminala (timer lustro-sync, Faza 3 "
+                         "automatu): dociąga TYLKO brakujące pakiety apt/snap/flatpak "
+                         "(dziennik mówi „jest”, tu brak) i brakujące źródła apt z "
+                         "zrodla-apt.toml. Nigdy nie usuwa, nigdy nie dopisuje "
+                         "„zainstalowane poza apką”, nigdy nie rusza pulpitu ani "
+                         "rozszerzeń GNOME — te kategorie zostają dla `lustro sync` "
+                         "ręcznego. Pozycje ze statusem `testowe`/`wyjatek` "
+                         "(statusy-pozycji.toml) są pomijane jak wszędzie indziej.")
     wspolne(sy)
 
     dd = pod.add_parser("dodaj", help="instalacja programu + zapis do dziennika")

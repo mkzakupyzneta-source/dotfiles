@@ -40,3 +40,11 @@ init
 login
 ncurses-base
 ncurses-bin
+
+# --- pakiety wewnętrzne mechanizmu luster (26.08, Faza 3 automatu) ---
+# `dodaj_zrodlo_apt()` kładzie zewnętrzne źródła apt jako mikro-pakiety .deb
+# (dpkg -i, w zakresie NOPASSWD [194] — sudo sh/install/tee nim NIE są).
+# Widoczne w `dpkg -l`, ale to ślad mechanizmu, nie program usera — bez tego
+# wzorca inwentarz apt widziałby je jak każdy pakiet i `lustro status` zgłaszałby
+# je jako „zainstalowane poza apką, brak w dzienniku".
+lustro-zrodlo-*
