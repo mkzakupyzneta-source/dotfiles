@@ -58,9 +58,3 @@
 # kontraktem [209]; ten plik był wtedy pusty, więc migracja to zero wierszy.
 #
 # (na razie pusto — czeka na pierwszą pozycję)
-
-[[pozycja]]
-kanal  = "apt"
-id     = "jq"
-status = "testowe"
-uwagi  = "ustawione z panelu menadżera sieci (obszar 1_Serwer), 2026-08-26 23:50"
