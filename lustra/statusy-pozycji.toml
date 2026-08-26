@@ -58,17 +58,3 @@
 # kontraktem [209]; ten plik był wtedy pusty, więc migracja to zero wierszy.
 #
 # (na razie pusto — czeka na pierwszą pozycję)
-
-# --- WPIS TESTOWY TYMCZASOWY [209], obszar 5, test akceptacyjny 2026-08-26 (b) ---
-# override obecne — sprawdza, ze `sync --auto` instaluje pozycje wskazana jawnym
-# override, niezaleznie od konsensusu. Pakiet niegrozny (cowsay), do sprzatania
-# po tescie.
-[[pozycja]]
-kanal = "apt"
-id = "cowsay"
-uwagi = "test tymczasowy [209] — override obecne, do sprzatania po tescie akceptacyjnym"
-
-  [[pozycja.override]]
-  maszyna = "katana"
-  stan = "obecne"
-  uwagi = "test akceptacyjny [209] 26.08 — sync --auto ma zainstalowac"
