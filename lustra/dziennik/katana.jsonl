@@ -121,3 +121,4 @@
 {"ts": "2026-08-27T00:21:21+02:00", "maszyna": "katana", "zdarzenie": "usunieto", "kanal": "apt", "id": "cowsay", "zrodlo": "apka", "notatka": "sprzatanie testu [213]"}
 {"ts": "2026-08-27T00:21:26+02:00", "maszyna": "katana", "zdarzenie": "usunieto", "kanal": "apt", "id": "sl", "zrodlo": "apka", "notatka": "sprzatanie testu [213]"}
 {"ts": "2026-08-27T00:21:33+02:00", "maszyna": "katana", "zdarzenie": "usunieto", "kanal": "apt", "id": "cmatrix", "zrodlo": "apka", "notatka": "sprzatanie testu [213]"}
+{"ts": "2026-08-27T00:21:41+02:00", "maszyna": "katana", "zdarzenie": "usunieto", "kanal": "flatpak", "id": "com.github.tchx84.Flatseal", "zrodlo": "apka", "notatka": "sprzatanie testu [213]"}
