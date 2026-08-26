@@ -1,0 +1,9 @@
+{{- /* ~/.claude/settings.json -> dowiazanie do konfiguracji wspolnej (statusLine,
+       hooki, permissions) — zeby kazda nowa stacja dostawala je automatycznie
+       przez `chezmoi apply`, bez recznego `ln -s` po maszynie (jak dotad).
+       Sprawa: pasek Claude Code brakujacy na Katanie (plik 22 B z samym
+       {"theme":"dark"} zamiast symlinka) — chezmoi NIGDY tym plikiem nie
+       zarzadzal, ktos zakladal symlink recznie na HP/Vostro/OptiPlexie 23.08.
+       Profil `stacja` dostaje ten plik bez ograniczen (tylko: [] w maszyny.yaml);
+       profil `serwer` NIE ma tej sciezki na liscie `tylko` — celowo pominiete. */ -}}
+{{ .chezmoi.homeDir }}/AI-katalog-roboczy/.claude-shared/settings.json
