@@ -26,9 +26,3 @@
 #
 # (na razie pusto — czeka na pierwszą pozycję)
 
-[[pozycja]]
-kanal   = "apt"
-id      = "jq"
-status  = "testowe"
-maszyna = ""
-uwagi   = "ustawione z panelu menadżera sieci (obszar 1_Serwer), 2026-08-26 18:49"
