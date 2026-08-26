@@ -224,6 +224,55 @@ Home Assistant OS, 24/7, bez wentylatora. Treść i utrzymanie → `11_Home-Assi
 tu tylko rola sieciowa dla panelu [202]. Brak konta SSH ogólnego przeznaczenia (HAOS,
 nie zwykły Linux) — pole `user` celowo puste, panel nie pokaże gotowej komendy SSH."""
 
+# ── Asus (ExpertBook) — panel treningowy przy bieżni ────────────────────────────
+# Dodana 2026-08-26 przez obszar 1_Serwer (panel menadżera sieci [202]/[209],
+# zlecenie [214]) na podstawie zwiadu obszaru `3_Maszyny_pozostale`
+# (`3_Maszyny_pozostale/_MEMORY/asus.md`) — nie-lustro, laptop przy bieżni,
+# wyświetla panel treningowy (treść: `11_Home-Assistant/`, tu tylko rola sieciowa).
+# `czlonek_lustra = false` zapisane JAWNIE (ten sam wzorzec co serwer, [209]) —
+# Asus nie ma chezmoi/lustro.py w ogóle, więc brak pola `profil` (HAOS jak Wyse),
+# ale w odróżnieniu od Wyse WCHODZI do zakładki Lustra jako kolumna informacyjna
+# w grupie POZOSTAŁE — właśnie dzięki jawnemu `czlonek_lustra` (patrz
+# `wczytaj_maszyny_lustra()` w app.py, warunek „albo ma pole czlonek_lustra").
+# `akcje_zablokowane = true`: klucze SSH serwera/Katany NIE są jeszcze zaufane
+# na koncie `kiosk` (port 22 otwarty, ale `Permission denied` — czeka na hasło
+# usera albo fizyczny dostęp, patrz asus.md) — dopóki to się nie zmieni, panel
+# nie oferuje ani „uśpij", ani „obudź" (WOL by technicznie zadziałał — ten sam
+# LAN co serwer — ale bez zaufanego SSH nie potwierdzimy wyniku, więc też
+# wyłączone, zgodnie z zasadą „nic bez potwierdzenia"). `user = "kiosk"` mimo
+# braku zaufanego klucza — SAMA gotowa komenda SSH w kolumnie „SSH" jest
+# przydatna do ręcznego testu/kopiowania, nawet jeśli dziś nie zaloguje bez
+# hasła (informacja, nie akcja).
+[[maszyna]]
+klucz = "asus"
+nazwa = "Asus (panel treningowy)"
+rola = "Panel treningowy przy bieżni + YouTube TV + pilot; most BT do czujnika HR; nie-lustro"
+nazwa_hosta = ""
+host_lan = "192.168.1.36"
+host_tailscale = ""
+ip_tailscale = ""
+user = "kiosk"
+katalog_roboczy = ""
+dostepna_jako_cel = false
+aktywna = true
+czlonek_lustra = false
+mac_lan = "F8:B5:4D:9D:D6:1D"
+akcje_zablokowane = true
+powod_blokady_akcji = "czeka na klucze SSH [214]"
+uwagi = """
+Laptop Asus ExpertBook (hostname mDNS `expertbook.home`, hipoteza z nazwy — nie
+zweryfikowane loginem), Linux Mint 22.3 Cinnamon (niezweryfikowane, zgodne z
+bannerem SSH Ubuntu 24.04). Usypia SAM po ~10 min bezczynności na baterii —
+CELOWE (zgłoszenie usera 2026-08-04), dlatego `nie_usypiac` nie ma tu
+zastosowania (nikt by i tak nie klikał „uśpij" ręcznie — `akcje_zablokowane`
+już wystarcza). Namierzenie w sieci i pełne źródła → asus.md (obszar
+`3_Maszyny_pozostale`). Zweryfikowane PONOWNIE 2026-08-26 wieczorem przy tym
+wpisie z serwera: ping i ARP na 192.168.1.36 nie odpowiadają (ARP
+`INCOMPLETE`) — maszyna w tej chwili NIEDOSTĘPNA w sieci (offline albo
+uśpiona), mimo wcześniejszego zwiadu tego samego dnia, który złapał ją online.
+Panel pokazuje żywy pomiar (ping), nie ten zapis — stan w interfejsie może się
+różnić od powyższego w zależności od tego, czy user właśnie ją obudził."""
+
 # ── Poligon — maszyna do eksperymentów (jeszcze nie istnieje) ──────────────────
 [[maszyna]]
 klucz = "poligon"
