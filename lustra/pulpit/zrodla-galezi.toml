@@ -1,0 +1,35 @@
+# Które gałęzie pulpitu (dconf) SKĄD biorą wartość przy najbliższym
+# `lustro pulpit skladaj` — kontrakt „menadżer konfiguracji" [209], rozdz. 2.3.2.
+# Patrz 10_Siec_domowa/5_Wspolna_konfiguracja/kontrakt-menadzer-konfiguracji-2026-08-26.md
+# (ZATWIERDZONY 26.08).
+#
+# BRAK wpisu dla gałęzi = zostaje tak, jak jest DZIŚ w pulpit/pulpit.ini — nic się
+# nie psuje w dniu wdrożenia: ten plik startuje PUSTY, więc pierwsze `pulpit skladaj`
+# nie zmienia ani jednego klucza (warunek wdrożenia bez niespodzianek, kontrakt rozdz. 6).
+#
+# [[galaz]]
+# sciezka = "/org/gnome/shell/extensions/dash-to-dock/"   (branch, kończy się „/")
+#            albo "/org/gnome/desktop/interface/font-name" (pojedynczy klucz, bez „/")
+# zrodlo  = "klucz_maszyny"   (z lustra/maszyny.toml, pole `klucz`)
+# uwagi   = dla człowieka (po co, od kiedy)
+#
+# Ziarnistość `sciezka` MUSI być tej samej granulacji co pulpit/dconf-lustro.txt
+# i pulpit/dconf-pomijane-klucze.txt (branch albo pojedynczy klucz) — nie
+# wprowadzamy trzeciego, niezależnego podziału tej samej bazy dconf (kontrakt
+# rozdz. 8, przypadek 7).
+#
+# Skąd `skladaj` bierze wartości danej gałęzi: z migawki źródłowej maszyny
+# (lustra/pulpit/stan/<zrodlo>.ini), zapisanej tam komendą `lustro pulpit
+# oddaj-stan` uruchomioną NA tamtej maszynie. Brak takiej migawki dla przypisanej
+# gałęzi = `pulpit skladaj` PRZERYWA z czytelnym błędem („brak migawki maszyny X
+# — uruchom tam lustro pulpit oddaj-stan"), NIE zostawia po cichu starą wartość
+# (kontrakt rozdz. 8, przypadek 6).
+#
+# Świadomie NIE ma tu (na razie) sposobu na skierowanie jednej gałęzi do
+# PODZBIORU maszyn przy `pulpit wgraj` — `wgraj` nadal wgrywa cały plik na
+# maszynę, która go uruchomi (dobrowolnie, jak dziś); wybieralne jest tylko
+# ŹRÓDŁO każdej gałęzi w pulpit.ini, nie jej ODBIORCY (decyzja Architekta/usera
+# 26.08 do kontraktu [209], rozdz. 9 — struktura ma tego nie blokować na
+# przyszłość, ale nie implementujemy tego teraz).
+#
+# (na razie pusto — pierwsze `pulpit skladaj` nie zmieni nic w pulpit.ini)

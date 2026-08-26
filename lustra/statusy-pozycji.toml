@@ -1,27 +1,74 @@
-# Status pozycji lustra per maszyna — DANE pod przyszłego MENADŻERA LUSTER
+# Status pozycji lustra per maszyna — DANE pod MENADŻERA KONFIGURACJI [209]
 # (pomysł usera 25.08: _POMYSLY/2026-08-25_menadzer-luster-tabela-maszyn.md;
-# plan automatu 25.08, poprawka 11). Sam menadżer (tabela program × maszyna)
-# to faza przyszła — TERAZ istnieje tylko struktura danych i jej honorowanie.
+# schemat rozszerzony 26.08 kontraktem [209] — patrz
+# 10_Siec_domowa/5_Wspolna_konfiguracja/kontrakt-menadzer-konfiguracji-2026-08-26.md,
+# rozdz. 2.2 i 3, ZATWIERDZONY 26.08).
 #
-# BRAK wpisu = status "wspolne" (domyślnie): pozycja propaguje się na wszystkie
-# stacje. Wpis robi się tylko dla odstępstw:
+# BRAK wpisu = status "wspolne" (domyślnie): pozycja bierze udział w normalnym
+# konsensusie lustra. Wpis robi się tylko dla odstępstw:
 #
 # [[pozycja]]
 # kanal   = "apt" | "snap" | "flatpak" | "gnome-extension"
 # id      = "identyfikator pakietu / uuid rozszerzenia"
-# status  = "testowe"   → KWARANTANNA: automat NIE proponuje instalacji na innych
-#                         maszynach (sync/status pomijają rozbieżność, `lustro lista`
-#                         nie wpisuje pozycji do packages.yaml, więc bootstrap nowej
-#                         maszyny też jej nie stawia). User „puszcza" pozycję po
-#                         weryfikacji, KASUJĄC wpis (wraca do "wspolne").
-#           "wyjatek"   → maszyna z pola `maszyna` świadomie odstaje (w obie strony:
-#                         ani nie instalujemy tam, ani nie zgłaszamy nadmiaru);
-#                         puste/brak pole maszyna = wyjątek na każdej maszynie.
-# maszyna = której maszyny dotyczy (dla "testowe" informacyjnie: gdzie testowane)
-# uwagi   = dla człowieka (po co, od kiedy)
+# status  = "testowe"      → KWARANTANNA: automat NIE proponuje instalacji na innych
+#                            maszynach (sync/status pomijają rozbieżność, `lustro lista`
+#                            nie wpisuje pozycji do packages.yaml, więc bootstrap nowej
+#                            maszyny też jej nie stawia). Ma PIERWSZEŃSTWO przed
+#                            wszystkim poniższym (override się nawet nie odczytuje,
+#                            dopóki trwa kwarantanna). User „puszcza" pozycję po
+#                            weryfikacji, KASUJĄC wpis (wraca do "wspolne").
+# wylacznie_na = ["klucz_maszyny", ...]
+#                            → konsensus lustra dla TEJ pozycji liczony tylko
+#                            w przecięciu z wymienionymi maszynami (zamiast
+#                            propagować się na każdego członka lustra). Uwaga:
+#                            to ogranicza KONSENSUS, nie działa samo z siebie na
+#                            maszynie spoza lustra — dla „jedna pozycja na jednej
+#                            maszynie nie-lustro" właściwe narzędzie to `override`
+#                            poniżej, nie to pole (kontrakt rozdz. 8, przypadek 5).
+# uwagi   = dla człowieka (po co, od kiedy) — dotyczy całej pozycji
+#
+#   [[pozycja.override]]
+#   maszyna = "klucz_maszyny"     (z lustra/maszyny.toml, pole `klucz`)
+#   stan    = "obecne" | "nieobecne"
+#   uwagi   = dla człowieka (po co, od kiedy — per wpis)
+#
+# `override` to jawne, KIERUNKOWE nadpisanie dla JEDNEJ pary (pozycja, maszyna).
+# Wygrywa ZAWSZE, niezależnie od tego, czy ta maszyna jest członkiem lustra
+# (kontrakt rozdz. 3, reguła 2) — to jedyne miejsce z dwukierunkowością:
+#   • "nieobecne" na maszynie-członku lustra → ta maszyna świadomie NIE ma mieć
+#     tej pozycji, mimo że reszta lustra ją ma. Bierne WYCISZENIE: `sync --auto`
+#     nigdy nic nie odinstalowuje (jak wszędzie), apka po prostu przestaje
+#     o tej pozycji tu wspominać.
+#   • "obecne" na maszynie, która NIE jest członkiem lustra → ta jedna pozycja
+#     ma być zainstalowana też TAM, mimo że maszyna poza tym nic z lustra nie
+#     dostaje. `sync --auto` ją tam zainstaluje (jedyny sposób, w jaki automat
+#     działa na maszynie spoza lustra — wyłącznie przez jawny override).
+# Dokładnie JEDEN wpis `[[pozycja.override]]` na parę (pozycja, maszyna) — DWA
+# sprzeczne wpisy dla tej samej pary to TWARDY BŁĄD wczytania (apka odmawia
+# uruchomienia z czytelnym komunikatem), nie cichy wybór ostatniego (kontrakt
+# rozdz. 8, przypadek 3).
 #
 # Różnica wobec pomijane-<maszyna>.txt: tamten plik to LOKALNA decyzja jednej
-# maszyny („nie pytaj mnie więcej"); ten plik to WSPÓLNE dane floty — widzą go
-# wszystkie maszyny i przyszły menadżer.
+# maszyny („nie pytaj mnie więcej", niecommitowany, niewidoczny dla panelu);
+# `override` tutaj to WSPÓLNE dane floty — widzą go wszystkie maszyny i panel
+# menadżera sieci [202] (kontrakt rozdz. 8, przypadek 13).
+#
+# Historia: do 26.08 istniało tu płaskie pole `status = "wyjatek"` + `maszyna`
+# (bez kierunku — tylko wyciszało rozbieżność). Zastąpione przez `override`
+# kontraktem [209]; ten plik był wtedy pusty, więc migracja to zero wierszy.
 #
 # (na razie pusto — czeka na pierwszą pozycję)
+
+# --- WPIS TESTOWY TYMCZASOWY [209], obszar 5, test akceptacyjny 2026-08-26 (b) ---
+# override obecne — sprawdza, ze `sync --auto` instaluje pozycje wskazana jawnym
+# override, niezaleznie od konsensusu. Pakiet niegrozny (cowsay), do sprzatania
+# po tescie.
+[[pozycja]]
+kanal = "apt"
+id = "cowsay"
+uwagi = "test tymczasowy [209] — override obecne, do sprzatania po tescie akceptacyjnym"
+
+  [[pozycja.override]]
+  maszyna = "katana"
+  stan = "obecne"
+  uwagi = "test akceptacyjny [209] 26.08 — sync --auto ma zainstalowac"

@@ -40,7 +40,10 @@ PLIK_PULPITU = PULPIT / "pulpit.ini"
 PLIK_ROZSZERZEN = PULPIT / "dconf-rozszerzenia.txt"
 PLIK_ROZSZERZEN_GNOME = PULPIT / "rozszerzenia-gnome.txt"
 ZRODLA_APT = KATALOG / "zrodla-apt.toml"           # zewnętrzne repozytoria apt [176]
-STATUSY_POZYCJI = KATALOG / "statusy-pozycji.toml" # wspolne/wyjatek/testowe (poprawka 11)
+STATUSY_POZYCJI = KATALOG / "statusy-pozycji.toml" # wspolne/testowe + override/wylacznie_na [209]
+MASZYNY_TOML = KATALOG / "maszyny.toml"            # czlonek_lustra [209] 2.1
+ZRODLA_GALEZI = PULPIT / "zrodla-galezi.toml"      # źródło per gałąź pulpitu [209] 2.3.2
+PULPIT_STAN = PULPIT / "stan"                      # migawki <maszyna>.ini [209] 2.3.1
 SOURCES_D = Path("/etc/apt/sources.list.d")
 KOPIE = DOM / ".local/share/lustro/kopie"
 
@@ -405,12 +408,19 @@ def wczytaj_dzienniki():
 
 
 def dopisz_zdarzenie(zdarzenie, kanal=None, ident=None, wersja=None,
-                     zrodlo="apka", za=None, pliki=None, notatka=None):
+                     zrodlo="apka", za=None, pliki=None, notatka=None, maszyna=None):
     """
-    Dopisuje JEDNĄ linię do dziennika tej maszyny (append-only, spec 4.1).
+    Dopisuje JEDNĄ linię do dziennika (append-only, spec 4.1).
     Kolejność pól jak w spec 4.2 — żeby dziennik czytało się okiem.
+
+    `maszyna` domyślnie to ta, na której apka aktualnie działa (`nazwa_maszyny()`).
+    Wyjątek świadomy (kontrakt [209] 2.3.3, `pulpit skladaj`): kiedy gałąź pulpitu
+    zostaje przejęta ze ŹRÓDŁOWEJ maszyny, zdarzenie ma trafić do JEJ dziennika
+    (żeby było wiadomo „skąd i kiedy"), nie do dziennika maszyny, która akurat
+    uruchomiła `skladaj` — stąd ten parametr.
     """
-    z = {"ts": teraz_iso(), "maszyna": nazwa_maszyny(), "zdarzenie": zdarzenie}
+    docelowa = maszyna or nazwa_maszyny()
+    z = {"ts": teraz_iso(), "maszyna": docelowa, "zdarzenie": zdarzenie}
     if kanal:
         z["kanal"] = kanal
     if ident is not None:
@@ -426,7 +436,7 @@ def dopisz_zdarzenie(zdarzenie, kanal=None, ident=None, wersja=None,
         z["notatka"] = notatka
 
     DZIENNIKI.mkdir(parents=True, exist_ok=True)
-    plik = DZIENNIKI / f"{nazwa_maszyny()}.jsonl"
+    plik = DZIENNIKI / f"{docelowa}.jsonl"
     with plik.open("a", encoding="utf-8") as f:
         f.write(json.dumps(z, ensure_ascii=False) + "\n")
     return z
@@ -502,12 +512,28 @@ def dopisz_pomijane(kanal, ident, powod=""):
 
 def wczytaj_statusy_pozycji():
     """
-    Czyta lustra/statusy-pozycji.toml → {(kanal, id): {"status", "maszyna", "uwagi"}}.
-    Struktura danych pod przyszłego MENADŻERA LUSTER (pomysł usera 25.08):
-    brak wpisu = "wspolne" (pozycja propaguje się normalnie);
-    "testowe"  = kwarantanna — automat NIE propaguje, dopóki user nie skasuje wpisu;
-    "wyjatek"  = maszyna z pola `maszyna` świadomie odstaje (pusta = każda).
-    Brak pliku / błąd = pusty słownik (nic nie blokuje, wszystko "wspolne").
+    Czyta lustra/statusy-pozycji.toml →
+    {(kanal, id): {"status", "uwagi", "wylacznie_na": [...], "override": {maszyna: {...}}}}.
+
+    Schemat kontraktu „menadżer konfiguracji" [209], rozdz. 2.2 (zastępuje płaskie
+    pole `wyjatek`+`maszyna` z poprawki 11 — dzień zmiany plik był pusty, zero
+    wierszy do migracji):
+    brak wpisu = "wspolne" (pozycja propaguje się normalnie w konsensusie lustra);
+    "testowe"  = kwarantanna — automat NIE propaguje, dopóki user nie skasuje wpisu
+                 (bez zmian, pierwszeństwo przed wszystkim poniższym — rozdz. 3, 8p9);
+    `wylacznie_na` = lista kluczy maszyn — konsensus lustra dla tej pozycji liczony
+                 tylko w przecięciu z tą listą (rozdz. 3 reguła 3);
+    `[[pozycja.override]]` = nadpisanie kierunkowe dla JEDNEJ (pozycja, maszyna) —
+                 wygrywa zawsze, niezależnie od członkostwa w lustrze (rozdz. 3
+                 reguła 2, dwukierunkowość z decyzji usera 26.08).
+
+    Błąd wczytania (nieznany `status`, wpis override bez poprawnego `maszyna`/`stan`,
+    albo DWA sprzeczne `[[pozycja.override]]` dla tej samej pary pozycja×maszyna —
+    kontrakt rozdz. 8, przypadek 3) → apka ODMAWIA wczytania i kończy z czytelnym
+    komunikatem (`sys.exit(1)`), zamiast po cichu wybierać któryś wpis: dwuznaczność
+    tutaj dotyczy działania na systemie, nie tylko raportu.
+
+    Brak pliku = pusty słownik (nic nie blokuje, wszystko "wspolne").
     """
     if not STATUSY_POZYCJI.exists():
         return {}
@@ -520,17 +546,91 @@ def wczytaj_statusy_pozycji():
     wynik = {}
     for p in dane.get("pozycja", []):
         kanal, ident = p.get("kanal"), p.get("id")
-        status = p.get("status", "wspolne")
         if not kanal or not ident:
             continue
-        if status not in ("wspolne", "wyjatek", "testowe"):
+        status = p.get("status", "wspolne")
+        if status not in ("wspolne", "testowe"):
             print(f"⚠ {STATUSY_POZYCJI.name}: nieznany status „{status}” dla "
-                  f"{ident} ({kanal}) — traktuję jak wspolne")
+                  f"{ident} ({kanal}) — traktuję jak wspolne "
+                  f"(pole „wyjatek” zostało zastąpione przez [[pozycja.override]], "
+                  f"kontrakt [209] — jeśli o to chodziło, popraw wpis)")
             status = "wspolne"
-        wynik[(kanal, ident)] = {"status": status,
-                                 "maszyna": (p.get("maszyna") or "").lower(),
-                                 "uwagi": p.get("uwagi", "")}
+
+        override = {}
+        for o in p.get("override", []):
+            maszyna_o = (o.get("maszyna") or "").lower()
+            stan = o.get("stan")
+            if not maszyna_o or stan not in ("obecne", "nieobecne"):
+                sys.exit(
+                    f"BŁĄD w {STATUSY_POZYCJI.name}: pozycja {ident} ({kanal}) ma "
+                    f"[[pozycja.override]] bez poprawnych pól — wymagane "
+                    f"`maszyna` (niepuste) i `stan` = \"obecne\" albo \"nieobecne\" "
+                    f"(dostałem: maszyna={o.get('maszyna')!r}, stan={stan!r}). "
+                    f"Nic nie liczę, dopóki plik nie jest poprawny.")
+            if maszyna_o in override:
+                sys.exit(
+                    f"BŁĄD w {STATUSY_POZYCJI.name}: DWA sprzeczne [[pozycja.override]] "
+                    f"dla tej samej pary (pozycja={ident} [{kanal}], maszyna={maszyna_o}) "
+                    f"— pierwszy wpis: stan={override[maszyna_o]['stan']!r}, "
+                    f"drugi wpis: stan={stan!r}. Kontrakt [209], rozdz. 8 przypadek 3: "
+                    f"to twardy błąd, nie cichy wybór ostatniego — zostaw dokładnie "
+                    f"JEDEN wpis override na parę (pozycja, maszyna).")
+            override[maszyna_o] = {"stan": stan, "uwagi": o.get("uwagi", "")}
+
+        wylacznie_na = [str(x).lower() for x in (p.get("wylacznie_na") or [])]
+
+        wynik[(kanal, ident)] = {
+            "status": status,
+            "uwagi": p.get("uwagi", ""),
+            "wylacznie_na": wylacznie_na,
+            "override": override,
+        }
     return wynik
+
+
+def wczytaj_czlonkow_lustra():
+    """
+    Czyta lustra/maszyny.toml → {klucz_maszyny: bool} — czy maszyna jest członkiem
+    lustra (kontrakt [209] 2.1). Wartość domyślna, gdy pole `czlonek_lustra`
+    nieobecne w bloku [[maszyna]]: `profil == "stacja"` (albo brak pola `profil`,
+    które też domyślnie znaczy "stacja" — patrz komentarz w maszyny.toml) → True;
+    każdy inny profil (np. "serwer") → False. To jest dzisiejszy stan faktyczny
+    zapisany jawnie jako dana, więc dzień wdrożenia (bez pola `czlonek_lustra`
+    nigdzie) daje IDENTYCZNY wynik jak przed zmianą.
+
+    Brak pliku / błąd odczytu = pusty słownik — `czy_czlonek_lustra` wtedy
+    domyślnie liczy każdą maszynę jako członka (patrz tam), czyli zachowanie
+    sprzed kontraktu [209] (wszystkie dzienniki liczą się do konsensusu).
+    """
+    if not MASZYNY_TOML.exists():
+        return {}
+    import tomllib
+    try:
+        dane = tomllib.loads(MASZYNY_TOML.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError) as e:
+        print(f"⚠ nie umiem odczytać {MASZYNY_TOML.name}: {e} — członkostwo w lustrze pomijam")
+        return {}
+    wynik = {}
+    for m in dane.get("maszyna", []):
+        klucz = (m.get("klucz") or "").lower()
+        if not klucz:
+            continue
+        domyslne = m.get("profil", "stacja") == "stacja"
+        wynik[klucz] = bool(m.get("czlonek_lustra", domyslne))
+    return wynik
+
+
+def czy_czlonek_lustra(maszyna, czlonkowie=None):
+    """
+    Czy dana maszyna (identyfikator jak w dzienniku/`klucz` z maszyny.toml) jest
+    członkiem lustra. Maszyna NIEZNANA w maszyny.toml (np. świeżo postawiona,
+    jeszcze bez wpisu) → domyślnie True: dzisiejsze zachowanie liczy do konsensusu
+    KAŻDĄ maszynę z dziennikiem, więc brak wpisu nie może po cichu wyciszyć jej
+    historii — bezpieczniejszy domyślny wybór niż ciche wykluczenie.
+    """
+    if czlonkowie is None:
+        czlonkowie = wczytaj_czlonkow_lustra()
+    return czlonkowie.get((maszyna or "").lower(), True)
 
 
 # ---------------------------------------------------------------- zewnętrzne źródła apt [176]
@@ -1113,13 +1213,16 @@ def eksport_pulpitu():
     return {k: v.replace(dom, "{{HOME}}") for k, v in stan.items()}
 
 
-def zapisz_pulpit(stan, plik):
-    """Zapisuje eksport w formacie zgodnym z `dconf dump /` (sekcje bez wiodącego /)."""
+def zapisz_pulpit(stan, plik, naglowek_linie=None):
+    """Zapisuje eksport w formacie zgodnym z `dconf dump /` (sekcje bez wiodącego /).
+    `naglowek_linie` pozwala podmienić domyślny komentarz nagłówkowy (używane przez
+    migawki `pulpit/stan/<maszyna>.ini`, które NIE są wzorcem do `pulpit wgraj`,
+    kontrakt [209] 2.3.1)."""
     grupy = {}
     for klucz, wartosc in stan.items():
         sekcja, nazwa = klucz.rsplit("/", 1)
         grupy.setdefault(sekcja.strip("/"), {})[nazwa] = wartosc
-    linie = [
+    linie = list(naglowek_linie) if naglowek_linie is not None else [
         "# Ustawienia pulpitu GNOME objęte lustrem — plik GENEROWANY przez lustro.py.",
         "# Ścieżki wybrane w pulpit/dconf-lustro.txt; {{HOME}} = katalog domowy maszyny.",
         "# Klucze przejęte przez rozszerzenia GNOME są POZA lustrem — patrz",
@@ -1136,11 +1239,14 @@ def zapisz_pulpit(stan, plik):
     plik.write_text("\n".join(linie), encoding="utf-8")
 
 
-def wczytaj_pulpit_z_lustra():
-    if not PLIK_PULPITU.exists():
+def wczytaj_ini_pulpitu(plik):
+    """Czyta plik w formacie `dconf dump` (jak zapisuje `zapisz_pulpit`) → {klucz: wartość}.
+    Brak pliku → None. Współdzielone przez `pulpit.ini` i migawki `pulpit/stan/*.ini`
+    (kontrakt [209] 2.3)."""
+    if not plik.exists():
         return None
     stan, sekcja = {}, ""
-    for linia in PLIK_PULPITU.read_text(encoding="utf-8").splitlines():
+    for linia in plik.read_text(encoding="utf-8").splitlines():
         linia = linia.rstrip()
         if not linia or linia.startswith("#"):
             continue
@@ -1151,6 +1257,42 @@ def wczytaj_pulpit_z_lustra():
             k, v = linia.split("=", 1)
             stan["/" + sekcja + "/" + k.strip()] = v.strip()
     return stan
+
+
+def wczytaj_pulpit_z_lustra():
+    return wczytaj_ini_pulpitu(PLIK_PULPITU)
+
+
+def wczytaj_stan_maszyny(maszyna):
+    """Migawka JEDNEJ maszyny: lustra/pulpit/stan/<maszyna>.ini → {klucz: wartość}
+    albo None, gdy ta maszyna jeszcze nie uruchomiła `lustro pulpit oddaj-stan`
+    (kontrakt [209] 2.3.1)."""
+    return wczytaj_ini_pulpitu(PULPIT_STAN / f"{maszyna}.ini")
+
+
+def wczytaj_zrodla_galezi():
+    """
+    Czyta lustra/pulpit/zrodla-galezi.toml → [{"sciezka", "zrodlo", "uwagi"}, ...]
+    (kontrakt [209] 2.3.2). Brak pliku / brak wpisów `[[galaz]]` = pusta lista —
+    `pulpit skladaj` wtedy nie zmienia w `pulpit.ini` ANI JEDNEGO klucza (warunek
+    wdrożenia bez niespodzianek, kontrakt rozdz. 6).
+    """
+    if not ZRODLA_GALEZI.exists():
+        return []
+    import tomllib
+    try:
+        dane = tomllib.loads(ZRODLA_GALEZI.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError) as e:
+        print(f"⚠ nie umiem odczytać {ZRODLA_GALEZI.name}: {e} — źródła gałęzi pomijam")
+        return []
+    wynik = []
+    for g in dane.get("galaz", []):
+        sciezka, zrodlo = g.get("sciezka"), g.get("zrodlo")
+        if not sciezka or not zrodlo:
+            continue
+        wynik.append({"sciezka": sciezka, "zrodlo": str(zrodlo).lower(),
+                      "uwagi": g.get("uwagi", "")})
+    return wynik
 
 
 def roznice_pulpitu():
@@ -1511,7 +1653,21 @@ def zapytaj_o_ustawienia(program, kandydaci):
 # ---------------------------------------------------------------- zbieranie pozycji
 
 def zbierz_pozycje():
-    """Wspólny rdzeń `status` i `sync`."""
+    """
+    Wspólny rdzeń `status` i `sync`.
+
+    Semantyka rozstrzygania od kontraktu „menadżer konfiguracji" [209], rozdz. 3
+    (pierwsza pasująca reguła wygrywa):
+      1. `status = "testowe"` → kwarantanna, bez zmian.
+      2. Jawny `[[pozycja.override]]` DLA TEJ MASZYNY → wygrywa zawsze, niezależnie
+         od członkostwa w lustrze (dwukierunkowość — override "obecne" działa też
+         na maszynie, która NIE jest lustrem).
+      3. Brak override, maszyna JEST członkiem lustra → konsensus z dziennika,
+         liczony TYLKO z dzienników maszyn-członków (rozdz. 4), ew. ograniczony do
+         przecięcia z `wylacznie_na`.
+      4. Brak override, maszyna NIE jest członkiem lustra → „dowolny": pozycja
+         w ogóle nie jest sprawdzana, nie ma szans na rozbieżność.
+    """
     maszyna = nazwa_maszyny()
     zdarzenia = wczytaj_dzienniki()
     inw = inwentaryzacja()
@@ -1523,24 +1679,73 @@ def zbierz_pozycje():
     if any(k.is_dir() for k in KATALOGI_ROZSZERZEN) or czy_jest("gnome-shell"):
         for uuid, wersja in rozszerzenia_na_dysku(tylko_uzytkownika=True).items():
             inw[("gnome-extension", uuid)] = wersja
-    ostatnie, historia = stan_oczekiwany(zdarzenia)
+
+    czlonkowie = wczytaj_czlonkow_lustra()
+    ta_maszyna_czlonek = czy_czlonek_lustra(maszyna, czlonkowie)
+
+    # Konsensus liczony TYLKO z dzienników maszyn-członków lustra (kontrakt [209],
+    # rozdz. 4) — dziennik maszyny nie-członka nadal fizycznie istnieje i jest
+    # czytany niżej (`moje`, „niezapisane"), tylko nie wpływa na oczekiwania INNYCH
+    # maszyn. Dziś (dzień wdrożenia, brak jawnych `czlonek_lustra`) każda maszyna
+    # z dziennikiem jest członkiem domyślnie — filtr nie zmienia niczego.
+    zdarzenia_czlonkow = [z for z in zdarzenia
+                          if czy_czlonek_lustra(z.get("maszyna"), czlonkowie)]
+    ostatnie, historia = stan_oczekiwany(zdarzenia_czlonkow)
     moje = stan_wg_tej_maszyny(zdarzenia, maszyna)
     pomijane = wczytaj_pomijane()
     statusy = wczytaj_statusy_pozycji()
 
     rozbieznosci, niezapisane, usuniete_poza, kwarantanna = [], [], [], []
 
-    for klucz, zdarz in sorted(ostatnie.items()):
+    # Zbiór pozycji do oceny: konsensus (już przefiltrowany) PLUS pozycje, które
+    # mają jawny override dla TEJ maszyny, nawet jeśli w konsensusie w ogóle nie
+    # występują (przypadek brzegowy: pozycja tylko na maszynie spoza lustra,
+    # kontrakt rozdz. 8, przypadek 5/11 — „ktoś przygotowuje wyjątek zanim maszyna
+    # jeszcze istnieje").
+    klucze_do_oceny = set(ostatnie)
+    for klucz, st in statusy.items():
+        if maszyna in st.get("override", {}):
+            klucze_do_oceny.add(klucz)
+
+    for klucz in sorted(klucze_do_oceny):
         if klucz in pomijane:
             continue
-        # statusy pozycji (poprawka 11): "testowe" = kwarantanna, automat nie rusza;
-        # "wyjatek" = ta maszyna świadomie odstaje — rozbieżności nie zgłaszamy.
         st = statusy.get(klucz)
+
+        # reguła 1: testowe (kwarantanna) — pierwszeństwo przed wszystkim, override
+        # się w ogóle nie odczytuje (kontrakt rozdz. 8, przypadek 9)
         if st and st["status"] == "testowe":
-            kwarantanna.append((klucz, st))
+            if klucz in ostatnie:
+                kwarantanna.append((klucz, st))
             continue
-        if st and st["status"] == "wyjatek" and st["maszyna"] in ("", maszyna):
+
+        override_tu = (st or {}).get("override", {}).get(maszyna)
+
+        if override_tu is not None:
+            # reguła 2: override dla tej maszyny wygrywa zawsze
+            ma_byc = override_tu["stan"] == "obecne"
+            jest_tutaj = klucz in inw
+            if ma_byc and not jest_tutaj:
+                zdarz = ostatnie.get(klucz) or {
+                    "maszyna": "(brak zdarzenia — tylko override)", "ts": "",
+                    "notatka": override_tu.get("uwagi", "")}
+                rozbieznosci.append((klucz, zdarz, "brak-tutaj"))
+            # (not ma_byc) i jest_tutaj: bierne WYCISZENIE (rozdz. 5) — apka nigdy
+            # nic nie usuwa i o tej pozycji tu już nie wspomina; zgodne (ma_byc ==
+            # jest_tutaj): też nic do zrobienia.
             continue
+
+        if not ta_maszyna_czlonek:
+            continue   # reguła 4: „dowolny" — pozycja w ogóle nie jest sprawdzana
+
+        # reguła 3: konsensus (już ograniczony do członków), ew. przecięty z wylacznie_na
+        zdarz = ostatnie.get(klucz)
+        if zdarz is None:
+            continue
+        wylacznie_na = (st or {}).get("wylacznie_na") or []
+        if wylacznie_na and maszyna not in wylacznie_na:
+            continue
+
         jest_tutaj = klucz in inw
         ma_byc = zdarz.get("zdarzenie") == "dodano"
         czyje = zdarz.get("maszyna")
@@ -1915,6 +2120,120 @@ def polecenie_pulpit_oddaj(args):
                      zrodlo="apka", pliki=zmienione, notatka=notatka or None)
     print(f"Zapisano {len(stan)} kluczy do {PLIK_PULPITU.name} + zdarzenie w dzienniku.")
     git_zapisz(f"lustra: pulpit oddany z {nazwa_maszyny()} ({len(zmienione)} kluczy)")
+    return 0
+
+
+def polecenie_pulpit_oddaj_stan(args):
+    """`lustro pulpit oddaj-stan` (kontrakt [209] 2.3.1) — migawka WŁASNEGO stanu
+    gałęzi pulpitu do lustra/pulpit/stan/<maszyna>.ini.
+
+    W odróżnieniu od `pulpit oddaj`: to jest czysta OBSERWACJA, bez skutków — plik
+    nadpisuje TYLKO ten jednej, własnej maszyny, nigdy cudzy, więc (inaczej niż
+    `oddaj`/`wgraj`) nie pyta o zgodę i działa bez terminala bez żadnej flagi.
+    Dopiero `pulpit skladaj` (osobna komenda, czysto po stronie repo) decyduje,
+    czy i które gałęzie z tej migawki trafią do wspólnego `pulpit.ini`."""
+    git_pull_rebase()
+    del _BLEDY_DCONF[:]
+    stan = eksport_pulpitu()
+    powody = powody_niepewnosci()
+    if powody:
+        for b in powody:
+            print(f"⚠ {b}")
+        print("Obraz ustawień jest teraz niepewny — NIE zapisuję migawki.")
+        print("Powtórz przy odblokowanym, działającym pulpicie.")
+        return 1
+
+    PULPIT_STAN.mkdir(parents=True, exist_ok=True)
+    plik = PULPIT_STAN / f"{nazwa_maszyny()}.ini"
+    zapisz_pulpit(stan, plik, naglowek_linie=[
+        f"# Migawka stanu pulpitu maszyny „{nazwa_maszyny()}” — plik GENEROWANY przez",
+        "# `lustro pulpit oddaj-stan` (kontrakt [209] 2.3.1). Czysta obserwacja: NIE jest",
+        "# wzorcem `pulpit wgraj` sama w sobie — o to, które gałęzie stąd trafiają do",
+        "# wspólnego pulpit.ini, decyduje pulpit/zrodla-galezi.toml + `pulpit skladaj`.",
+        "# Ścieżki wybrane w pulpit/dconf-lustro.txt; {{HOME}} = katalog domowy maszyny.",
+        "",
+    ])
+    print(f"Migawka zapisana: {plik} ({len(stan)} kluczy).")
+    print("To tylko obserwacja własnego stanu — pulpit.ini i system nie zostały ruszone.")
+    git_zapisz(f"lustra: migawka pulpitu {nazwa_maszyny()} "
+               f"→ pulpit/stan/{nazwa_maszyny()}.ini ({len(stan)} kluczy)")
+    return 0
+
+
+def polecenie_pulpit_skladaj(args):
+    """`lustro pulpit skladaj` (kontrakt [209] 2.3.3) — składa `pulpit.ini` z
+    przypisanych źródeł PER GAŁĄŹ (pulpit/zrodla-galezi.toml) + migawek maszyn
+    (pulpit/stan/<maszyna>.ini). Gałęzie BEZ wpisu zostają z dzisiejszego
+    pulpit.ini (dzień wdrożenia = plik pusty = zero zmian, kontrakt rozdz. 6).
+
+    Czysto po stronie repo — NIE dotyka żadnej maszyny (dconf, system), tylko
+    plik lustra/pulpit/pulpit.ini. Dlatego, jak `lustro lista`, nie pyta o zgodę —
+    to jest przeliczenie pochodnego artefaktu ze źródeł, nie zmiana systemu.
+
+    Brak migawki źródłowej maszyny dla którejkolwiek przypisanej gałęzi = TWARDY
+    błąd (kontrakt rozdz. 8, przypadek 6) — PRZERYWA CAŁOŚĆ bez zapisu, żeby nigdy
+    nie zapisać niekompletnego/milczącego złożenia (ten sam wzorzec ostrożności co
+    `pulpit wgraj`, które przerywa, gdy nie umie zrobić kopii bezpieczeństwa)."""
+    git_pull_rebase()
+    galezie = wczytaj_zrodla_galezi()
+    stare = wczytaj_pulpit_z_lustra() or {}
+
+    if not galezie:
+        print(f"{ZRODLA_GALEZI.relative_to(REPO)} nie ma żadnych wpisów [[galaz]] — "
+              f"pulpit.ini zostaje BEZ ZMIAN (wszystkie gałęzie zostają ze starego pliku).")
+        return 0
+
+    nowy = dict(stare)
+    zmiany_per_zrodlo = {}
+    bledy = []
+
+    for g in galezie:
+        sciezka, zrodlo = g["sciezka"], g["zrodlo"]
+        stan_zrodla = wczytaj_stan_maszyny(zrodlo)
+        if stan_zrodla is None:
+            bledy.append(f"gałąź {sciezka}: brak migawki maszyny „{zrodlo}” "
+                         f"({(PULPIT_STAN / (zrodlo + '.ini')).relative_to(REPO)}) — "
+                         f"uruchom tam najpierw `lustro pulpit oddaj-stan`")
+            continue
+        prefiks = sciezka if sciezka.endswith("/") else sciezka + "/"
+        klucze_zrodla = {k: v for k, v in stan_zrodla.items()
+                         if k == sciezka or k.startswith(prefiks)}
+        # usuń spod tej gałęzi wszystko, co dziś jest w pulpit.ini (żeby klucze,
+        # których źródło już nie ma, zniknęły), potem wstaw świeże z migawki źródła
+        for k in [k for k in nowy if k == sciezka or k.startswith(prefiks)]:
+            del nowy[k]
+        nowy.update(klucze_zrodla)
+        zmiany_per_zrodlo.setdefault(zrodlo, []).append(sciezka)
+
+    if bledy:
+        print(f"BŁĄD — {len(bledy)} gałęzi bez migawki źródła, PRZERYWAM "
+              f"(nie zapisuję niekompletnego złożenia):")
+        for b in bledy:
+            print(f"   • {b}")
+        return 1
+
+    if nowy == stare:
+        print("Złożenie nie zmienia niczego w pulpit.ini (migawki źródeł już zgodne "
+              "z tym, co tam jest).")
+        return 0
+
+    zmienione_klucze = sorted(k for k in set(stare) | set(nowy) if stare.get(k) != nowy.get(k))
+    zapisz_pulpit(nowy, PLIK_PULPITU)
+    print(f"Złożono {PLIK_PULPITU.name} z {len(galezie)} przypisanych gałęzi "
+          f"({len(zmienione_klucze)} zmienionych kluczy):")
+    for zrodlo, sciezki in sorted(zmiany_per_zrodlo.items()):
+        print(f"   źródło {zrodlo}: {', '.join(sciezki)}")
+
+    for zrodlo, sciezki in zmiany_per_zrodlo.items():
+        dopisz_zdarzenie(
+            "ustawienia", kanal="dconf", ident="pulpit", zrodlo="sklad",
+            pliki=sciezki, maszyna=zrodlo,
+            notatka=f"gałęzie przejęte do wspólnego pulpit.ini przez "
+                    f"`lustro pulpit skladaj` (uruchomione na {nazwa_maszyny()}); "
+                    f"kontrakt [209] 2.3.3")
+
+    git_zapisz(f"lustra: pulpit.ini złożony na {nazwa_maszyny()} "
+               f"({len(galezie)} gałęzi z {len(zmiany_per_zrodlo)} źródeł)")
     return 0
 
 
@@ -2618,15 +2937,34 @@ def wczytaj_reczne_kolumny(plik):
 
 
 def polecenie_lista(args):
-    """Generuje programy.md ORAZ .chezmoidata/packages.yaml z dzienników."""
+    """Generuje programy.md ORAZ .chezmoidata/packages.yaml z dzienników.
+
+    `programy.md` (tabela dla człowieka) zostaje NIEFILTROWANA — pełny obraz
+    historyczny ze wszystkich dzienników, jak dziś.
+
+    `.chezmoidata/packages.yaml` (lista WYKONAWCZA — to ją stawia bootstrap nowej
+    maszyny) stosuje kontrakt [209] rozdz. 5: „nowa maszyna bootstrapuje się
+    z konsensusu lustra tak jak dziś (reguła 3)" — czyli TYLKO z dzienników
+    maszyn-członków lustra, z pominięciem pozycji ograniczonych `wylacznie_na`
+    (nowa maszyna z założenia nie jest jeszcze na żadnej takiej liście imiennej).
+    Ewentualne `override obecne` przypisane jej kluczowi z góry dociągnie później
+    `lustro sync`/`sync --auto` — to już zwykła reguła 2, nie dotyczy tego pliku.
+    """
     zdarzenia = wczytaj_dzienniki()
-    ostatnie, _ = stan_oczekiwany(zdarzenia)
+    ostatnie, _ = stan_oczekiwany(zdarzenia)          # NIEFILTROWANE — do programy.md
     maszyny = sorted({z.get("maszyna") for z in zdarzenia if z.get("maszyna")})
     if not maszyny:
         maszyny = [nazwa_maszyny()]
 
     reczne = wczytaj_reczne_kolumny(args.reczne or args.do)
     statusy = wczytaj_statusy_pozycji()
+
+    # Konsensus dla LISTY WYKONAWCZEJ (packages.yaml): tylko dzienniki członków
+    # lustra, kontrakt [209] rozdz. 4-5.
+    czlonkowie = wczytaj_czlonkow_lustra()
+    zdarzenia_czlonkow = [z for z in zdarzenia
+                          if czy_czlonek_lustra(z.get("maszyna"), czlonkowie)]
+    ostatnie_wykonawcze, _ = stan_oczekiwany(zdarzenia_czlonkow)
 
     per_maszyna = {}
     for z in zdarzenia:
@@ -2658,10 +2996,19 @@ def polecenie_lista(args):
         if st and st["status"] == "testowe" and not uwagi:
             uwagi = "⏳ testowe (kwarantanna) — nie propaguje się automatem"
         wiersze.append((ident, kanal, komorki, do_czego, uwagi))
-        if ost.get("zdarzenie") == "dodano" and kanal in pakiety:
-            # kwarantanna (poprawka 11): pozycja `testowe` NIE wchodzi do listy
-            # wykonawczej — bootstrap nowej maszyny jej nie postawi
+        if kanal in pakiety:
+            # Lista WYKONAWCZA (kontrakt [209] rozdz. 5): konsensus tylko z
+            # dzienników członków lustra (nie z `ost`, który jest niefiltrowany —
+            # ten służy tylko tabeli dla człowieka wyżej), pominięcie kwarantanny
+            # (poprawka 11 — bez zmian) i pominięcie pozycji ograniczonych
+            # `wylacznie_na` (nowa maszyna z bootstrapu nie jest jeszcze na
+            # żadnej takiej liście imiennej, więc nie powinna jej dostać z automatu).
+            ost_wyk = ostatnie_wykonawcze.get((kanal, ident))
+            if ost_wyk is None or ost_wyk.get("zdarzenie") != "dodano":
+                continue
             if st and st["status"] == "testowe":
+                continue
+            if st and st.get("wylacznie_na"):
                 continue
             pakiety[kanal].append(ident)
 
@@ -2803,8 +3150,8 @@ def main():
     l.add_argument("--reczne", help="skąd wziąć ręczne kolumny (domyślnie: plik z --do)")
 
     pu = pod.add_parser("pulpit", help="warstwa GNOME (dconf)")
-    pu.add_argument("co", choices=["status", "zasiew", "oddaj", "wgraj", "sprawdz",
-                                    "rozszerzenia"])
+    pu.add_argument("co", choices=["status", "zasiew", "oddaj", "oddaj-stan", "wgraj",
+                                    "sprawdz", "rozszerzenia", "skladaj"])
     wspolne(pu)
 
     nm = pod.add_parser("nowa-maszyna", help="bootstrap (E3 — niedostępne)")
@@ -2834,9 +3181,11 @@ def main():
         return {"status": polecenie_pulpit_status,
                 "zasiew": polecenie_pulpit_zasiew,
                 "oddaj": polecenie_pulpit_oddaj,
+                "oddaj-stan": polecenie_pulpit_oddaj_stan,
                 "wgraj": polecenie_pulpit_wgraj,
                 "sprawdz": polecenie_pulpit_sprawdz,
-                "rozszerzenia": polecenie_pulpit_rozszerzenia}[args.co](args)
+                "rozszerzenia": polecenie_pulpit_rozszerzenia,
+                "skladaj": polecenie_pulpit_skladaj}[args.co](args)
     return niedostepne(args.polecenie)(args)
 
 
