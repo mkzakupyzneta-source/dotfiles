@@ -44,9 +44,18 @@
 wersja = 1
 
 # ── Vostro — stacja robocza (Ubuntu 24.04) ──────────────────────────────────────
+# Poprawka 2026-08-26 (obszar 1_Serwer, sprawa [202], zgłoszenie usera): pole
+# "nazwa" miało wpisane na sztywno "(ta maszyna)" — zostało tak zapisane przy
+# zakładaniu pliku (commit 1b07e23), najwyraźniej z sesji uruchomionej NA Vostro,
+# gdzie to zdanie było prawdziwe lokalnie. Plik jest jednak WSPÓLNY (repo chezmoi,
+# ten sam wpis widzą wszystkie maszyny) — etykieta "ta maszyna" pokazywała się w
+# panelu identycznie niezależnie od tego, kto naprawdę patrzy (np. z Katany).
+# "Czyja to maszyna" nie może być zaszyte w danych ogólnych — panel musi liczyć
+# to w locie z adresu, z którego przyszło żądanie (patrz app.py, funkcja
+# dopasuj_zrodlo).
 [[maszyna]]
 klucz = "vostro"
-nazwa = "Vostro (ta maszyna)"
+nazwa = "Vostro"
 rola = "Stacja robocza"
 nazwa_hosta = "vostro"
 host_lan = ""
