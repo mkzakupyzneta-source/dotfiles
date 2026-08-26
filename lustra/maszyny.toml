@@ -32,6 +32,16 @@
 #                        dostaje: .chezmoidata/maszyny.yaml. Brak pola = profil domyślny
 #                        (stacja). Dopasowanie po `nazwa_hosta`, bez rozróżniania
 #                        wielkości liter. Launcher tego pola nie czyta.
+#   mac_lan            — adres MAC karty sieciowej kablowej, do budzenia przez sieć (WOL),
+#                        sprawa [212]/E3a panelu menadżera sieci (obszar 1_Serwer, 2026-08-26).
+#                        Puste = panel pokaże przycisk „obudź" wyszarzony. WOL działa TYLKO
+#                        po kablu, w tej samej podsieci co serwer (patrz plan Architekta,
+#                        „Ograniczenia fizyczne") — panel to sprawdza porównując `host_lan`
+#                        tej maszyny z `host_lan` wpisu o `profil = "serwer"`.
+#   nie_usypiac        — true = panel NIE pokazuje przycisku „uśpij" dla tej maszyny (zamiast
+#                        niego adnotacja z `powod_nie_usypiac`). Wyjątek twardy, nie zgadywany
+#                        z `uwagi` — dodane 2026-08-26 dla Katany ([189]).
+#   powod_nie_usypiac  — tekst adnotacji pokazywany zamiast przycisku, gdy `nie_usypiac = true`.
 #
 # Bloki [[maszyna.konto]] — konta Claude Code NA TEJ maszynie (etykieta + katalog ustawień;
 # pusty katalog = domyślny ~/.claude). Przypisanie „etykieta → adres e-mail" bywa na każdej
@@ -58,7 +68,7 @@ klucz = "vostro"
 nazwa = "Vostro"
 rola = "Stacja robocza"
 nazwa_hosta = "vostro"
-host_lan = ""
+host_lan = "192.168.1.60"
 host_tailscale = "vostro"
 ip_tailscale = "100.100.178.56"
 user = "mk"
@@ -66,11 +76,17 @@ katalog_roboczy = "/home/mk/AI-katalog-roboczy"
 dostepna_jako_cel = true
 aktywna = true
 profil = "stacja"
+mac_lan = "54:bf:64:31:4d:b7"
 uwagi = """
 Stacja robocza. Konta Claude bierzemy z ~/.config/ailauncher/settings.json.
 Tailscale na Vostro jeszcze NIE zainstalowany (stan 2026-08-23) — pola tailscale puste.
 Do wpisania po instalacji: openssh-server + reguła zapory, jeśli Vostro ma być też celem
-z innych maszyn."""
+z innych maszyn.
+[212]/E3a (2026-08-26, obszar 1_Serwer): `host_lan` i `mac_lan` uzupełnione — zmierzone
+po SSH z serwera (`ip -4 -o addr show`, `ip -o link show`, interfejs kablowy `enp59s0`,
+UP+LOWER_UP w chwili pomiaru). BIOS/system: obsługa Wake-on-LAN w BIOS-ie NIEZWERYFIKOWANA
+(`ethtool` na Vostro nie ma reguły sudoers NOPASSWD, nie wymuszałem hasła) — do sprawdzenia
+przy okazji fizycznej wizyty."""
 
 # ── OptiPlex 7050 — serwer domowy 24/7 (Linux Mint 22.3) ───────────────────────
 [[maszyna]]
@@ -86,6 +102,7 @@ katalog_roboczy = "/home/mk/AI-katalog-roboczy"
 dostepna_jako_cel = true
 aktywna = true
 profil = "serwer"
+mac_lan = "d8:9e:f3:95:f1:13"
 uwagi = """
 Serwer domowy — tu żyją długie sesje Claude'a (zawsze w tmux, żeby przetrwały zerwanie
 łącza i żeby dało się podpiąć z drugiej maszyny). Klucz SSH z Vostro działa (2026-08-23).
@@ -93,7 +110,10 @@ Serwer domowy — tu żyją długie sesje Claude'a (zawsze w tmux, żeby przetrw
 objęty mechanizmem luster, więc instalacji nie ma w dzienniku.
 Nazwa MagicDNS `mk-optiplex-7050` i adres `100.110.113.13` są ZWERYFIKOWANE (2026-08-24,
 sprawa [149]): `tailscale status` na Vostro pokazuje ten węzeł, `tailscale ping` zwraca
-pong bezpośrednio przez 192.168.1.49:41641 (2-3 ms)."""
+pong bezpośrednio przez 192.168.1.49:41641 (2-3 ms).
+`mac_lan` zmierzony lokalnie 2026-08-26 (`ip -o link show enp0s31f6`); `ethtool enp0s31f6`
+potwierdza `Wake-on: g` (WOL przez magic packet włączony w systemie). Serwer sam siebie
+nie budzi (jest jedyną maszyną 24/7) — pole tu tylko dla kompletności danych."""
 
   [[maszyna.konto]]
   nazwa = "Konto 1 — michal.kowalik@pw.edu.pl"
@@ -117,6 +137,7 @@ katalog_roboczy = ""
 dostepna_jako_cel = false
 aktywna = true
 profil = "stacja"
+mac_lan = ""
 uwagi = """
 Tylko „skąd" — punkt startowy, nie cel. Windows ma inną ścieżkę katalogu roboczego i nie ma
 tmux, więc `ssh -t ... cd ... && tmux ...` nie zadziała wprost. Po przesiadce HP na Linuksa
@@ -124,7 +145,9 @@ wpis się uzupełnia i `dostepna_jako_cel` staje się true.
 Uzupełnione 2026-08-26 (obszar 1_Serwer, panel menadżera sieci [202]): host_tailscale
 i ip_tailscale odczytane z `tailscale status --json` na serwerze (węzeł `lapekhp`,
 100.112.73.10, Windows) — nie zmierzone, tylko przepisane z żywego stanu tailnetu.
-host_lan wciąż pusty (adres Wi-Fi HP nieznany/zmienny, niezmierzony)."""
+host_lan wciąż pusty (adres Wi-Fi HP nieznany/zmienny, niezmierzony).
+`mac_lan` pusty (2026-08-26, E3a): HP niedostępna po SSH stąd (Windows, brak konta/klucza),
+nie dało się zmierzyć — panel pokaże przycisk „obudź" wyszarzony do czasu uzupełnienia."""
 
 # ── Katana — stacja robocza, poligon E3 mechanizmu luster ──────────────────────
 # Dodana 2026-08-26 przez obszar 1_Serwer (panel menadżera sieci [202]) — maszyna
@@ -147,10 +170,18 @@ katalog_roboczy = "/home/mk/AI-katalog-roboczy"
 dostepna_jako_cel = true
 aktywna = true
 profil = "stacja"
+mac_lan = ""  # uzupełnić przy wizycie — nie dotykałem Katany zdalnie (patrz uwagi)
+nie_usypiac = true
+powod_nie_usypiac = "[189] — budzenie bez ekranu; usypianie dozwolone dopiero po wdrożeniu roli headless"
 uwagi = """
 Poligon etapu E3 mechanizmu luster (decyzja usera [150], 2026-08-24) — stawiana od
 czystego Ubuntu 24.04 przez `lustro`. [189] NIE USYPIAĆ — zawiesza się po wybudzeniu
-(przyszły panel akcji E3 ma to respektować). host_lan pusty celowo, patrz uwaga wyżej."""
+(przyszły panel akcji E3 ma to respektować, patrz `nie_usypiac`/`powod_nie_usypiac` wyżej).
+host_lan pusty celowo, patrz uwaga wyżej.
+`mac_lan` celowo NIE uzupełniony 2026-08-26 (E3a) — zlecenie wyraźnie zabraniało dotykania
+Katany zdalnie w tej sesji (klucz SSH serwera zresztą i tak nie jest jeszcze w jej
+authorized_keys, patrz DO ARCHITEKTA/obszar 6). Uzupełnić przy najbliższej fizycznej
+wizycie (`ip link` na Katanie)."""
 
 # ── Wyse 5070 — Home Assistant OS (produkcja) ───────────────────────────────────
 # Dodana 2026-08-26 przez obszar 1_Serwer (panel menadżera sieci [202]) TYLKO żeby
@@ -177,6 +208,7 @@ user = ""
 katalog_roboczy = ""
 dostepna_jako_cel = false
 aktywna = true
+mac_lan = ""  # 24/7, nigdy nie śpi — WOL bez sensu; puste celowo (E3a, 2026-08-26)
 uwagi = """
 Home Assistant OS, 24/7, bez wentylatora. Treść i utrzymanie → `11_Home-Assistant/`,
 tu tylko rola sieciowa dla panelu [202]. Brak konta SSH ogólnego przeznaczenia (HAOS,
