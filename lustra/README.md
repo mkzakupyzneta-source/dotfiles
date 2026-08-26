@@ -71,6 +71,7 @@ alias lustro='python3 "$HOME/.local/share/chezmoi/lustra/lustro.py"'
 |---|---|
 | `lustro.py` | apka: inwentaryzacja, porównanie, wyrównywanie, warstwa pulpitu |
 | `zasiew-e1.py` | **jednorazowy** skrypt, który zasiał dziennik z historii systemu (E1) |
+| `zasiew-uzupelniajacy.py` | **wielokrotnego użytku**, append-only, idempotentny — dopisuje `dodano` dla tego, co fizycznie jest, a czego w dzienniku tej maszyny brak (naprawa dziury z 26.08, patrz `mechanizm-luster-spec.md` rozdz. 17). Odsiewa pakiety z obrazu instalatora, jeśli maszyna ma `/var/log/installer/initial-status.gz` (np. Linux Mint na serwerze). Wołany automatycznie na końcu `run_onchange_install-packages.sh.tmpl` przy nowej maszynie. |
 | `dziennik/<maszyna>.jsonl` | historia zdarzeń jednej maszyny; **tylko ta maszyna tu dopisuje** |
 | `pomijane-<maszyna>.txt` | pozycje, w których ta maszyna świadomie odstaje (lokalne) |
 | `wykluczenia/apt.txt`, `snap.txt`, `flatpak.txt` | czego nie liczyć jako warsztat |

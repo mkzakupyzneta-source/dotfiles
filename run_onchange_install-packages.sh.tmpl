@@ -19,6 +19,13 @@
 #    inaczej `lustro status` wiecznie zgłaszałby go jako rozbieżność
 #    (na Katanie: jq, unzip, wget, zip).
 #
+# Zasiew dziennika (dopisane 26.08, po dziurze znalezionej na Katanie): na końcu,
+# w gałęzi „nowa maszyna", skrypt sam zakłada dziennik tej maszyny przez
+# `zasiew-uzupelniajacy.py` (append-only, idempotentny — patrz jego nagłówek).
+# Wcześniej skrypt kończył się tylko podpowiedzią „uruchom `lustro sync`", co
+# NIE zakłada dziennika (sync porównuje z konsensusem, nie zapisuje stanu maszyny)
+# i łatwo pominąć — stąd dziury jak na Katanie (32 zdarzenia zamiast realnych ~116).
+#
 # Przedrostek `run_onchange_` sprawia, że chezmoi liczy odcisk treści tego pliku
 # i uruchamia go dopiero wtedy, gdy lista programów faktycznie się zmieniła.
 # Dlatego listy są wpisane niżej w treść — to one są tym odciskiem.
@@ -172,4 +179,23 @@ if [ -n "$brakuje_flatpak" ]; then
             https://dl.flathub.org/repo/flathub.flatpakrepo
     for p in $brakuje_flatpak; do sudo flatpak install -y flathub "$p"; done
 fi
-echo "lustro: gotowe. Dziennik tej maszyny załóż przez: lustro sync"
+
+# --------------------------------------------------------- zasiew dziennika
+# Dziura znaleziona 26.08 (Katana): ten skrypt instalował programy, ale nie
+# zapisywał NIC do dziennika — kończył się prośbą "uruchom `lustro sync`",
+# która user/sesja pomijała (albo maszyna w ogóle nie przechodziła przez ten
+# skrypt, jak Katana, postawiona "drogą obejściową"). `lustro sync` zresztą by
+# tego nie naprawił — porównuje z KONSENSUSEM, nie zapisuje tego, co maszyna ma
+# fizycznie, a konsensus nie zna. Efekt: dziennik zaczynał życie już niepełny,
+# a panel menadżera konfiguracji (liczy z dzienników, nie z żywej maszyny)
+# pokazywał fałszywe braki. Łatka u źródła: zasiej dziennik TU I TERAZ, zanim
+# ktokolwiek zdąży o tym zapomnieć.
+if command -v python3 >/dev/null 2>&1; then
+    echo "lustro: zasiewam dziennik tej maszyny (zasiew-uzupelniajacy.py)…"
+    python3 "$ZRODLO/lustra/zasiew-uzupelniajacy.py" \
+        --notatka "zasiew automatyczny — bootstrap nowej maszyny ($(date -I))"
+else
+    echo "lustro: ⚠ brak python3 — dziennik NIE założony automatycznie. Uruchom ręcznie:"
+    echo "   python3 $ZRODLO/lustra/zasiew-uzupelniajacy.py"
+fi
+echo "lustro: gotowe."
