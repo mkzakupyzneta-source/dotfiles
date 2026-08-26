@@ -1,16 +1,27 @@
 [Unit]
-Description=Lustro — pobranie zmian z repozytorium i zastosowanie (chezmoi update)
+Description=Lustro — pobranie zmian z repozytorium, zastosowanie i dociagniecie brakow (auto)
 # Faza 3 planu automatu (0_Architekt/plan-automat-lustra-2026-08-25.md): stacja ma
-# nadazac za zmianami bez recznego dociagania. `chezmoi update` = git pull --rebase
-# --autostash + `chezmoi apply`; apply odpala run_onchange_install-packages.sh.tmpl,
-# ktory na maszynie z WLASNYM dziennikiem lustra (kazda stacja juz zasiana) TYLKO
-# RAPORTUJE braki apt/snap/flatpak (nie instaluje) — instalacja wymaga sudo, ktorego
-# ten timer nie moze kliknac. Dopoki reguly [194] (NOPASSWD dla menedzerow pakietow)
-# nie ma na tej maszynie, rozbieznosci apt zglaszane w `lustro status` NIE znikna
-# same — to znany, celowy stan, nie usterka tego timera.
+# nadazac za zmianami bez recznego dociagania. Dwa kroki:
+#   1. `chezmoi update` = git pull --rebase --autostash + `chezmoi apply`; apply odpala
+#      run_onchange_install-packages.sh.tmpl, ktory na maszynie z WLASNYM dziennikiem
+#      lustra (kazda stacja juz zasiana) TYLKO RAPORTUJE braki apt/snap/flatpak — ten
+#      skrypt odpala sie WYLACZNIE gdy tresc listy pakietow sie zmienila (chezmoi liczy
+#      odcisk), wiec sam w sobie NIE nadaje sie do ciaglego doganiania (26.08).
+#   2. `lustro sync --auto` (26.08, ta sama sprawa) — apka mechanizmu luster, wolana
+#      PO kazdym update, niezaleznie od odcisku: dociaga TYLKO brakujace pakiety apt/
+#      snap/flatpak (dziennik mowi "jest", tu brak) i brakujace zewnetrzne zrodla apt
+#      (zrodla-apt.toml) — przez sudo NOPASSWD dla apt-get/apt/dpkg/snap/flatpak
+#      (regula [194], `/etc/sudoers.d/90-lustro-pakiety`); zrodla dodaje jako mikro-
+#      pakiety .deb (`dpkg -i`), bo `sudo sh`/`install`/`tee` NIE sa objete [194] i tak
+#      i tak poprosilyby o haslo (zmierzone). Nigdy nic nie usuwa, nigdy nie rusza
+#      pulpitu (decyzja [195] — `pulpit oddaj` tylko recznie) ani rozszerzen GNOME.
+#      Bez reguly [194] na maszynie (np. Vostro na razie) krok 2 tylko zglasza N
+#      nieudanych prob (sudo bez terminala odmawia od razu, bez zawieszania timera) —
+#      bezpieczne, nie blokuje kroku 1.
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
 ExecStart=%h/.local/bin/chezmoi update --force
+ExecStart=-%h/.local/bin/lustro sync --auto
