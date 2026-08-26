@@ -48,11 +48,45 @@ jest — stąd to narzędzie jako trwały, powtarzalny sposób łatania takiej d
 """
 
 import argparse
+import gzip
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lustro  # noqa: E402
+
+# Debian/Ubuntu/Mint zapisują przy stawianiu systemu, co dokładnie zainstalował
+# instalator (`/var/log/installer/initial-status.gz`, format `dpkg --get-selections`
+# rozszerzony o pola Package/Status/…). Odkryte 26.08 na serwerze (OptiPlex, Linux
+# Mint): tam `apt-mark showmanual` zwraca ~2000 pozycji, bo instalator Mint
+# oznacza PRAWIE CAŁY zestaw pulpitu jako "ręczny" — inaczej niż na Vostro/Katanie
+# (Ubuntu, stawiane przez lustro), gdzie manualne są tylko świadome instalacje.
+# Bez tego pliku zasiew zalałby dziennik serwera prawie dwoma tysiącami pozycji
+# systemowych, które nie są niczyim świadomym wyborem (definicja "warsztatu",
+# spec rozdz. 2) — zweryfikowane: 1886 z 1984 pozycji `apt-mark showmanual` na
+# serwerze pokrywa się dokładnie z tym plikiem, zostaje 99 realnych instalacji.
+# Gdzie pliku nie ma (Vostro, Katana — sprawdzone 26.08, oba bez tego logu)
+# zachowanie jest DOKŁADNIE jak dotychczas (zbiór pusty, nic nie odsiane) — to
+# jest uzupełnienie na brakujący sygnał, nie zmiana reguły dla maszyn, które go
+# nie mają.
+PLIK_INSTALATORA = Path("/var/log/installer/initial-status.gz")
+
+
+def pakiety_bazowe_instalatora():
+    """Zbiór nazw pakietów apt, które przyjechały z obrazem systemu (nie są
+    świadomą instalacją) — z initial-status.gz, jeśli plik istnieje na tej
+    maszynie. Pusty zbiór = brak filtra (dotychczasowe zachowanie)."""
+    if not PLIK_INSTALATORA.exists():
+        return set()
+    try:
+        with gzip.open(PLIK_INSTALATORA, "rt", encoding="utf-8", errors="replace") as f:
+            return {linia.split(":", 1)[1].strip()
+                    for linia in f if linia.startswith("Package:")}
+    except OSError as e:
+        print(f"  (nie udało się odczytać {PLIK_INSTALATORA}: {e} — filtr pomijam)",
+              file=sys.stderr)
+        return set()
+
 
 NOTATKA_DOMYSLNA = (
     "zasiew uzupełniający — pozycja fizycznie obecna na maszynie, brak jej "
@@ -79,12 +113,20 @@ def brakujace_wpisy(maszyna):
 
     zdarzenia = lustro.wczytaj_dzienniki()
     moje = lustro.stan_wg_tej_maszyny(zdarzenia, maszyna)
+    bazowe = pakiety_bazowe_instalatora()
 
-    brakujace = []
+    brakujace, pominieto_bazowe = [], 0
     for klucz, wersja in sorted(inw.items()):
+        kanal, ident = klucz
+        if kanal == "apt" and ident in bazowe:
+            pominieto_bazowe += 1
+            continue
         ostatnie = moje.get(klucz)
         if ostatnie is None or ostatnie.get("zdarzenie") != "dodano":
             brakujace.append((klucz, wersja))
+    if pominieto_bazowe:
+        print(f"  ({pominieto_bazowe} pakietów apt pominiętych — z obrazu systemu, "
+              f"{PLIK_INSTALATORA})", file=sys.stderr)
     return brakujace
 
 
