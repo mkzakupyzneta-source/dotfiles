@@ -6,9 +6,7 @@
 # BRAK wpisu = status "wspolne" (domyślnie): pozycja propaguje się na wszystkie
 # stacje. Wpis robi się tylko dla odstępstw:
 #
-# 
-
-[[pozycja]]
+# [[pozycja]]
 # kanal   = "apt" | "snap" | "flatpak" | "gnome-extension"
 # id      = "identyfikator pakietu / uuid rozszerzenia"
 # status  = "testowe"   → KWARANTANNA: automat NIE proponuje instalacji na innych
