@@ -13,6 +13,9 @@
 # Pola bloku [[maszyna]]:
 #   klucz              — krótki, stały identyfikator (bez spacji); używany w trybie tekstowym
 #   nazwa              — co user widzi na liście
+#   rola               — krótki opis funkcji maszyny w sieci, dla zakładki „Maszyny"
+#                        panelu menadżera sieci [202] (obszar 1_Serwer, dodane 2026-08-26).
+#                        Launcher tego pola nie czyta; brak pola = panel pokazuje "-".
 #   nazwa_hosta        — `hostname` tej maszyny; po tym launcher poznaje, że to ON sam
 #                        (wtedy uruchamia lokalnie, bez SSH)
 #   host_lan           — adres w domowej sieci; launcher próbuje go PIERWSZEGO
@@ -44,6 +47,7 @@ wersja = 1
 [[maszyna]]
 klucz = "vostro"
 nazwa = "Vostro (ta maszyna)"
+rola = "Stacja robocza"
 nazwa_hosta = "vostro"
 host_lan = ""
 host_tailscale = "vostro"
@@ -63,6 +67,7 @@ z innych maszyn."""
 [[maszyna]]
 klucz = "serwer"
 nazwa = "Serwer (OptiPlex 7050)"
+rola = "Serwer domowy 24/7"
 nazwa_hosta = "mk-OptiPlex-7050"
 host_lan = "192.168.1.49"
 host_tailscale = "mk-optiplex-7050"
@@ -93,10 +98,11 @@ pong bezpośrednio przez 192.168.1.49:41641 (2-3 ms)."""
 [[maszyna]]
 klucz = "hp"
 nazwa = "HP (Windows)"
+rola = "Stacja robocza (Windows, w trakcie przesiadki na Linux)"
 nazwa_hosta = ""
 host_lan = ""
-host_tailscale = ""
-ip_tailscale = ""
+host_tailscale = "lapekhp"
+ip_tailscale = "100.112.73.10"
 user = ""
 katalog_roboczy = ""
 dostepna_jako_cel = false
@@ -105,7 +111,67 @@ profil = "stacja"
 uwagi = """
 Tylko „skąd" — punkt startowy, nie cel. Windows ma inną ścieżkę katalogu roboczego i nie ma
 tmux, więc `ssh -t ... cd ... && tmux ...` nie zadziała wprost. Po przesiadce HP na Linuksa
-wpis się uzupełnia i `dostepna_jako_cel` staje się true."""
+wpis się uzupełnia i `dostepna_jako_cel` staje się true.
+Uzupełnione 2026-08-26 (obszar 1_Serwer, panel menadżera sieci [202]): host_tailscale
+i ip_tailscale odczytane z `tailscale status --json` na serwerze (węzeł `lapekhp`,
+100.112.73.10, Windows) — nie zmierzone, tylko przepisane z żywego stanu tailnetu.
+host_lan wciąż pusty (adres Wi-Fi HP nieznany/zmienny, niezmierzony)."""
+
+# ── Katana — stacja robocza, poligon E3 mechanizmu luster ──────────────────────
+# Dodana 2026-08-26 przez obszar 1_Serwer (panel menadżera sieci [202]) — maszyna
+# istniała od 24.08 (decyzja usera [150], patrz 2_Stacje_lustra/Katana/), ale nie
+# miała jeszcze wpisu tutaj. host_lan celowo PUSTY: Katana chodzi po Wi-Fi (adres
+# 192.168.100.x/192.168.1.x zmienny między sesjami, patrz Katana/_MEMORY/MEMORY.md) —
+# jedyny stabilny adres to Tailscale. host_tailscale/ip_tailscale i katalog_roboczy
+# zweryfikowane 2026-08-26 z tej sesji URUCHOMIONEJ NA Katanie (`hostname`, `ip addr`,
+# `ls ~/AI-katalog-roboczy`).
+[[maszyna]]
+klucz = "katana"
+nazwa = "Katana"
+rola = "Stacja robocza — poligon E3 mechanizmu luster"
+nazwa_hosta = "katana"
+host_lan = ""
+host_tailscale = "katana"
+ip_tailscale = "100.67.37.93"
+user = "mk"
+katalog_roboczy = "/home/mk/AI-katalog-roboczy"
+dostepna_jako_cel = true
+aktywna = true
+profil = "stacja"
+uwagi = """
+Poligon etapu E3 mechanizmu luster (decyzja usera [150], 2026-08-24) — stawiana od
+czystego Ubuntu 24.04 przez `lustro`. [189] NIE USYPIAĆ — zawiesza się po wybudzeniu
+(przyszły panel akcji E3 ma to respektować). host_lan pusty celowo, patrz uwaga wyżej."""
+
+# ── Wyse 5070 — Home Assistant OS (produkcja) ───────────────────────────────────
+# Dodana 2026-08-26 przez obszar 1_Serwer (panel menadżera sieci [202]) TYLKO żeby
+# zakładka „Maszyny" pokazywała pełny obraz sieci — Wyse to urządzenie z
+# `3_Maszyny_pozostale`, NIE stacja lustra i NIE cel AI Launchera (dlatego
+# dostepna_jako_cel = false; profil chezmoi pominięty — HAOS nie ma chezmoi).
+# ⚠️ Dla obszaru 5: jeśli ten wpis nie pasuje do przeznaczenia tego pliku
+# (lista celów Launchera), to sygnał, żeby dane maszyn spoza floty luster
+# przenieść gdzie indziej — nie decydowałem tego sam, tylko dopisałem najmniejszym
+# możliwym sposobem, żeby panel miał skąd czytać. host_lan i ip_tailscale
+# potwierdzone 2026-08-26: `3_Maszyny_pozostale/CLAUDE.md` (adres LAN) +
+# `tailscale status --json` na serwerze, węzeł `homeassistant` — tożsamość z Wyse
+# potwierdzona w `11_Home-Assistant/_MEMORY/infrastruktura.md` (linia 250, konto
+# Tailscale mkzakupyzneta@).
+[[maszyna]]
+klucz = "wyse"
+nazwa = "Wyse 5070 (Home Assistant)"
+rola = "Dom — Home Assistant OS (produkcja)"
+nazwa_hosta = ""
+host_lan = "192.168.1.48"
+host_tailscale = "homeassistant"
+ip_tailscale = "100.113.201.126"
+user = ""
+katalog_roboczy = ""
+dostepna_jako_cel = false
+aktywna = true
+uwagi = """
+Home Assistant OS, 24/7, bez wentylatora. Treść i utrzymanie → `11_Home-Assistant/`,
+tu tylko rola sieciowa dla panelu [202]. Brak konta SSH ogólnego przeznaczenia (HAOS,
+nie zwykły Linux) — pole `user` celowo puste, panel nie pokaże gotowej komendy SSH."""
 
 # ── Poligon — maszyna do eksperymentów (jeszcze nie istnieje) ──────────────────
 [[maszyna]]
