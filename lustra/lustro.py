@@ -46,6 +46,9 @@ MASZYNY_TOML = KATALOG / "maszyny.toml"            # czlonek_lustra [209] 2.1
 ZRODLA_GALEZI = PULPIT / "zrodla-galezi.toml"      # źródło per gałąź pulpitu [209] 2.3.2
 PULPIT_STAN = PULPIT / "stan"                      # migawki <maszyna>.ini [209] 2.3.1
 SOURCES_D = Path("/etc/apt/sources.list.d")
+# Pakiety, które przyjechały z obrazem instalatora (Debian/Ubuntu/Mint) — patrz
+# `_pakiety_bazowe_instalatora()` niżej, sprawa [213] p. 2/uwaga o serwerze.
+PLIK_INSTALATORA = Path("/var/log/installer/initial-status.gz")
 KOPIE = DOM / ".local/share/lustro/kopie"
 
 # --- dziennik przy KAŻDEJ zmianie [213] -------------------------------------
@@ -260,8 +263,36 @@ def pytaj_tekst(tresc, domyslna=""):
 
 # ---------------------------------------------------------------- inwentaryzacja
 
+def _pakiety_bazowe_instalatora():
+    """Zbiór nazw pakietów apt, które przyjechały z obrazem systemu (nie są
+    świadomą instalacją usera) — z `PLIK_INSTALATORA`, jeśli istnieje na tej
+    maszynie. Pusty zbiór (plik nieobecny) = brak filtra, dokładnie dotychczasowe
+    zachowanie (Vostro/Katana — sprawdzone 26.08, oba bez tego logu).
+
+    Scalone tutaj 27.08 (sprawa [213]) — do tej pory ta sama logika żyła
+    WYŁĄCZNIE w `zasiew-uzupelniajacy.py` (rozdz. 17 spec: na Linux Mint, serwer,
+    `apt-mark showmanual` oznacza niemal cały pulpit jako „ręczny", ~1900
+    pozycji). Dopóki jedyną konsumentką inwentarza apt bez tego filtra były
+    `status`/`sync` w trybie WYŁĄCZNIE RAPORTUJĄCYM, rozjazd „dwóch definicji
+    tego, co się liczy" był kosmetyczny (dużo szumu w sekcji informacyjnej).
+    Od [213] `inwentarz_apt()` karmi też funkcje, które PISZĄ do dziennika same
+    (hook dpkg, `sync --auto` p. 2) — bez tego filtra zalałyby dziennik serwera
+    tysiącami zdarzeń „dodano" dla pakietów systemowych. Stąd przeniesione do
+    jednego, wspólnego miejsca zamiast łatania każdego nowego konsumenta osobno."""
+    if not PLIK_INSTALATORA.exists():
+        return set()
+    try:
+        import gzip
+        with gzip.open(PLIK_INSTALATORA, "rt", encoding="utf-8", errors="replace") as f:
+            return {linia.split(":", 1)[1].strip()
+                    for linia in f if linia.startswith("Package:")}
+    except OSError:
+        return set()
+
+
 def inwentarz_apt():
-    """Pakiety oznaczone jako zainstalowane RĘCZNIE (bez zależności), po odsianiu."""
+    """Pakiety oznaczone jako zainstalowane RĘCZNIE (bez zależności), po odsianiu
+    wykluczen/apt.txt ORAZ pakietów bazowych obrazu instalatora (patrz wyżej)."""
     if not czy_jest("apt-mark"):
         return {}
     _, out = uruchom(["apt-mark", "showmanual"])
@@ -275,7 +306,9 @@ def inwentarz_apt():
             wersje[p] = v
 
     wykl = wczytaj_wzorce(WYKLUCZENIA / "apt.txt")
-    return {p: wersje.get(p, "?") for p in reczne if not pasuje(p, wykl)}
+    bazowe = _pakiety_bazowe_instalatora()
+    return {p: wersje.get(p, "?") for p in reczne
+            if not pasuje(p, wykl) and p not in bazowe}
 
 
 def inwentarz_snap():
