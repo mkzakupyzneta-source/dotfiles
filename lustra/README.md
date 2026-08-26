@@ -21,6 +21,8 @@ Nic nie dzieje się bez pytania — jedyny wyjątek to jawny przełącznik
 | `ustawienia <program>` | oddaje pliki ustawień programu do lustra (`chezmoi add` + zdarzenie) |
 | `pulpit status\|zasiew\|oddaj\|wgraj\|sprawdz` | warstwa GNOME (dconf) |
 | `pulpit rozszerzenia` | rozszerzenia GNOME Shell — sprawdza, czy to, co ma być zainstalowane, jest na dysku; dla źródła `ego` (extensions.gnome.org) umie po pytaniu doinstalować |
+| `pulpit oddaj-stan` | (kontrakt [209], 26.08) migawka WŁASNEGO stanu gałęzi do `pulpit/stan/<maszyna>.ini` — czysta obserwacja, nie pyta o zgodę |
+| `pulpit skladaj` | (kontrakt [209], 26.08) składa `pulpit.ini` z `pulpit/zrodla-galezi.toml` + migawek maszyn — źródło KAŻDEJ gałęzi dowolne, nie jedna wspólna maszyna |
 | `dziennik [--maszyna X] [--od DATA]` | historia po ludzku |
 | `lista [--do PLIK]` | generuje `programy.md` **i** `.chezmoidata/packages.yaml` |
 | `nowa-maszyna` | bootstrap — dopiero E3 |
