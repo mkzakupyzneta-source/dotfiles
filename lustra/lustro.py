@@ -2551,8 +2551,13 @@ def wykonaj_pozycje(poz, args):
     Kolejność ze spec 9.3: wykonaj → sprawdź inwentaryzacją → dopiero wtedy dziennik."""
     kanal, ident, rodzaj = poz["kanal"], poz["id"], poz["rodzaj"]
     zrodlowe = poz.get("zdarz") or {}
+    # `ts` puste = zdarzenie SYNTETYCZNE (kontrakt [209], override bez żadnego realnego
+    # zdarzenia w dzienniku nigdzie — `zbierz_pozycje` sam takie tworzy tylko do wyświetlenia
+    # w `status`/`sync`). Bez tego warunku pole `za` w dzienniku dostałoby fałszywe
+    # „maszyna: (brak zdarzenia — tylko override)" zamiast realnej pary maszyna+ts.
     za = ({"maszyna": zrodlowe.get("maszyna"), "ts": zrodlowe.get("ts")}
-          if zrodlowe.get("maszyna") and zrodlowe.get("maszyna") != nazwa_maszyny()
+          if zrodlowe.get("maszyna") and zrodlowe.get("ts")
+          and zrodlowe.get("maszyna") != nazwa_maszyny()
           else None)
 
     # rozszerzenia GNOME — osobna droga (nie ma komendy apt/snap/flatpak);
