@@ -102,18 +102,28 @@ katalog_roboczy = "/home/mk/AI-katalog-roboczy"
 dostepna_jako_cel = true
 aktywna = true
 profil = "serwer"
+czlonek_lustra = false  # 2026-08-26, decyzja usera po incydencie [dziura dzienników] —
+                        # patrz uwagi. Zapisane JAWNIE (nie tylko domyślne z `profil`),
+                        # żeby było widać, że to świadoma decyzja, nie przeoczenie.
 mac_lan = "d8:9e:f3:95:f1:13"
 uwagi = """
 Serwer domowy — tu żyją długie sesje Claude'a (zawsze w tmux, żeby przetrwały zerwanie
 łącza i żeby dało się podpiąć z drugiej maszyny). Klucz SSH z Vostro działa (2026-08-23).
-`tmux` doinstalowany 2026-08-23 przy uruchamianiu tego trybu — serwer nie jest jeszcze
-objęty mechanizmem luster, więc instalacji nie ma w dzienniku.
+`tmux` doinstalowany 2026-08-23 przy uruchamianiu tego trybu.
 Nazwa MagicDNS `mk-optiplex-7050` i adres `100.110.113.13` są ZWERYFIKOWANE (2026-08-24,
 sprawa [149]): `tailscale status` na Vostro pokazuje ten węzeł, `tailscale ping` zwraca
 pong bezpośrednio przez 192.168.1.49:41641 (2-3 ms).
 `mac_lan` zmierzony lokalnie 2026-08-26 (`ip -o link show enp0s31f6`); `ethtool enp0s31f6`
 potwierdza `Wake-on: g` (WOL przez magic packet włączony w systemie). Serwer sam siebie
-nie budzi (jest jedyną maszyną 24/7) — pole tu tylko dla kompletności danych."""
+nie budzi (jest jedyną maszyną 24/7) — pole tu tylko dla kompletności danych.
+2026-08-26 (obszar 5, dziura dzienników): serwer DOSTAŁ własny dziennik
+(`dziennik/serwer.jsonl`, zasiany przez `zasiew-uzupelniajacy.py --maszyna serwer`
+po SSH) — istnieje i jest czytany, ale `czlonek_lustra = false` (wyżej) sprawia, że
+NIE ciągnie konsensusu lustra: żadna stacja nie dostanie od serwera propozycji
+instalacji, i odwrotnie, serwer nie jest oceniany względem tego, co mają stacje.
+To koryguje starą notatkę „serwer nie jest jeszcze objęty mechanizmem luster, więc
+instalacji nie ma w dzienniku" — instalacje SĄ w dzienniku (dla wglądu w panelu
+[202]), po prostu serwer formalnie nie jest lustrem."""
 
   [[maszyna.konto]]
   nazwa = "Konto 1 — michal.kowalik@pw.edu.pl"
