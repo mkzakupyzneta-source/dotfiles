@@ -142,14 +142,42 @@ def teraz_iso():
 
 
 def nazwa_maszyny():
-    """Nazwa lustra. Priorytet: plik lustra/maszyna.txt, potem nazwa hosta."""
+    """Nazwa lustra. Priorytet: plik lustra/maszyna.txt, potem dopasowanie
+    `nazwa_hosta` → `klucz` w `maszyny.toml` (ta sama reguła, po której chezmoi
+    już wybiera profil maszyny — `procedura-nowej-stacji.md`), na końcu nazwa
+    hosta wprost.
+
+    Dopisane 26.08 (dziura dzienników — serwer): hostname serwera to
+    `mk-OptiPlex-7050`, ale jego klucz/dziennik w reszcie mechanizmu to
+    `serwer`. Bez tego mapowania `lustro status`/`sync`/`dodaj` uruchomione
+    WPROST na serwerze szukałyby dziennika `mk-optiplex-7050.jsonl` (nie
+    istnieje) i domyślnie liczyłyby serwer jako członka lustra —
+    `czy_czlonek_lustra` dla NIEZNANEJ maszyny domyślnie zwraca `True`
+    (bezpieczny wybór dla maszyny naprawdę nieznanej), ale serwer akurat JEST
+    znany, tylko pod innym kluczem. Dla Vostro/Katany `nazwa_hosta` już dziś
+    równa się `klucz` (małymi literami) — to mapowanie nic im nie zmienia."""
     plik = KATALOG / "maszyna.txt"
     if plik.exists():
         n = plik.read_text(encoding="utf-8").strip()
         if n:
             return n
     kod, out = uruchom(["hostname"])
-    return out.strip().lower() or "nieznana"
+    host = out.strip().lower()
+    if not host:
+        return "nieznana"
+    if MASZYNY_TOML.exists():
+        import tomllib
+        try:
+            dane = tomllib.loads(MASZYNY_TOML.read_text(encoding="utf-8"))
+            for m in dane.get("maszyna", []):
+                if (m.get("nazwa_hosta") or "").strip().lower() == host:
+                    klucz = (m.get("klucz") or "").strip()
+                    if klucz:
+                        return klucz
+                    break
+        except (tomllib.TOMLDecodeError, OSError):
+            pass
+    return host or "nieznana"
 
 
 def chezmoi_sciezka():
