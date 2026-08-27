@@ -1,6 +1,6 @@
 {
   "maszyna": "serwer",
-  "ts": "2026-08-27T08:15:16+02:00",
+  "ts": "2026-08-27T08:17:45+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -526,11 +526,6 @@
       "kanal": "poza",
       "id": "autologin-watchdog.sh.bak-2026-08-08-v31",
       "wersja": "?"
-    },
-    {
-      "kanal": "poza",
-      "id": "chezmoi",
-      "wersja": "2.72.0"
     },
     {
       "kanal": "poza",
