@@ -63,6 +63,7 @@ wersja = 1
 # "Czyja to maszyna" nie może być zaszyte w danych ogólnych — panel musi liczyć
 # to w locie z adresu, z którego przyszło żądanie (patrz app.py, funkcja
 # dopasuj_zrodlo).
+
 [[maszyna]]
 klucz = "vostro"
 nazwa = "Vostro"
@@ -218,6 +219,7 @@ user = ""
 katalog_roboczy = ""
 dostepna_jako_cel = false
 aktywna = true
+czlonek_lustra = false  # ustawione z panelu menadzera sieci [202]/[217], 2026-08-27 22:10
 mac_lan = ""  # 24/7, nigdy nie śpi — WOL bez sensu; puste celowo (E3a, 2026-08-26)
 uwagi = """
 Home Assistant OS, 24/7, bez wentylatora. Treść i utrzymanie → `11_Home-Assistant/`,
