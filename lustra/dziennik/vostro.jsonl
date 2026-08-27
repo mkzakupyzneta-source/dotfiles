@@ -119,3 +119,4 @@
 {"ts": "2026-08-26T23:45:18+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "tailscale-archive-keyring", "wersja": "1.35.181", "zrodlo": "sync", "za": {"maszyna": "katana", "ts": "2026-08-26T22:54:08+02:00"}}
 {"ts": "2026-08-26T23:46:39+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "cowsay", "wersja": "3.03+dfsg2-8", "zrodlo": "apka", "notatka": "panel menadżera sieci [202]/[209], przycisk „zainstaluj tutaj”, 2026-08-26 23:46"}
 {"ts": "2026-08-26T23:49:22+02:00", "maszyna": "vostro", "zdarzenie": "usunieto", "kanal": "apt", "id": "cowsay", "zrodlo": "apka"}
+{"ts": "2026-08-27T08:12:58+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "gnome-extension", "id": "Vitals@CoreCoding.com", "wersja": "82", "zrodlo": "zasiew", "notatka": "zasiew uzupełniający — pozycja fizycznie obecna na maszynie, brak jej dotąd w dzienniku (data instalacji nieznana, zapisana data uruchomienia zasiewu)"}
