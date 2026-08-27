@@ -1,0 +1,66 @@
+{{- /* ~/.ssh/config każdej STACJI-LUSTRA — szablon chezmoi (private_dot_ssh/config.tmpl).
+       Dane: lustra/maszyny.toml (maszyny, adresy, konta) + lustra/siec.toml (podsieci LAN).
+       Decyzja [125] z 23.08: config JEST w lustrze; klucze prywatne (~/.ssh/id_*) NIE.
+       Założone 2026-08-27, obszar 2_Stacje_lustra, sprawa [222].
+       Podgląd: chezmoi execute-template < private_dot_ssh/config.tmpl */ -}}
+{{- $flota := dict "maszyna" list -}}
+{{- if stat (joinPath .chezmoi.sourceDir "lustra" "maszyny.toml") -}}
+{{-   $flota = include "lustra/maszyny.toml" | fromToml -}}
+{{- end -}}
+{{- $siec := dict "podsieci_lan" (list "192.168.1.0/24" "192.168.100.0/24") -}}
+{{- if stat (joinPath .chezmoi.sourceDir "lustra" "siec.toml") -}}
+{{-   $siec = include "lustra/siec.toml" | fromToml -}}
+{{- end -}}
+{{- $domowe := list "100.*" -}}
+{{- range $siec.podsieci_lan -}}
+{{-   $domowe = append $domowe (printf "%s.*" (trimSuffix ".0/24" .)) -}}
+{{- end -}}
+{{- range $m := $flota.maszyna -}}
+{{-   range $pole := list "klucz" "nazwa_hosta" "host_lan" "host_tailscale" "ip_tailscale" -}}
+{{-     $w := index $m $pole | default "" -}}
+{{-     if and $w (not (has $w $domowe)) -}}{{- $domowe = append $domowe $w -}}{{- end -}}
+{{-   end -}}
+{{-   if and (index $m "host_lan" | default "") (index $m "ip_tailscale" | default "") -}}
+{{-     $domowe = append $domowe (printf "%s-ts" $m.klucz) -}}
+{{-   end -}}
+{{- end -}}
+# ~/.ssh/config — WOŻONY PRZEZ LUSTRO (chezmoi: private_dot_ssh/config.tmpl). NIE EDYTUJ RĘCZNIE:
+# zmiana zniknie przy następnym `chezmoi apply`. Maszyny i adresy: lustra/maszyny.toml,
+# podsieci: lustra/siec.toml — nowa maszyna w domu = wpis TAM, nie tutaj.
+#
+# Trzy klucze na stację (7_Bezpieczenstwo, etap S; sprawa [222]):
+#   ~/.ssh/id_ed25519          osobisty, Z FRAZĄ  — świat zewnętrzny (domyślny, poza blokami niżej)
+#   ~/.ssh/id_ed25519_github   bez frazy          — wyłącznie GitHub
+#   ~/.ssh/id_ed25519_dom      bez frazy          — wyłącznie maszyny domowe
+# `IdentitiesOnly yes` jest obowiązkowe: bez niego klient podrzuca też klucz z frazą i w trybie
+# wsadowym (BatchMode, agenci, automaty) połączenie pada — zmierzone 27.08 (Vostro→Asus, Vostro→Wyse).
+
+# --- GitHub ---------------------------------------------------------------------------------
+Host github.com
+    IdentityFile ~/.ssh/id_ed25519_github
+    IdentitiesOnly yes
+
+# --- Aliasy maszyn domowych (z lustra/maszyny.toml): `ssh serwer`, `ssh katana`, `ssh asus` … ---
+# `<klucz>` = adres LAN (gdy jest), `<klucz>-ts` = adres Tailscale; konto z pola `user`.
+{{- range $m := $flota.maszyna }}
+{{-   $lan := index $m "host_lan" | default "" }}
+{{-   $ts := index $m "ip_tailscale" | default "" }}
+{{-   $user := index $m "user" | default "" }}
+{{-   if and (index $m "aktywna" | default false) $user (or $lan $ts) }}
+
+Host {{ $m.klucz }}
+    HostName {{ or $lan $ts }}
+    User {{ $user }}
+{{-     if and $lan $ts }}
+
+Host {{ $m.klucz }}-ts
+    HostName {{ $ts }}
+    User {{ $user }}
+{{-     end }}
+{{-   end }}
+{{- end }}
+
+# --- Maszyny domowe: klucz domowy i TYLKO on --------------------------------------------------
+Host {{ join " " $domowe }}
+    IdentityFile ~/.ssh/id_ed25519_dom
+    IdentitiesOnly yes

@@ -1,0 +1,9 @@
+{{- /* ~/.ssh/authorized_keys każdej STACJI-LUSTRA — składany z lustra/klucze-publiczne/*.pub.
+       Kto ma tam klucz, wchodzi na każdą stację; nowa stacja dostaje komplet automatem.
+       Założone 2026-08-27, obszar 2_Stacje_lustra, sprawa [222]. Opis: lustra/klucze-publiczne/README.md */ -}}
+# ~/.ssh/authorized_keys — WOŻONY PRZEZ LUSTRO (chezmoi: private_dot_ssh/private_authorized_keys.tmpl).
+# NIE DOPISUJ TU RĘCZNIE — ręczny wpis zniknie przy następnym `chezmoi apply`.
+# Nowy klucz = nowy plik w ~/.local/share/chezmoi/lustra/klucze-publiczne/<maszyna>-<rola>.pub + push.
+{{- range glob (joinPath .chezmoi.sourceDir "lustra" "klucze-publiczne" "*.pub") }}
+{{ include . | trim }}
+{{- end }}
