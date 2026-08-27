@@ -258,7 +258,7 @@ dostepna_jako_cel = false
 aktywna = true
 czlonek_lustra = false
 mac_lan = "F8:B5:4D:9D:D6:1D"
-akcje_zablokowane = true
+akcje_zablokowane = false  # 2026-08-27: serwer wchodzi na kiosk@ (meldunek obszaru 1) — blokada zdjęta przez obszar 5
 powod_blokady_akcji = "czeka na klucze SSH [214]"
 uwagi = """
 Laptop Asus ExpertBook (hostname mDNS `expertbook.home`, hipoteza z nazwy — nie
