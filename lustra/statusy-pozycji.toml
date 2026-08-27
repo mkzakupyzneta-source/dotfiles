@@ -58,3 +58,9 @@
 # kontraktem [209]; ten plik był wtedy pusty, więc migracja to zero wierszy.
 #
 # (na razie pusto — czeka na pierwszą pozycję)
+
+[[pozycja]]
+kanal = "flatpak"
+id    = "com.obsproject.Studio"
+wylacznie_na = ["katana", "vostro"]
+uwagi = "ustawione z panelu menadzera sieci [202]/[217], 2026-08-27 22:12"
