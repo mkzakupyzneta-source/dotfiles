@@ -14,4 +14,4 @@
 # Nowa podsieć w domu = nowa pozycja TUTAJ (i przelanie reguł ufw-stacja.sh),
 # bez ruszania kodu.
 
-podsieci_lan = ["192.168.1.0/24", "192.168.100.0/24"]
+podsieci_lan = ["192.168.1.0/24", "192.168.100.0/24", "192.168.122.0/24"]  # 192.168.122.0/24 = sieć libvirt poligonu (VM na serwerze) — usunąć po testach T7 (27.08)
