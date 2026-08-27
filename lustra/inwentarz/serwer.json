@@ -1,6 +1,6 @@
 {
   "maszyna": "serwer",
-  "ts": "2026-08-27T22:17:31+02:00",
+  "ts": "2026-08-27T23:02:18+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -469,6 +469,11 @@
     },
     {
       "kanal": "apt",
+      "id": "tigervnc-viewer",
+      "wersja": "1.13.1+dfsg-2build2"
+    },
+    {
+      "kanal": "apt",
       "id": "timgm6mb-soundfont",
       "wersja": "1.3-5"
     },
@@ -491,6 +496,11 @@
       "kanal": "apt",
       "id": "wakeonlan",
       "wersja": "0.41-12.1"
+    },
+    {
+      "kanal": "apt",
+      "id": "x11vnc",
+      "wersja": "0.9.16-10"
     },
     {
       "kanal": "apt",
@@ -536,6 +546,11 @@
       "kanal": "poza",
       "id": "chezmoi-git-pull.sh.bak-20260827",
       "wersja": "?"
+    },
+    {
+      "kanal": "poza",
+      "id": "claude",
+      "wersja": "2.1.247"
     },
     {
       "kanal": "poza",
