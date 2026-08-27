@@ -1,6 +1,6 @@
 {
   "maszyna": "serwer",
-  "ts": "2026-08-27T08:17:45+02:00",
+  "ts": "2026-08-27T08:41:55+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -534,11 +534,6 @@
     },
     {
       "kanal": "poza",
-      "id": "claude",
-      "wersja": "2.1.241"
-    },
-    {
-      "kanal": "poza",
       "id": "keyd",
       "wersja": "?"
     },
@@ -565,6 +560,11 @@
     {
       "kanal": "poza",
       "id": "luna-pad-uhid.py",
+      "wersja": "?"
+    },
+    {
+      "kanal": "poza",
+      "id": "lustro-sync-serwer.sh",
       "wersja": "?"
     },
     {
