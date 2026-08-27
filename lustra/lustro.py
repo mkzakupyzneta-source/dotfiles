@@ -494,7 +494,7 @@ _POZA_WERSJONOWANE = {
 }
 
 
-def inwentarz_poza():
+def inwentarz_poza(znane_id=frozenset()):
     """{(kanal, id): wersja} — instalacje SPOZA apt/snap/flatpak/gnome-extension,
     do migawki inwentarza (`eksport_inwentarza()`/`lustra/inwentarz/<maszyna>.json`,
     27.08). Kanał `poza`. Dwa źródła:
@@ -509,9 +509,20 @@ def inwentarz_poza():
 
     Celowo NIEZALEŻNE od filtra wykluczenia/obce.txt dla pozycji z (1) — tam
     filtr ma sens (nie straszyć usera znaną rzeczą), tutaj byłby błędem
-    (schowałby dokładnie to, co ta migawka ma pokazać)."""
+    (schowałby dokładnie to, co ta migawka ma pokazać).
+
+    `znane_id` — identyfikatory JUŻ obecne w innym kanale tej samej migawki
+    (np. `chezmoi` na serwerze jest prawdziwym pakietem apt — patrz `dpkg -l`,
+    26/27.08). Bez tego filtra ten sam program dublowałby się w migawce jako
+    DWIE pozycje (`apt/chezmoi` i `poza/chezmoi`) na maszynie, gdzie akurat
+    jest zainstalowany „prawidłowym” kanałem — znalezione 27.08 przy migawce
+    serwera. Pomijamy takie duplikaty tutaj, nie w `_POZA_WERSJONOWANE` — to
+    utrzymuje jedną definicję "co to za program", niezależną od tego, którym
+    kanałem akurat trafił na daną maszynę."""
     wynik = {}
     for nazwa, (cmd, wzorzec) in _POZA_WERSJONOWANE.items():
+        if nazwa in znane_id:
+            continue
         if not czy_jest(cmd[0]):
             continue
         kod, out = uruchom(list(cmd))
@@ -521,8 +532,10 @@ def inwentarz_poza():
         wynik[("poza", nazwa)] = m.group(1) if m else "?"
 
     for sciezka, _opis in instalacje_obce():
-        klucz = ("poza", Path(sciezka).name)
-        wynik.setdefault(klucz, "?")
+        nazwa = Path(sciezka).name
+        if nazwa in znane_id:
+            continue
+        wynik.setdefault(("poza", nazwa), "?")
     return wynik
 
 
@@ -546,7 +559,8 @@ def eksport_inwentarza():
     if any(k.is_dir() for k in KATALOGI_ROZSZERZEN) or czy_jest("gnome-shell"):
         for uuid, wersja in rozszerzenia_na_dysku(tylko_uzytkownika=True).items():
             stan[("gnome-extension", uuid)] = wersja
-    stan.update(inwentarz_poza())
+    znane_id = {ident for _kanal, ident in stan}
+    stan.update(inwentarz_poza(znane_id))
     return stan
 
 
