@@ -46,6 +46,14 @@ maszyny:
         - bin/sekrety-odswiez
         - .config/sekrety/sekrety-map.toml
         - .config/ccstatusline/settings.json
+        # [221] zdalny pulpit (27.08, obszar 2, decyzja usera: serwer tez ma miec podglad
+        # ekranu): skrypt, usluga user i skrypt wlaczajacy. Pakiet x11vnc idzie osobno —
+        # override "obecne" w lustra/statusy-pozycji.toml. UWAGA: .ssh/config i
+        # .ssh/authorized_keys sa CELOWO poza serwerem — serwer ma jeden klucz RSA
+        # (bez id_ed25519_dom / _github), szablon stacji by mu popsul GitHuba.
+        - bin/zdalny-pulpit.sh
+        - .config/systemd/user/zdalny-pulpit.service
+        - wlacz-zdalny-pulpit.sh
       # Świadomie POZA warstwą serwera (decyzja usera 24.08 + Architekt):
       #   .bashrc, .profile        — serwer ma własne, nie ryzykujemy nadpisania
       #   install-packages.sh      — lista programów stacji, nie serwera

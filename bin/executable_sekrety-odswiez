@@ -12,6 +12,10 @@ Co robi:
 ŻELAZNA ZASADA: skrypt nigdy nie wypisuje wartości sekretu — ani na ekran,
 ani do logu. Wartości trafiają wyłącznie do plików docelowych (600).
 
+Od 27.08 ([221], obszar 2): `pozycja_wg_hosta` (sekret inny na każdej maszynie —
+pozycja wybierana po `hostname`) i `pole = "notatka:KLUCZ"` (linia `KLUCZ: wartość`
+w Notatce pozycji). Opis w nagłówku sekrety-map.toml, blok 3.
+
 Wymaga: klient `bw` (Bitwarden CLI) ustawiony na serwer https://vault.bitwarden.eu
 Autor: obszar 7_Bezpieczenstwo projektu „Sieć domowa”, 2026-08-24
 """
@@ -152,6 +156,21 @@ class Sejf:
 
     def pobierz(self, pozycja, pole):
         """Zwraca (wartosc, blad). Wartości NIGDY nie wypisujemy."""
+        if pole.startswith("notatka:"):
+            # linia `KLUCZ: wartość` w Notatce pozycji (konwencja sejfu w wersji 2,
+            # 7_Bezpieczenstwo/dostep-awaryjny-2026-08-27.md rozdz. 3) — 27.08, [221]
+            klucz = pole[len("notatka:"):].strip()
+            wynik = self._uruchom(["get", "notes", pozycja])
+            if wynik.returncode != 0:
+                return None, self._powod(wynik)
+            for linia in wynik.stdout.splitlines():
+                nazwa, sep, wartosc = linia.partition(":")
+                if sep and nazwa.strip() == klucz:
+                    wartosc = wartosc.strip()
+                    if not wartosc or wartosc in ("brak", "niezmierzone"):
+                        return None, f"linia „{klucz}:” w notatce jest pusta / „{wartosc}”"
+                    return wartosc, None
+            return None, f"notatka pozycji nie ma linii „{klucz}:”"
         if pole.startswith("pole:"):
             nazwa_pola = pole[len("pole:"):]
             wynik = self._uruchom(["get", "item", pozycja])
@@ -227,10 +246,24 @@ def wczytaj_mape(sciezka):
             if "nazwa" not in zmienna:
                 blad(f"{wpis['sciezka']}: pozycja bez pola `nazwa`")
                 return None
-            if "pozycja" not in zmienna and "wartosc" not in zmienna:
-                blad(f"{wpis['sciezka']}: {zmienna['nazwa']} — brak `pozycja` i `wartosc`")
+            if ("pozycja" not in zmienna and "wartosc" not in zmienna
+                    and "pozycja_wg_hosta" not in zmienna):
+                blad(f"{wpis['sciezka']}: {zmienna['nazwa']} — brak `pozycja`, "
+                     f"`pozycja_wg_hosta` i `wartosc`")
                 return None
     return pliki
+
+def pozycja_dla_hosta(zmienna):
+    """Nazwa pozycji w sejfie: `pozycja` albo — gdy sekret jest INNY na każdej maszynie
+    (hasło VNC) — `pozycja_wg_hosta.<hostname>`. Zwraca (pozycja, powód_pominięcia)."""
+    if "pozycja" in zmienna:
+        return zmienna["pozycja"], None
+    wg_hosta = zmienna.get("pozycja_wg_hosta") or {}
+    host = socket.gethostname()
+    if host in wg_hosta:
+        return wg_hosta[host], None
+    return None, f"maszyna „{host}” nie ma przypisanej pozycji (pozycja_wg_hosta)"
+
 
 def sciezka_docelowa(wpis):
     """Ścieżka pliku docelowego — z nadpisaniem per hostname, jeśli mapowanie
@@ -301,7 +334,11 @@ def tylko_pokaz(pliki, sciezka_mapy, sejf):
             stan = zmienna.get("stan", "gotowe")
             pole = zmienna.get("pole", "password")
             znacznik = "" if stan == "gotowe" else f"   [POMIJAM — stan: {stan}]"
-            krok(f"{nazwa:<28} <- sejf: „{zmienna['pozycja']}” ({pole}){znacznik}")
+            pozycja, powod = pozycja_dla_hosta(zmienna)
+            if pozycja is None:
+                krok(f"{nazwa:<28} <- sejf: —   [POMIJAM — {powod}]")
+                continue
+            krok(f"{nazwa:<28} <- sejf: „{pozycja}” ({pole}){znacznik}")
             if znacznik and zmienna.get("uwaga"):
                 info(f"        uwaga: {zmienna['uwaga']}")
         info()
@@ -355,13 +392,22 @@ def odswiez(pliki, sejf):
                     linie.append(f"# {nazwa} — pozycja przewidziana, jeszcze nie w sejfie")
                 continue
 
-            wartosc, powod = sejf.pobierz(zmienna["pozycja"], zmienna.get("pole", "password"))
+            pozycja, powod = pozycja_dla_hosta(zmienna)
+            if pozycja is None:
+                uwaga(f"{nazwa} — pomijam ({powod})")
+                if nazwa in poprzednie:
+                    linie.append(f"{nazwa}={poprzednie[nazwa]}")
+                    krok(f"{nazwa} — zachowałem poprzednią wartość z pliku")
+                else:
+                    linie.append(f"# {nazwa} — ta maszyna nie ma pozycji w sejfie")
+                continue
+            wartosc, powod = sejf.pobierz(pozycja, zmienna.get("pole", "password"))
             if wartosc is None:
-                braki.append((nazwa, zmienna["pozycja"], powod))
+                braki.append((nazwa, pozycja, powod))
                 if nazwa in poprzednie:
                     linie.append(f"{nazwa}={poprzednie[nazwa]}")
                 else:
-                    linie.append(f"# {nazwa} — BRAK W SEJFIE (pozycja: {zmienna['pozycja']})")
+                    linie.append(f"# {nazwa} — BRAK W SEJFIE (pozycja: {pozycja})")
                 continue
 
             linie.append(f"{nazwa}={wartosc}")

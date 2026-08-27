@@ -6,7 +6,7 @@
 # + procedura-nowej-stacji.md, Etap 2:
 #   deny incoming; allow in on tailscale0; 41641/udp (Tailscale bezpośrednio);
 #   z KAŻDEJ podsieci LAN: SSH 22/tcp, Syncthing 22000/tcp+udp i 21027/udp,
-#   mDNS 5353/udp, GSConnect 1714–1764/tcp+udp.
+#   mDNS 5353/udp, GSConnect 1714–1764/tcp+udp, zdalny pulpit VNC 5900/tcp ([221], 27.08).
 # Dotyczy STACJI — zapora serwera to sprawa obszaru 1_Serwer.
 #
 # Domyślnie tylko WYPISUJE komendy (nic nie zmienia). `--wykonaj` uruchamia je
@@ -34,6 +34,9 @@ reguly() {
         echo "ufw allow from $s to any port 5353 proto udp"
         echo "ufw allow from $s to any port 1714:1764 proto tcp"
         echo "ufw allow from $s to any port 1714:1764 proto udp"
+        # [221] zdalny pulpit (x11vnc, 27.08, obszar 2) — po Tailscale wchodzi juz
+        # przez `allow in on tailscale0`; ta regula otwiera port z podsieci LAN
+        echo "ufw allow from $s to any port 5900 proto tcp"
     done
     echo "ufw --force enable"
 }

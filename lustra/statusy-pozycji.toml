@@ -58,3 +58,30 @@
 # kontraktem [209]; ten plik był wtedy pusty, więc migracja to zero wierszy.
 #
 # (na razie pusto — czeka na pierwszą pozycję)
+
+
+# --- [221] zdalny pulpit — 2026-08-27, obszar 2_Stacje_lustra -----------------------
+# Na stacjach (Vostro, Katana) x11vnc i tigervnc-viewer ida zwyklym konsensusem lustra
+# (`lustro dodaj` na Vostro → `sync` na Katanie). Serwer NIE jest czlonkiem lustra,
+# wiec dostaje obie pozycje jawnym `override obecne` (kontrakt [209], rozdz. 3):
+# decyzja usera 27.08 — podglad ekranu ma byc tez na serwerze, klient „nie zaszkodzi".
+
+[[pozycja]]
+kanal  = "apt"
+id     = "x11vnc"
+uwagi  = "[221] zdalny pulpit do zywej sesji X — usluga user zdalny-pulpit.service (chezmoi)"
+
+  [[pozycja.override]]
+  maszyna = "serwer"
+  stan    = "obecne"
+  uwagi   = "2026-08-27 obszar 2 — serwer tez ma miec podglad ekranu (decyzja usera [221])"
+
+[[pozycja]]
+kanal  = "apt"
+id     = "tigervnc-viewer"
+uwagi  = "[221] klient VNC — do podgladu innych maszyn domowych"
+
+  [[pozycja.override]]
+  maszyna = "serwer"
+  stan    = "obecne"
+  uwagi   = "2026-08-27 obszar 2 — „nie zaszkodzi” (user)"

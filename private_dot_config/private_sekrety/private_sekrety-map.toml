@@ -217,3 +217,31 @@ opis    = "Klucze API narzędzi AI (bazy publikacji, LLM, patenty)"
   pole    = "notes"
   stan    = "czeka"
   uwaga   = "wartość jest tylko na HP (zmienna środowiskowa); pozycję w sejfie zakładamy przy tamtej maszynie — wtedy zmień stan na \"gotowe\""
+
+
+# ============================================================================
+# 3. Zdalny pulpit (x11vnc)  →  ~/.config/sekrety/zdalny-pulpit.env
+# ============================================================================
+# Sprawa [221], obszar 2_Stacje_lustra, 2026-08-27. Haslo VNC jest INNE na kazdej
+# maszynie i lezy w sejfie w pozycji TEJ maszyny (konwencja 7_Bezpieczenstwo,
+# dostep-awaryjny-2026-08-27.md rozdz. 3: `Maszyna — <Nazwa> (<konto>)`, linia
+# `haslo_vnc: ...` w Notatce). Dlatego dwie nowosci w mapowaniu (obsluguje je
+# `sekrety-odswiez` od 27.08):
+#   pozycja_wg_hosta — nazwa pozycji zalezna od `hostname` maszyny (jak sciezka_wg_hosta);
+#                      maszyna spoza listy jest POMIJANA z uwaga, nie bledem.
+#   pole = "notatka:KLUCZ" — wartosc z linii `KLUCZ: wartosc` w Notatce pozycji.
+# Plik czyta ~/bin/zdalny-pulpit.sh (usluga user `zdalny-pulpit.service`).
+# Folder w sejfie: "Siec_domowa"
+
+[[plik]]
+sciezka = "~/.config/sekrety/zdalny-pulpit.env"
+opis    = "Zdalny pulpit (x11vnc) — haslo VNC tej maszyny [221]"
+
+  [[plik.zmienna]]
+  nazwa = "VNC_HASLO"
+  pole  = "notatka:haslo_vnc"
+
+    [plik.zmienna.pozycja_wg_hosta]
+    "vostro"           = "Maszyna — Vostro (mk)"
+    "katana"           = "Maszyna — Katana (mk)"
+    "mk-OptiPlex-7050" = "Maszyna — Serwer OptiPlex (mk)"

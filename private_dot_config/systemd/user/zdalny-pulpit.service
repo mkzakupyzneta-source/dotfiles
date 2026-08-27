@@ -1,0 +1,14 @@
+[Unit]
+Description=Zdalny pulpit — x11vnc do ZYWEJ sesji graficznej tej maszyny (lustro, [221])
+# Wozony przez lustro (chezmoi). Wlaczany skryptem run_onchange_after_wlacz-zdalny-pulpit.sh.
+# Ten sam schemat co na Asusie (3_Maszyny_pozostale/_MEMORY/asus.md): usluga USER,
+# skrypt czeka na serwer X i haslo, Restart=always.
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/bin/zdalny-pulpit.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

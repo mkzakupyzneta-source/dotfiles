@@ -1,0 +1,15 @@
+#!/bin/sh
+# Wlacza usluge user `zdalny-pulpit.service` po kazdej zmianie jej pliku albo skryptu
+# (chezmoi run_onchange: odpala sie, gdy zmieni sie TRESC tego skryptu — a w niej sa odciski
+# obu plikow). Zalozone 2026-08-27, obszar 2_Stacje_lustra, sprawa [221].
+# odcisk uslugi:  {{ include "private_dot_config/systemd/user/zdalny-pulpit.service" | sha256sum }}
+# odcisk skryptu: {{ include "bin/executable_zdalny-pulpit.sh" | sha256sum }}
+set -u
+if ! systemctl --user is-system-running >/dev/null 2>&1 && ! systemctl --user status >/dev/null 2>&1; then
+    echo "[zdalny-pulpit] brak menedzera systemd usera w tej sesji — usluge wlaczy nastepny apply z sesji graficznej"
+    exit 0
+fi
+systemctl --user daemon-reload
+systemctl --user enable zdalny-pulpit.service
+systemctl --user restart zdalny-pulpit.service || true
+echo "[zdalny-pulpit] usluga: $(systemctl --user is-enabled zdalny-pulpit.service 2>&1) / $(systemctl --user is-active zdalny-pulpit.service 2>&1)"
