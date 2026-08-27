@@ -36,9 +36,15 @@
 # wsadowym (BatchMode, agenci, automaty) połączenie pada — zmierzone 27.08 (Vostro→Asus, Vostro→Wyse).
 
 # --- GitHub ---------------------------------------------------------------------------------
+{{- if stat (joinPath .chezmoi.homeDir ".ssh" "id_ed25519_github") }}
 Host github.com
     IdentityFile ~/.ssh/id_ed25519_github
     IdentitiesOnly yes
+{{- else }}
+# (ta maszyna NIE MA jeszcze ~/.ssh/id_ed25519_github — blok pominięty, żeby nie zepsuć `git push`
+#  kluczem, którego nie ma; ssh użyje kluczy domyślnych. Po założeniu klucza: `chezmoi apply`.
+#  Zmierzone 27.08 na Katanie: blok z nieistniejącym plikiem + IdentitiesOnly = „no such identity”.)
+{{- end }}
 
 # --- Aliasy maszyn domowych (z lustra/maszyny.toml): `ssh serwer`, `ssh katana`, `ssh asus` … ---
 # `<klucz>` = adres LAN (gdy jest), `<klucz>-ts` = adres Tailscale; konto z pola `user`.
@@ -61,6 +67,12 @@ Host {{ $m.klucz }}-ts
 {{- end }}
 
 # --- Maszyny domowe: klucz domowy i TYLKO on --------------------------------------------------
+{{- if stat (joinPath .chezmoi.homeDir ".ssh" "id_ed25519_dom") }}
 Host {{ join " " $domowe }}
     IdentityFile ~/.ssh/id_ed25519_dom
     IdentitiesOnly yes
+{{- else }}
+# (ta maszyna NIE MA jeszcze ~/.ssh/id_ed25519_dom — blok pominięty z tego samego powodu co wyżej.
+#  Załóż klucz: ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_dom -N "" -C "$USER@$(hostname)-dom",
+#  dodaj go do lustra/klucze-publiczne/, potem `chezmoi apply`.)
+{{- end }}
