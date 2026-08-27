@@ -245,6 +245,10 @@ LUSTRO="$PYTHON $LUSTRA/lustro.py"
 if [ $BEZ_PAKIETOW = 1 ]; then pomin "lustro sync --auto" "--bez-pakietow"; else
     echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
     if [ $KONTENER = 0 ] && ! command -v flatpak >/dev/null; then sudo apt-get install -y -qq flatpak >>"$LOG" 2>&1; fi
+    # zdalne flathub — bez niego KAŻDY flatpak z lustra pada („No remote refs found for flathub", VM 27.08)
+    if command -v flatpak >/dev/null; then
+        sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo >>"$LOG" 2>&1 && ok "flatpak: zdalne flathub" || blad "flatpak remote-add flathub"
+    fi
     if $LUSTRO sync --auto 2>&1 | tee -a "$LOG" | tail -25; then ok "lustro sync --auto"; else blad "lustro sync --auto zgłosił nieudane pozycje (patrz wyżej / $LOG)"; fi
 fi
 
@@ -322,7 +326,7 @@ if [ $BEZ_TAILSCALE = 1 ]; then pomin "tailscale" "--bez-tailscale/kontener"; el
             else
                 # bez terminala (SSH/agent): `tailscale up` w tle, adres logowania do pliku — wzorzec z [149]
                 nohup sudo tailscale up --hostname "$NAZWA" >"$HOME/tailscale-up.log" 2>&1 &
-                URL=""; for _ in $(seq 1 30); do URL="$(grep -o 'https://login.tailscale.com/[^ ]*' "$HOME/tailscale-up.log" 2>/dev/null | head -1)"; [ -n "$URL" ] && break; sleep 1; done
+                URL=""; for _ in $(seq 1 120); do URL="$(grep -o 'https://login.tailscale.com/[^ ]*' "$HOME/tailscale-up.log" 2>/dev/null | head -1)"; [ -n "$URL" ] && break; sleep 1; done
                 if [ -n "$URL" ]; then echo "$URL" >"$HOME/tailscale-login-url.txt"; recznie "Tailscale czeka na logowanie" "otwórz: $URL (także w ~/tailscale-login-url.txt)"; else blad "tailscale up nie wypisał adresu logowania (patrz ~/tailscale-up.log)"; fi
             fi
         fi
@@ -357,11 +361,12 @@ fi
 # ------------------------------------------------------------------ K15 VPN ITLiMS
 krok "K15 Profil VPN uczelniany ITLiMS (nmcli, split tunnel [176b])"
 if [ $BEZ_VPN = 1 ]; then pomin "VPN ITLiMS" "--bez-vpn/kontener"; elif ! command -v nmcli >/dev/null; then blad "brak nmcli"; else
+    # sudo: przez SSH (bez aktywnej sesji lokalnej) polkit odmawia („Insufficient privileges", VM 27.08); w sesji graficznej też przejdzie
     if nmcli -t -f NAME connection show 2>/dev/null | grep -qx ITLiMS; then ok "profil ITLiMS już jest"; else
-        if nmcli connection add type vpn ifname '*' con-name ITLiMS vpn-type fortisslvpn \
+        if sudo nmcli connection add type vpn ifname '*' con-name ITLiMS vpn-type fortisslvpn \
               vpn.data "gateway = vpn1.meil.pw.edu.pl:10443, realm = zpk, password-flags = 2, user-name = mkowalik" >>"$LOG" 2>&1 \
-           && nmcli connection modify ITLiMS ipv4.never-default yes ipv6.never-default yes >>"$LOG" 2>&1 \
-           && nmcli connection modify ITLiMS +ipv4.routes "194.29.128.0/17" >>"$LOG" 2>&1; then ok "profil VPN ITLiMS (hasło pyta przy łączeniu)"; else blad "nmcli ITLiMS (wtyczka fortisslvpn zainstalowana? — jedzie z lustrem w K8)"; fi
+           && sudo nmcli connection modify ITLiMS ipv4.never-default yes ipv6.never-default yes >>"$LOG" 2>&1 \
+           && sudo nmcli connection modify ITLiMS +ipv4.routes "194.29.128.0/17" >>"$LOG" 2>&1; then ok "profil VPN ITLiMS (hasło pyta przy łączeniu)"; else blad "nmcli ITLiMS (wtyczka fortisslvpn zainstalowana? — jedzie z lustrem w K8)"; fi
     fi
 fi
 
@@ -400,7 +405,8 @@ DO ZROBIENIA RĘCZNIE (automat tu się kończy — spec rozdz. 10.3):
      Claude Code ×2 konta (pierwsze uruchomienie claude w ~/AI-katalog-roboczy: zatwierdzić MCP), Bitwarden.
   5. Speech Note: modele (polski Whisper + Vosk), „wpisuj do aktywnego okna".
   6. Sprzęt tej maszyny (obszar 2): monitory, zasilanie, klawisz zrzutu, szyfrowanie dysku (S2).
-  7. Po pierwszym pełnym logowaniu do GNOME: rozszerzenia aktywują się po ponownym zalogowaniu;
+  7. WYLOGUJ SIĘ I ZALOGUJ PONOWNIE: sesja przechodzi na X11 (GDM WaylandEnable=false) i dopiero
+     wtedy rozszerzenia GNOME z lustra są aktywne, a zdalny pulpit (x11vnc, 5900) startuje.
      ~/AI-katalog-roboczy pojawi się po synchronizacji (ok. 25 GB z serwera).
 Pełny log: $LOG
 KONIEC
