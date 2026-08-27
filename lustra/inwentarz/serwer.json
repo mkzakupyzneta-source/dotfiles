@@ -1,6 +1,6 @@
 {
   "maszyna": "serwer",
-  "ts": "2026-08-27T08:41:55+02:00",
+  "ts": "2026-08-27T22:17:31+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -534,6 +534,11 @@
     },
     {
       "kanal": "poza",
+      "id": "chezmoi-git-pull.sh.bak-20260827",
+      "wersja": "?"
+    },
+    {
+      "kanal": "poza",
       "id": "keyd",
       "wersja": "?"
     },
@@ -565,6 +570,11 @@
     {
       "kanal": "poza",
       "id": "lustro-sync-serwer.sh",
+      "wersja": "?"
+    },
+    {
+      "kanal": "poza",
+      "id": "lustro-sync-serwer.sh.bak-20260827",
       "wersja": "?"
     },
     {
