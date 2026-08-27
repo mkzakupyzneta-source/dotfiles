@@ -35,10 +35,6 @@
 # (na razie pusto — pierwsze `pulpit skladaj` nie zmieni nic w pulpit.ini)
 
 [[galaz]]
-sciezka = "/org/gnome/desktop/interface/"
-zrodlo  = "katana"
-uwagi   = "ustawione z panelu menadzera sieci [202]/[217], 2026-08-27 22:13"
-[[galaz]]
 sciezka = "/org/gnome/shell/keybindings/"
 zrodlo  = "vostro"
 uwagi   = "ustawione z panelu menadzera sieci [202]/[217], 2026-08-27 22:13"
