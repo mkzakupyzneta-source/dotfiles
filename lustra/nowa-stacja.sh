@@ -80,8 +80,12 @@ if [ "${ID:-}" != "ubuntu" ] || [ "${VERSION_ID:-}" != "24.04" ]; then
     echo "   ⚠ To nie jest Ubuntu 24.04 (${PRETTY_NAME:-?}) — lustra są na 24.04; jadę dalej, ale bez gwarancji."
 fi
 if ! command -v sudo >/dev/null; then echo "brak sudo — zainstaluj: apt-get install sudo"; exit 1; fi
-echo "   Potrzebuję sudo (hasło tej maszyny) — raz, potem podtrzymuję w tle."
-sudo -v || { echo "sudo odmówiło — stop."; exit 1; }
+# `sudo -n true` najpierw: przy regule NOPASSWD (VM/poligon, [194]) `sudo -v` i tak żądałoby hasła
+# (domyślne verifypw=all — wystarczy, że pasuje też `%sudo … ALL`), a bez terminala to koniec.
+if ! sudo -n true 2>/dev/null; then
+    echo "   Potrzebuję sudo (hasło tej maszyny) — raz, potem podtrzymuję w tle."
+    sudo -v || { echo "sudo odmówiło — stop."; exit 1; }
+fi
 ( while true; do sudo -n true 2>/dev/null; sleep 50; done ) &
 SUDO_PODTRZYMANIE=$!
 trap 'kill $SUDO_PODTRZYMANIE 2>/dev/null' EXIT
