@@ -25,7 +25,7 @@ Nic nie dzieje się bez pytania — jedyny wyjątek to jawny przełącznik
 | `pulpit skladaj` | (kontrakt [209], 26.08) składa `pulpit.ini` z `pulpit/zrodla-galezi.toml` + migawek maszyn — źródło KAŻDEJ gałęzi dowolne, nie jedna wspólna maszyna |
 | `dziennik [--maszyna X] [--od DATA]` | historia po ludzku |
 | `lista [--do PLIK]` | generuje `programy.md` **i** `.chezmoidata/packages.yaml` |
-| `nowa-maszyna` | bootstrap — dopiero E3 |
+| `nowa-maszyna` | zaślepka (E3) — bootstrap robi **`nowa-stacja.sh`** (niżej), nie apka |
 
 Przełączniki `sync`: `--tylko-pokaz` (jak `status`, do powiadomienia na pulpicie),
 `--tylko-instaluj` (nigdy nic nie usuwa — najbezpieczniejszy tryb automatyczny),
@@ -70,6 +70,10 @@ alias lustro='python3 "$HOME/.local/share/chezmoi/lustra/lustro.py"'
 | Plik / katalog | Do czego |
 |---|---|
 | `lustro.py` | apka: inwentaryzacja, porównanie, wyrównywanie, warstwa pulpitu |
+| `nowa-stacja.sh` | **automat nowej stacji (27.08)**: jedna linia na świeżym Ubuntu 24.04 → stacja-lustro (K0–K16: apt-minimum, repo z serwera, sudoers [194], 3 klucze SSH, maszyny.toml, chezmoi apply, zasiew, `sync --auto`, Node/Claude/bw, hook dpkg, timer, pulpit, ufw, Tailscale, Syncthing, VPN, raport). Linia: `curl -fsSL http://192.168.1.49:8100/nowa-stacja.sh -o /tmp/nowa-stacja.sh && bash /tmp/nowa-stacja.sh` |
+| `przyjmij-maszyne.sh` | **na serwerze**, po `nowa-stacja.sh`: klucz domowy nowej maszyny → `klucze-publiczne/<nazwa>-dom.pub`, `authorized_keys` serwera/Asusa wprost (stacje przez chezmoi), known_hosts, git (pull z nowej maszyny, push GitHub, `updateInstead`), Syncthing (urządzenie + foldery na serwerze i stacjach) |
+| `stacja-dane.py` | pomocnik obu skryptów: `hosty`, `cele` (z maszyny.toml), `maszyna-wpisz` (edycja bloku `[[maszyna]]` z kontrolą tomllib), `syncthing-konfiguruj` / `syncthing-przyjmij` (REST) / `syncthing-urzadzenie-wpisz` |
+| `syncthing.toml` | DANE Syncthinga: urządzenia (ID, adresy) i wspólne foldery (id, ścieżka, wersjonowanie, .stignore) — czytane przez oba skrypty |
 | `zasiew-e1.py` | **jednorazowy** skrypt, który zasiał dziennik z historii systemu (E1) |
 | `zasiew-uzupelniajacy.py` | **wielokrotnego użytku**, append-only, idempotentny — dopisuje `dodano` dla tego, co fizycznie jest, a czego w dzienniku tej maszyny brak (naprawa dziury z 26.08, patrz `mechanizm-luster-spec.md` rozdz. 17). Odsiewa pakiety z obrazu instalatora, jeśli maszyna ma `/var/log/installer/initial-status.gz` (np. Linux Mint na serwerze). Wołany automatycznie na końcu `run_onchange_install-packages.sh.tmpl` przy nowej maszynie. |
 | `dziennik/<maszyna>.jsonl` | historia zdarzeń jednej maszyny; **tylko ta maszyna tu dopisuje** |
