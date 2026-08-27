@@ -58,9 +58,13 @@ nazwa = "tailscale"
 url = "https://pkgs.tailscale.com/stable/ubuntu"
 klucz_url = "https://pkgs.tailscale.com/stable/ubuntu/{codename}.noarmor.gpg"
 klucz_format = "binarny"
-keyring = "/usr/share/keyrings/tailscale-archive-keyring.gpg"
+# keyring pod WŁASNĄ nazwą (27.08, test VM): oficjalny pakiet `tailscale` zależy od
+# `tailscale-archive-keyring`, który kładzie /usr/share/keyrings/tailscale-archive-keyring.gpg —
+# gdy ten sam plik należał do mikro-pakietu lustro-zrodlo-tailscale, dpkg odmawiał
+# („trying to overwrite … also in package lustro-zrodlo-tailscale") i tailscale nie wchodził.
+keyring = "/usr/share/keyrings/lustro-tailscale.gpg"
 plik_listy = "/etc/apt/sources.list.d/tailscale.list"
-linia_deb = "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu {codename} main"
+linia_deb = "deb [signed-by=/usr/share/keyrings/lustro-tailscale.gpg] https://pkgs.tailscale.com/stable/ubuntu {codename} main"
 pakiety = ["tailscale"]
 uwagi = "Sieć prywatna między maszynami [149]. Na Vostro dodane 24.08 skryptem obszaru 6 (klucz i lista pobrane z pkgs.tailscale.com: noble.noarmor.gpg + noble.tailscale-keyring.list); ten blok odtwarza dokładnie to, co tam powstało — zweryfikowane 25.08 z /etc/apt/sources.list.d/tailscale.list."
 
