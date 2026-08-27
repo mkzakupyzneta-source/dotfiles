@@ -480,6 +480,136 @@ def instalacje_obce():
     return znalezione
 
 
+# Programy w wykluczenia/obce.txt oznaczone komentarzem "świadomie" — `status`
+# je dlatego WYCISZA (`instalacje_obce()` je odsiewa, user już wie, że tu są),
+# ale migawka inwentarza (`inwentarz_poza()`, niżej) ma PRZECIWNY cel: pokazać
+# panelowi [202]/obszarowi 1 PRAWDZIWĄ wersję, właśnie DLATEGO że są legalne,
+# świadome pozycje warsztatu, nie niespodzianki. Stąd osobna, mała, ręcznie
+# utrzymywana lista — nie każdy program spoza kanałów da się odpytać o wersję
+# jednym uniwersalnym sposobem. 27.08 (zlecenie Architekta, naprawa (b):
+# "chezmoi na Vostro/Katanie niewidoczny w danych, bo dpkg o nim nie wie").
+_POZA_WERSJONOWANE = {
+    "chezmoi": (("chezmoi", "--version"), r"version\s+v?([^\s,]+)"),
+    "claude": (("claude", "--version"), r"(\d+\.\d+\.\d+)"),
+}
+
+
+def inwentarz_poza():
+    """{(kanal, id): wersja} — instalacje SPOZA apt/snap/flatpak/gnome-extension,
+    do migawki inwentarza (`eksport_inwentarza()`/`lustra/inwentarz/<maszyna>.json`,
+    27.08). Kanał `poza`. Dwa źródła:
+
+      1. `_POZA_WERSJONOWANE` — programy świadomie zaakceptowane jako "poza"
+         (wykluczenia/obce.txt) — wersja PRAWDZIWA, z `<program> --version`.
+      2. Reszta `instalacje_obce()` (dokładnie to, co `status` i tak pokazuje
+         w sekcji "INSTALACJE SPOZA…") — wersja nieznana ("?"), bo to
+         różnorodne programy (skrypty ~/bin, AppImage, pipx, npm…) bez
+         wspólnego sposobu odpytania o wersję; identyfikator to nazwa pliku
+         ze ścieżki, żeby klucz był krótki i stabilny między maszynami.
+
+    Celowo NIEZALEŻNE od filtra wykluczenia/obce.txt dla pozycji z (1) — tam
+    filtr ma sens (nie straszyć usera znaną rzeczą), tutaj byłby błędem
+    (schowałby dokładnie to, co ta migawka ma pokazać)."""
+    wynik = {}
+    for nazwa, (cmd, wzorzec) in _POZA_WERSJONOWANE.items():
+        if not czy_jest(cmd[0]):
+            continue
+        kod, out = uruchom(list(cmd))
+        if kod != 0:
+            continue
+        m = re.search(wzorzec, out)
+        wynik[("poza", nazwa)] = m.group(1) if m else "?"
+
+    for sciezka, _opis in instalacje_obce():
+        klucz = ("poza", Path(sciezka).name)
+        wynik.setdefault(klucz, "?")
+    return wynik
+
+
+def eksport_inwentarza():
+    """{(kanal, id): wersja} — KOMPLETNY obraz TEJ maszyny w tej chwili, do
+    migawki `lustra/inwentarz/<maszyna>.json` (27.08, zlecenie Architekta,
+    naprawa (b)/(c) z incydentu 27.08: panel widział chezmoi „tylko na
+    serwerze" i nie miał żywego źródła do porównania WERSJI między maszynami
+    — dziennik zna wyłącznie wersję z chwili instalacji zdarzenia, nie
+    aktualną). Różni się od `inwentaryzacja()` (rdzeń `status`/`sync`, tylko
+    apt/snap/flatpak) dwoma dołożeniami:
+
+      • gnome-extension — z dysku, tylko rozszerzenia usera. Ten sam blok co
+        w `zbierz_pozycje()`, ŚWIADOMIE zduplikowany zamiast wydzielony do
+        wspólnej funkcji — `zbierz_pozycje()` jest rdzeniem `status`/`sync`
+        z własnym testem ochronnym (bit-identyczny wynik); ta zmiana go
+        nie dotyka.
+      • kanał `poza` — `inwentarz_poza()`, patrz tam.
+    """
+    stan = dict(inwentaryzacja())
+    if any(k.is_dir() for k in KATALOGI_ROZSZERZEN) or czy_jest("gnome-shell"):
+        for uuid, wersja in rozszerzenia_na_dysku(tylko_uzytkownika=True).items():
+            stan[("gnome-extension", uuid)] = wersja
+    stan.update(inwentarz_poza())
+    return stan
+
+
+INWENTARZ_DIR = KATALOG / "inwentarz"   # migawki <maszyna>.json, 27.08
+
+
+def zapisz_migawke_inwentarza():
+    """Zapisuje `lustra/inwentarz/<maszyna>.json`, TYLKO gdy `pozycje` się
+    zmieniły względem poprzedniej migawki (porównanie POMIJA `ts` — inaczej
+    każdy bieg timera nadpisywałby plik samym nowym znacznikiem czasu i
+    zaśmiecał historię gita identycznymi commitami co godzinę, wbrew
+    zleceniu "commit+push przy zmianie, bez commitu gdy identyczna").
+
+    Format pliku: {"maszyna": ..., "ts": ISO, "pozycje": [{"kanal","id","wersja"}, …]}
+    — lista, posortowana po (kanal, id), żeby diff gita był czytelny i stabilny.
+
+    Nie rusza gita — wołający decyduje (`polecenie_inwentarz_eksportuj` woła
+    `git_zapisz` od razu; `sync --auto` woła to PRZED swoim bezwarunkowym
+    `git_zapisz()` na końcu przebiegu, żeby nie było dwóch commitów za jeden
+    bieg timera).
+
+    Zwraca (zmienione: bool, liczba_pozycji: int).
+    """
+    maszyna = nazwa_maszyny()
+    stan = eksport_inwentarza()
+    pozycje = [{"kanal": k, "id": i, "wersja": w} for (k, i), w in sorted(stan.items())]
+
+    plik = INWENTARZ_DIR / f"{maszyna}.json"
+    stara_tresc = None
+    if plik.exists():
+        try:
+            stara_tresc = json.loads(plik.read_text(encoding="utf-8")).get("pozycje")
+        except (json.JSONDecodeError, OSError):
+            stara_tresc = None
+
+    if stara_tresc == pozycje:
+        return False, len(pozycje)
+
+    INWENTARZ_DIR.mkdir(parents=True, exist_ok=True)
+    dane = {"maszyna": maszyna, "ts": teraz_iso(), "pozycje": pozycje}
+    plik.write_text(json.dumps(dane, ensure_ascii=False, indent=2) + "\n",
+                     encoding="utf-8")
+    return True, len(pozycje)
+
+
+def polecenie_inwentarz_eksportuj(args):
+    """`lustro inwentarz eksportuj` — wywołanie RĘCZNE (bootstrap nowej maszyny,
+    jednorazowa migawka serwera, weryfikacja) — zapisuje i OD RAZU commituje/
+    pushuje, żeby user widział efekt bez czekania na timer. Dla wywołania z
+    timera patrz `polecenie_sync_auto` (tam `zapisz_migawke_inwentarza()` bez
+    osobnego commitu — łączy się z commitem końca przebiegu)."""
+    git_pull_rebase()
+    maszyna = nazwa_maszyny()
+    zmienione, n = zapisz_migawke_inwentarza()
+    plik = INWENTARZ_DIR / f"{maszyna}.json"
+    if zmienione:
+        print(f"Migawka inwentarza zapisana: {plik} ({n} pozycji).")
+        git_zapisz(f"lustra: migawka inwentarza {maszyna} ({n} pozycji)")
+    else:
+        print(f"Migawka inwentarza bez zmian ({n} pozycji) — nic do zapisania.")
+    return 0
+
+
 # ---------------------------------------------------------------- dziennik
 
 def wczytaj_dzienniki():
@@ -2693,6 +2823,16 @@ def polecenie_sync_auto(args):
             zaksiegowane += 1
         print()
 
+    # Migawka inwentarza (27.08) — ZAWSZE, bezwarunkowo (jak `git_zapisz` niżej):
+    # tania operacja (żadnej instalacji), a to jedyny mechanizm, który wypełnia
+    # `lustra/inwentarz/<maszyna>.json` cyklicznie dla stacji. Pisze plik TYLKO
+    # gdy treść się zmieniła (`zapisz_migawke_inwentarza`) — commit robi
+    # wspólny `git_zapisz()` na końcu tego przebiegu, nie osobny.
+    zmienione_inw, n_inw = zapisz_migawke_inwentarza()
+    if zmienione_inw:
+        print(f"Migawka inwentarza zaktualizowana ({n_inw} pozycji).")
+        print()
+
     pominiete = len(dane["usuniete_poza"]) + (1 if roznice_pulpitu() else 0)
     if not do_instalacji and not brak_zrodel and not dane["niezapisane"]:
         print("Nic do automatycznego dociągnięcia/księgowania.")
@@ -2713,6 +2853,8 @@ def polecenie_sync_auto(args):
         czesci.append(f"{zrobione} dociągniętych")
     if zaksiegowane:
         czesci.append(f"{zaksiegowane} zaksięgowanych (wykryte)")
+    if zmienione_inw:
+        czesci.append(f"migawka inwentarza ({n_inw} pozycji)")
     opis = ", ".join(czesci) if czesci else "porządki (hook dpkg / zaległe commity)"
     git_zapisz(f"lustra: auto-sync na {nazwa_maszyny()} — {opis} "
                f"(--auto, [194]/[213])")
@@ -3492,6 +3634,10 @@ def main():
     nm = pod.add_parser("nowa-maszyna", help="bootstrap (E3 — niedostępne)")
     nm.add_argument("reszta", nargs="*")
 
+    iv = pod.add_parser("inwentarz", help="migawka pełnej inwentaryzacji tej maszyny "
+                                          "z wersjami, do lustra/inwentarz/<maszyna>.json")
+    iv.add_argument("co", choices=["eksportuj"], nargs="?", default="eksportuj")
+
     hk = pod.add_parser("hak-apt", help="hook dpkg — dziennik przy KAŻDEJ zmianie apt [213]")
     hk.add_argument("--zainstaluj", action="store_true",
                     help="zbuduj i zainstaluj na TEJ maszynie pakiet .deb z hookiem "
@@ -3520,6 +3666,8 @@ def main():
         return polecenie_lista(args)
     if args.polecenie == "hak-apt":
         return polecenie_hak_apt_instaluj(args) if args.zainstaluj else polecenie_hak_apt(args)
+    if args.polecenie == "inwentarz":
+        return polecenie_inwentarz_eksportuj(args)
     if args.polecenie == "pulpit":
         return {"status": polecenie_pulpit_status,
                 "zasiew": polecenie_pulpit_zasiew,
