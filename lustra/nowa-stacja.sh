@@ -364,7 +364,7 @@ if [ $BEZ_VPN = 1 ]; then pomin "VPN ITLiMS" "--bez-vpn/kontener"; elif ! comman
     # sudo: przez SSH (bez aktywnej sesji lokalnej) polkit odmawia („Insufficient privileges", VM 27.08); w sesji graficznej też przejdzie
     if nmcli -t -f NAME connection show 2>/dev/null | grep -qx ITLiMS; then ok "profil ITLiMS już jest"; else
         if sudo nmcli connection add type vpn ifname '*' con-name ITLiMS vpn-type fortisslvpn \
-              vpn.data "gateway = vpn1.meil.pw.edu.pl:10443, realm = zpk, password-flags = 2, user-name = mkowalik" >>"$LOG" 2>&1 \
+              vpn.data "gateway = vpn1.meil.pw.edu.pl:10443, realm = zpk, password-flags = 2, user = mkowalik" >>"$LOG" 2>&1 \
            && sudo nmcli connection modify ITLiMS ipv4.never-default yes ipv6.never-default yes >>"$LOG" 2>&1 \
            && sudo nmcli connection modify ITLiMS +ipv4.routes "194.29.128.0/17" >>"$LOG" 2>&1; then ok "profil VPN ITLiMS (hasło pyta przy łączeniu)"; else blad "nmcli ITLiMS (wtyczka fortisslvpn zainstalowana? — jedzie z lustrem w K8)"; fi
     fi
