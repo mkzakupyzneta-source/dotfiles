@@ -1,6 +1,6 @@
 {
   "maszyna": "katana",
-  "ts": "2026-08-27T23:48:10+02:00",
+  "ts": "2026-08-28T00:49:16+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -570,7 +570,7 @@
     {
       "kanal": "poza",
       "id": "claude",
-      "wersja": "2.1.247"
+      "wersja": "2.1.248"
     },
     {
       "kanal": "poza",
