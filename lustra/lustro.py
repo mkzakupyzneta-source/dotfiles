@@ -948,6 +948,50 @@ def zrodla_brakujace(zrodla=None):
     return [z for z in zrodla if not zrodlo_obecne(z, tresc)]
 
 
+def zrodla_nalezne_tej_maszynie(brak=None, maszyna=None, czlonkowie=None):
+    """
+    Które z BRAKUJĄCYCH źródeł apt (`zrodla_brakujace`) NALEŻĄ SIĘ tej maszynie.
+
+    Sprawa [218b], decyzja usera 27.08: „serwer nie ma dostawać wszystkiego”.
+    Źródła z `zrodla-apt.toml` są częścią wspólnego zestawu lustra, więc — jak
+    pakiety z konsensusu — dostają je maszyny będące CZŁONKAMI lustra
+    (`czlonek_lustra = true`, kontrakt [209] 2.1). Maszyna spoza lustra nie
+    dostaje ich hurtem: to dokładnie reguła 4 z kontraktu [209] rozdz. 3
+    („brak override + nie-członek = dowolny, nie sprawdzamy”), która do 27.08
+    obowiązywała pakiety, ale nie źródła — stąd pierwszy bieg timera
+    `lustro-sync-serwer` dołożył serwerowi repozytoria fortinet/vscode/wezterm,
+    których nikt tam nie zamawiał.
+
+    Furtka z kontraktu (reguła 2, dwukierunkowość): jeśli NIE-członek ma jawny
+    `[[pozycja.override]] stan = "obecne"` na pakiet apt pochodzący z danego
+    źródła, to źródło mu się należy — bez niego `apt` tego pakietu nie znajdzie,
+    a override jest jawnym zamówieniem. (Druga warstwa tej samej furtki to
+    `zapewnij_zrodlo_dla()`, wołane tuż przed każdą instalacją apt; ta funkcja
+    jest po to, żeby `lustro status` mówił prawdę już PRZED instalacją.)
+
+    Zwraca podlistę `brak` (kolejność zachowana). Dla członka lustra = całe `brak`,
+    więc na dzisiejszych stacjach wynik jest identyczny jak przed zmianą.
+    """
+    brak = zrodla_brakujace() if brak is None else brak
+    if not brak:
+        return []
+    maszyna = nazwa_maszyny() if maszyna is None else maszyna
+    if czy_czlonek_lustra(maszyna, czlonkowie):
+        return list(brak)
+
+    # nie-członek: tylko źródła pakietów z jawnym `override obecne` dla tej maszyny
+    zamowione = set()
+    for (kanal, ident), st in wczytaj_statusy_pozycji().items():
+        if kanal != "apt" or st.get("status") == "testowe":
+            continue
+        ovr = (st.get("override") or {}).get(maszyna)
+        if ovr and ovr.get("stan") == "obecne":
+            zamowione.add(ident)
+    if not zamowione:
+        return []
+    return [z for z in brak if zamowione.intersection(z.get("pakiety") or [])]
+
+
 def zrodlo_dla_pakietu(pakiet, zrodla=None):
     """Blok źródła, w którego polu `pakiety` stoi ten pakiet; None gdy żaden."""
     zrodla = wczytaj_zrodla_apt() if zrodla is None else zrodla
@@ -2218,7 +2262,13 @@ def naglowek(dane):
         print(f"Kwarantanna (status `testowe`, automat nie propaguje — "
               f"plik statusy-pozycji.toml): {len(dane['kwarantanna'])}")
         for (kanal, ident), st in dane["kwarantanna"]:
-            gdzie = f" — testowane na: {st['maszyna']}" if st["maszyna"] else ""
+            # [218a] naprawa: do 27.08 stało tu `st["maszyna"]` — pole ze STAREGO
+            # schematu (`status = "wyjatek"` + `maszyna`), skasowanego kontraktem
+            # [209] 2.2. `wczytaj_statusy_pozycji` takiego klucza już nie zwraca,
+            # więc pierwszy wpis `status = "testowe"` wywracał `lustro status`
+            # na KeyError. Dziś odpowiednikiem jest lista `wylacznie_na`.
+            gdzie = (f" — dotyczy maszyn: {', '.join(st['wylacznie_na'])}"
+                     if st.get("wylacznie_na") else "")
             uwagi = f" ({st['uwagi']})" if st["uwagi"] else ""
             print(f"   ⏳ {ident} ({kanal}){gdzie}{uwagi}")
     print()
@@ -2273,7 +2323,21 @@ def polecenie_status(args):
             print("    propozycja: dopisać do dziennika \"usunieto … zrodlo: reczne\"")
             print()
 
-    brak_zrodel = zrodla_brakujace()
+    # [218b] — nie-członek lustra nie dostaje źródeł hurtem (patrz
+    # `zrodla_nalezne_tej_maszynie`); mówimy o tym wprost, żeby pominięcie nie
+    # było ciche i żeby nikt nie „naprawiał" brakującego wpisu ręcznie.
+    wszystkie_brakujace = zrodla_brakujace()
+    brak_zrodel = zrodla_nalezne_tej_maszynie(wszystkie_brakujace)
+    pominiete_zrodla = len(wszystkie_brakujace) - len(brak_zrodel)
+    if pominiete_zrodla:
+        print(f"ZEWNĘTRZNE ŹRÓDŁA APT — pominięte ({pominiete_zrodla}): ta maszyna "
+              f"nie jest członkiem lustra")
+        print(f"    (`czlonek_lustra = false` w {MASZYNY_TOML.name}), więc nie dostaje "
+              f"źródeł z lustra/{ZRODLA_APT.name} hurtem [218b].")
+        print("    Pojedyncze źródło trafi tu tylko wtedy, gdy jego pakiet dostanie "
+              "jawny")
+        print("    `[[pozycja.override]] stan = \"obecne\"` w statusy-pozycji.toml.")
+        print()
     if brak_zrodel:
         print(f"ZEWNĘTRZNE ŹRÓDŁA APT, KTÓRYCH TU NIE MA ({len(brak_zrodel)}) "
               f"— wg lustra/{ZRODLA_APT.name}")
@@ -2746,7 +2810,11 @@ def polecenie_sync_auto(args):
         nie ma (apt/snap/flatpak) → instalacja + wpis do dziennika (`zrodlo:
         sync`) — dokładnie ten sam kod co interaktywny `sync` (`wykonaj_pozycje`).
       • TAK — brakujące zewnętrzne źródło apt z zrodla-apt.toml (klucz + wpis
-        .list), niezależnie od tego, czy akurat instalujemy z niego pakiet.
+        .list), niezależnie od tego, czy akurat instalujemy z niego pakiet —
+        ale WYŁĄCZNIE na maszynie będącej członkiem lustra ([218b], decyzja
+        usera 27.08 „serwer nie ma dostawać wszystkiego”; patrz
+        `zrodla_nalezne_tej_maszynie`). Nie-członek dostaje pojedyncze źródło
+        tylko przez jawny `override obecne` na pakiet z tego źródła.
       • TAK [213] — księgowanie „na maszynie jest, w dzienniku brak” (kategoria
         `niezapisane` z `zbierz_pozycje()`): dopisujemy „dodano” (zrodlo: wykryte)
         automatycznie, bez pytania. To jest SIATKA BEZPIECZEŃSTWA dla apt (gdyby
@@ -2791,7 +2859,7 @@ def polecenie_sync_auto(args):
 
     zrobione, nieudane, zaksiegowane = 0, 0, 0
 
-    brak_zrodel = zrodla_brakujace()
+    brak_zrodel = zrodla_nalezne_tej_maszynie()   # [218b] — tylko członkom lustra
     if brak_zrodel:
         print(f"ŹRÓDŁA APT DO DODANIA ({len(brak_zrodel)}):")
         for z in brak_zrodel:
