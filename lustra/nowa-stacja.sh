@@ -89,6 +89,10 @@ trap 'kill $SUDO_PODTRZYMANIE 2>/dev/null' EXIT
 HOSTNAME_TU="$(hostname)"
 UZYTKOWNIK="$(id -un)"
 TTY=0; { : </dev/tty; } 2>/dev/null && TTY=1
+# Uruchomienie przez SSH (bez zmiennych sesji graficznej): podepnij się pod sesję usera, jeśli jest
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -S "$XDG_RUNTIME_DIR/bus" ] && export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+[ -z "${DISPLAY:-}" ] && [ -d /tmp/.X11-unix ] && X1="$(ls /tmp/.X11-unix 2>/dev/null | head -1)" && [ -n "$X1" ] && export DISPLAY=":${X1#X}"
 ok "sudo działa" "maszyna: $NAZWA (hostname $HOSTNAME_TU), user: $UZYTKOWNIK, terminal: $TTY"
 
 # ------------------------------------------------------------------ K1 minimum apt
@@ -284,6 +288,18 @@ if [ $BEZ_ZAPORY = 1 ]; then pomin "ufw" "--bez-zapory/kontener"; else
     if sh "$LUSTRA/ufw-stacja.sh" --wykonaj >>"$LOG" 2>&1 && grep -q '^ENABLED=yes' /etc/ufw/ufw.conf; then ok "ufw: ENABLED=yes, reguły z siec.toml"; else blad "ufw-stacja.sh --wykonaj"; fi
 fi
 
+# ------------------------------------------------------------------ K12b sesja X11
+krok "K12b Sesja X11 zamiast Wayland (GDM) — jak Vostro/Katana; zdalny pulpit [222] to x11vnc"
+GDM=/etc/gdm3/custom.conf
+if [ $KONTENER = 1 ] || [ ! -f $GDM ]; then pomin "WaylandEnable=false" "brak $GDM (kontener / nie GDM)"; else
+    if grep -qE '^\s*WaylandEnable\s*=\s*false' $GDM; then ok "GDM: WaylandEnable=false już jest"; else
+        if grep -qE '^\s*#?\s*WaylandEnable\s*=' $GDM; then sudo sed -i -E 's/^\s*#?\s*WaylandEnable\s*=.*/WaylandEnable=false/' $GDM
+        else sudo sed -i -E 's/^\[daemon\]/[daemon]
+WaylandEnable=false/' $GDM; fi
+        grep -qE '^WaylandEnable=false' $GDM && ok "GDM: WaylandEnable=false" "obowiązuje od następnego logowania (bieżąca sesja: $(loginctl show-session "$(loginctl list-sessions --no-legend | awk '$3=="'"$UZYTKOWNIK"'"{print $1; exit}')" -p Type --value 2>/dev/null || echo ?))" || blad "edycja $GDM"
+    fi
+fi
+
 # ------------------------------------------------------------------ K13 Tailscale
 krok "K13 Tailscale (logowanie w przeglądarce — jedyny krok ręczny w sieci)"
 if [ $BEZ_TAILSCALE = 1 ]; then pomin "tailscale" "--bez-tailscale/kontener"; else
@@ -296,8 +312,15 @@ if [ $BEZ_TAILSCALE = 1 ]; then pomin "tailscale" "--bez-tailscale/kontener"; el
         if [ "$(tailscale status --json 2>/dev/null | $PYTHON -c 'import sys,json;print(json.load(sys.stdin).get("BackendState",""))' 2>/dev/null)" = "Running" ]; then
             ok "Tailscale już zalogowany" "$(tailscale ip -4 2>/dev/null)"
         else
-            echo "   Otwórz adres, który wypisze Tailscale, zaloguj się kontem mkzakupyzneta@ — skrypt czeka."
-            if [ $TTY = 1 ] && sudo tailscale up --hostname "$NAZWA" </dev/tty; then ok "Tailscale zalogowany" "$(tailscale ip -4 2>/dev/null)"; else blad "tailscale up"; fi
+            if [ $TTY = 1 ]; then
+                echo "   Otwórz adres, który wypisze Tailscale, zaloguj się kontem mkzakupyzneta@ — skrypt czeka."
+                if sudo tailscale up --hostname "$NAZWA" </dev/tty; then ok "Tailscale zalogowany" "$(tailscale ip -4 2>/dev/null)"; else blad "tailscale up"; fi
+            else
+                # bez terminala (SSH/agent): `tailscale up` w tle, adres logowania do pliku — wzorzec z [149]
+                nohup sudo tailscale up --hostname "$NAZWA" >"$HOME/tailscale-up.log" 2>&1 &
+                URL=""; for _ in $(seq 1 30); do URL="$(grep -o 'https://login.tailscale.com/[^ ]*' "$HOME/tailscale-up.log" 2>/dev/null | head -1)"; [ -n "$URL" ] && break; sleep 1; done
+                if [ -n "$URL" ]; then echo "$URL" >"$HOME/tailscale-login-url.txt"; recznie "Tailscale czeka na logowanie" "otwórz: $URL (także w ~/tailscale-login-url.txt)"; else blad "tailscale up nie wypisał adresu logowania (patrz ~/tailscale-up.log)"; fi
+            fi
         fi
         TS_IP="$(tailscale ip -4 2>/dev/null | head -1)"
         [ -n "$TS_IP" ] && $PYTHON "$LUSTRA/stacja-dane.py" maszyna-wpisz --klucz "$NAZWA" --host-tailscale "$NAZWA" --ip-tailscale "$TS_IP" >>"$LOG" 2>&1
