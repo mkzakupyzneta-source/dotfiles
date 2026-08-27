@@ -58,3 +58,12 @@
 # kontraktem [209]; ten plik był wtedy pusty, więc migracja to zero wierszy.
 #
 # (na razie pusto — czeka na pierwszą pozycję)
+
+[[pozycja]]
+kanal = "apt"
+id    = "cowsay"
+
+  [[pozycja.override]]
+  maszyna = "katana"
+  stan    = "nieobecne"
+  uwagi   = "test na zywo panelu [217], do cofniecia"
