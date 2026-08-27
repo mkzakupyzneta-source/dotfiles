@@ -1,6 +1,6 @@
 {
   "maszyna": "katana",
-  "ts": "2026-08-27T23:03:54+02:00",
+  "ts": "2026-08-27T23:48:10+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -41,6 +41,11 @@
       "kanal": "apt",
       "id": "dislocker",
       "wersja": "0.7.3-3.1build2"
+    },
+    {
+      "kanal": "apt",
+      "id": "espeak-ng",
+      "wersja": "1.51+dfsg-12build1"
     },
     {
       "kanal": "apt",
