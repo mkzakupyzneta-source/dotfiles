@@ -1,6 +1,6 @@
 {
   "maszyna": "katana",
-  "ts": "2026-08-27T08:11:46+02:00",
+  "ts": "2026-08-27T23:03:54+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -439,6 +439,16 @@
     },
     {
       "kanal": "apt",
+      "id": "tigervnc-viewer",
+      "wersja": "1.13.1+dfsg-2build2"
+    },
+    {
+      "kanal": "apt",
+      "id": "tmux",
+      "wersja": "3.4-1build1"
+    },
+    {
+      "kanal": "apt",
       "id": "ttf-mscorefonts-installer",
       "wersja": "3.8.1ubuntu1"
     },
@@ -471,6 +481,11 @@
       "kanal": "apt",
       "id": "wget",
       "wersja": "1.21.4-1ubuntu4.5"
+    },
+    {
+      "kanal": "apt",
+      "id": "x11vnc",
+      "wersja": "0.9.16-10"
     },
     {
       "kanal": "apt",
