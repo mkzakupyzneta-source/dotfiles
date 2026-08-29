@@ -234,7 +234,8 @@ MAC_LAN=""; [ -n "$IF_LAN" ] && MAC_LAN="$(cat "/sys/class/net/$IF_LAN/address" 
 if $PYTHON "$LUSTRA/stacja-dane.py" maszyna-wpisz --klucz "$NAZWA" --nazwa-hosta "$HOSTNAME_TU" \
         --host-lan "${IP_LAN:-}" --mac-lan "${MAC_LAN:-}" --user "$UZYTKOWNIK" \
         --katalog-roboczy "$HOME/AI-katalog-roboczy" --dostepna-jako-cel true --aktywna true \
-        --profil stacja --czlonek-lustra true --rola "Stacja robocza"; then
+        --profil stacja --czlonek-lustra true --rola "Stacja robocza" \
+        --system "$(. /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-}")"; then
     ok "maszyny.toml: $NAZWA (host $HOSTNAME_TU, LAN ${IP_LAN:-?}, MAC ${MAC_LAN:-?})"
 else blad "maszyny.toml"; fi
 # Asus: akcje panelu odblokowane — serwer wchodzi na kiosk@ od 27.08 (meldunek obszaru 1)
@@ -270,7 +271,7 @@ if $PYTHON "$LUSTRA/zasiew-uzupelniajacy.py" --notatka "zasiew automatyczny — 
 else blad "zasiew-uzupelniajacy.py (szczegóły w $LOG)"; fi
 
 # ------------------------------------------------------------------ K8 pakiety lustra
-krok "K8 Programy lustra: lustro sync --auto (apt/snap/flatpak + zewnętrzne źródła apt)"
+krok "K8 Programy lustra: lustro sync --auto (apt/snap/flatpak + zewnętrzne źródła apt; pozycje skrypt z katalogu roboczego dopiero po K14 — dociągnie timer)"
 LUSTRO="$PYTHON $LUSTRA/lustro.py"
 if [ $BEZ_PAKIETOW = 1 ]; then pomin "lustro sync --auto" "--bez-pakietow"; else
     echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
@@ -441,5 +442,8 @@ DO ZROBIENIA RĘCZNIE (automat tu się kończy — spec rozdz. 10.3):
   7. WYLOGUJ SIĘ I ZALOGUJ PONOWNIE: sesja przechodzi na X11 (GDM WaylandEnable=false) i dopiero
      wtedy rozszerzenia GNOME z lustra są aktywne, a zdalny pulpit (x11vnc, 5900) startuje.
      ~/AI-katalog-roboczy pojawi się po synchronizacji (ok. 25 GB z serwera).
+  8. Pozycje kanału `skrypt` (lustra/skrypty.toml — np. AI Launcher), których źródło leży
+     w katalogu roboczym, dociągnie SAM timer lustro-sync (co 60 min) po synchronizacji
+     katalogu roboczego — w K8 są „odłożone", to nie błąd. Podgląd: lustro status.
 Pełny log: $LOG
 KONIEC

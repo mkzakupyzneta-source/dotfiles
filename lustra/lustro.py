@@ -45,6 +45,7 @@ STATUSY_POZYCJI = KATALOG / "statusy-pozycji.toml" # wspolne/testowe + override/
 MASZYNY_TOML = KATALOG / "maszyny.toml"            # czlonek_lustra [209] 2.1
 ZRODLA_GALEZI = PULPIT / "zrodla-galezi.toml"      # źródło per gałąź pulpitu [209] 2.3.2
 PULPIT_STAN = PULPIT / "stan"                      # migawki <maszyna>.ini [209] 2.3.1
+SKRYPTY_TOML = KATALOG / "skrypty.toml"            # pozycje instalowane skryptem [252]
 SOURCES_D = Path("/etc/apt/sources.list.d")
 # Pakiety, które przyjechały z obrazem instalatora (Debian/Ubuntu/Mint) — patrz
 # `_pakiety_bazowe_instalatora()` niżej, sprawa [213] p. 2/uwaga o serwerze.
@@ -61,10 +62,22 @@ HAK_APT_MARKER = Path("/tmp/.lustro-hak-apt-suppress")
 # Migawka ostatniego znanego `inwentarz_apt()` (poza gitem — to techniczny stan
 # hooka, nie zdarzenie do współdzielenia między maszynami).
 HAK_APT_STAN = DOM / ".local/share/lustro/hak-apt-stan.json"
+# Pełne wyjście skryptów instalacyjnych kanału `skrypt` [252] — <id>.log, nadpisywany
+# przy każdym uruchomieniu (poza gitem, jak stan hooka wyżej).
+LOG_SKRYPTOW = DOM / ".local/share/lustro/skrypty"
 
 EXTENSIONS_GNOME_ORG = "https://extensions.gnome.org"
 
 KANALY = ("apt", "snap", "flatpak")
+
+# Kanał `skrypt` [252] (29.08): pozycje stawiane SKRYPTEM, nie menedżerem pakietów
+# (pierwsza: AI Launcher). Definicje = DANE w lustra/skrypty.toml (jak zrodla-apt.toml).
+# Celowo POZA `KANALY`: `KANALY` to menedżery pakietów, z których `lustro lista` buduje
+# .chezmoidata/packages.yaml dla szablonu bootstrapu; pozycje `skrypt` dociąga
+# `sync --auto` (K8 nowej stacji i timer co 60 min), nie szablon chezmoi. Tam, gdzie
+# chodzi o „co apka umie postawić", używać KANALY_INSTALOWALNE.
+KANAL_SKRYPT = "skrypt"
+KANALY_INSTALOWALNE = KANALY + (KANAL_SKRYPT,)
 
 # Wszystko w programy.md poniżej tej linii jest RĘCZNE — `lustro lista` przepisuje to
 # bez zmian. Nad nią rządzi generator, pod nią człowiek.
@@ -354,11 +367,186 @@ def inwentarz_flatpak():
     return wynik
 
 
+# ---------------------------------------------------------------- kanał skrypt [252]
+
+def wczytaj_skrypty():
+    """Czyta lustra/skrypty.toml → {id: definicja} (kanał `skrypt`, [252], 29.08).
+
+    Pozycja kanału `skrypt` to program, którego nie stawia żaden menedżer pakietów,
+    tylko skrypt (np. AI Launcher: `install.sh` kopiuje pliki do ~/.local/share).
+    Definicja mówi apce, JAK poznać, że pozycja jest (`sprawdz`, kod 0 = obecna)
+    i JAK ją postawić (`zainstaluj`). Cała reszta — konsensus z dziennika,
+    rozbieżności, księgowanie „wykryte”, migawka inwentarza — idzie dokładnie tą samą
+    drogą co apt/snap/flatpak; definicja jest tylko „sterownikiem” kanału.
+    Nowa pozycja = nowy blok [[skrypt]] w pliku, bez ruszania kodu (pola → nagłówek
+    pliku).
+
+    Zduplikowany `id` = twardy błąd (jak sprzeczne override w statusy-pozycji.toml):
+    dwie definicje tej samej pozycji to dwuznaczność w działaniu na systemie.
+    Brak pliku = pusty słownik (kanał po prostu nie ma pozycji)."""
+    if not SKRYPTY_TOML.exists():
+        return {}
+    import tomllib
+    try:
+        dane = tomllib.loads(SKRYPTY_TOML.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError) as e:
+        print(f"⚠ nie umiem odczytać {SKRYPTY_TOML.name}: {e} — kanał skrypt pomijam")
+        return {}
+    wynik = {}
+    for s in dane.get("skrypt", []):
+        ident = (s.get("id") or "").strip()
+        if not ident:
+            continue
+        if not s.get("sprawdz") or not s.get("zainstaluj"):
+            print(f"⚠ {SKRYPTY_TOML.name}: pozycja „{ident}” bez pola `sprawdz` albo "
+                  f"`zainstaluj` — pomijam")
+            continue
+        if ident in wynik:
+            sys.exit(f"BŁĄD w {SKRYPTY_TOML.name}: DWIE definicje pozycji „{ident}” — "
+                     f"zostaw dokładnie jedną.")
+        wymaga = s.get("wymaga") or []
+        if isinstance(wymaga, str):
+            wymaga = [wymaga]
+        wynik[ident] = {
+            "id": ident,
+            "opis": s.get("opis", ""),
+            "sprawdz": s["sprawdz"],
+            "zainstaluj": s["zainstaluj"],
+            "usun": s.get("usun"),
+            "wersja": s.get("wersja"),
+            "wymaga": [str(w) for w in wymaga],
+            "uwagi": s.get("uwagi", ""),
+        }
+    return wynik
+
+
+def _srodowisko_skryptu():
+    """Środowisko dla poleceń z skrypty.toml — jak w terminalu usera. Z timera
+    systemd PATH nie ma ~/.local/bin ani ~/bin, a tam żyją claude, chezmoi, lustro."""
+    env = dict(os.environ)
+    env["HOME"] = str(DOM)
+    dodatki = [str(DOM / ".local/bin"), str(DOM / "bin")]
+    env["PATH"] = ":".join(dodatki + [env.get("PATH", "/usr/bin:/bin")])
+    return env
+
+
+def uruchom_skrypt(polecenie, timeout=60):
+    """Polecenie z skrypty.toml przez `bash -c`, NIEINTERAKTYWNIE: stdin z /dev/null
+    (skrypt, który chciałby o coś zapytać, dostaje koniec pliku zamiast wisieć),
+    limit czasu, wyjście przechwycone. Zwraca (kod, wyjście). `~` w poleceniu
+    rozwija bash — dlatego ścieżki w skrypty.toml pisze się względem katalogu
+    domowego, a nie z `/home/mk`."""
+    try:
+        p = subprocess.run(["bash", "-c", polecenie], capture_output=True, text=True,
+                           stdin=subprocess.DEVNULL, timeout=timeout, cwd=str(DOM),
+                           env=_srodowisko_skryptu())
+        return p.returncode, (p.stdout or "") + (p.stderr or "")
+    except subprocess.TimeoutExpired:
+        return 124, f"(przerwane: przekroczony limit {timeout} s)\n"
+    except FileNotFoundError:
+        return 127, "(brak programu bash)\n"
+
+
+def inwentarz_skrypt(definicje=None):
+    """{id: wersja} — pozycje kanału `skrypt`, które NA TEJ MASZYNIE są (kod 0
+    z `sprawdz`). Wersja z polecenia `wersja` (pierwsza niepusta linia), inaczej "?".
+    Pozycja bez definicji w skrypty.toml nie jest widziana wcale — apka nie ma
+    jak jej sprawdzić."""
+    definicje = wczytaj_skrypty() if definicje is None else definicje
+    wynik = {}
+    for ident, d in definicje.items():
+        kod, _ = uruchom_skrypt(d["sprawdz"], timeout=30)
+        if kod != 0:
+            continue
+        wersja = "?"
+        if d.get("wersja"):
+            kod, out = uruchom_skrypt(d["wersja"], timeout=30)
+            linie = [l.strip() for l in out.splitlines() if l.strip()]
+            if kod == 0 and linie:
+                wersja = linie[0][:60]
+        wynik[ident] = wersja
+    return wynik
+
+
+def katalog_roboczy_tej_maszyny():
+    """Katalog roboczy z pola `katalog_roboczy` bloku TEJ maszyny w maszyny.toml
+    (to samo pole czyta AI Launcher); gdy brak — ~/AI-katalog-roboczy."""
+    domyslna = DOM / "AI-katalog-roboczy"
+    if not MASZYNY_TOML.exists():
+        return domyslna
+    import tomllib
+    try:
+        dane = tomllib.loads(MASZYNY_TOML.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError):
+        return domyslna
+    klucz = nazwa_maszyny().lower()
+    for m in dane.get("maszyna", []):
+        if (m.get("klucz") or "").lower() == klucz and m.get("katalog_roboczy"):
+            return pelna_sciezka(m["katalog_roboczy"])
+    return domyslna
+
+
+def wymagania_niespelnione(definicja):
+    """Lista powodów (po ludzku), dla których pozycji `skrypt` NIE DA SIĘ JESZCZE
+    postawić na tej maszynie; pusta = można. Wpisy pola `wymaga`:
+      • "katalog-roboczy" — katalog roboczy (maszyny.toml → `katalog_roboczy`,
+        domyślnie ~/AI-katalog-roboczy) istnieje i nie jest pusty; na nowej stacji
+        pojawia się dopiero po synchronizacji Syncthinga (K14 nowa-stacja.sh, ~25 GB);
+      • ścieżka (`~/…` albo `/…`) — ten plik/katalog istnieje (np. sam skrypt
+        instalacyjny, który Syncthing musi najpierw dowieźć — katalog może już być,
+        a konkretny plik jeszcze nie).
+    Niespełnione wymaganie to POWÓD DO ODŁOŻENIA, nie błąd — timer spróbuje za godzinę."""
+    powody = []
+    for w in definicja.get("wymaga") or []:
+        if w == "katalog-roboczy":
+            kat = katalog_roboczy_tej_maszyny()
+            try:
+                jest = kat.is_dir() and any(kat.iterdir())
+            except OSError:
+                jest = False
+            if not jest:
+                powody.append(f"czeka na katalog roboczy {skroc_dom(kat)} "
+                              f"(Syncthing jeszcze go nie dowiózł)")
+        elif w.startswith("~") or w.startswith("/"):
+            if not pelna_sciezka(w).exists():
+                powody.append(f"czeka na plik {w} (jeszcze go tu nie ma)")
+        else:
+            powody.append(f"nieznane wymaganie „{w}” w {SKRYPTY_TOML.name}")
+    return powody
+
+
+def zainstaluj_skrypt(definicja, pokaz_wszystko=False):
+    """Uruchamia `zainstaluj` pozycji kanału `skrypt` (nieinteraktywnie, limit 15 min),
+    pełne wyjście zapisuje do LOG_SKRYPTOW/<id>.log, na ekran daje ogon (albo całość
+    przy `pokaz_wszystko`, dla `lustro dodaj` w terminalu). Zwraca kod wyjścia.
+    Sam NIE ocenia, czy się udało — o tym decyduje ponowny `sprawdz` u wołającego
+    (zasada „najpierw robimy, potem sprawdzamy, dopiero potem dziennik”).
+    Hooka dpkg NIE tłumimy: jeśli skrypt sam woła `apt install` (np. python3-tk),
+    to jest PRAWDZIWA instalacja apt na tej maszynie i ma trafić do dziennika
+    jako osobna pozycja apt."""
+    ident = definicja["id"]
+    kod, out = uruchom_skrypt(definicja["zainstaluj"], timeout=900)
+    try:
+        LOG_SKRYPTOW.mkdir(parents=True, exist_ok=True)
+        (LOG_SKRYPTOW / f"{ident}.log").write_text(
+            f"# {teraz_iso()}  {definicja['zainstaluj']}\n# kod wyjścia: {kod}\n{out}",
+            encoding="utf-8")
+    except OSError:
+        pass
+    linie = out.rstrip().splitlines()
+    for l in (linie if pokaz_wszystko else linie[-12:]):
+        print(f"      {l}")
+    if not pokaz_wszystko and len(linie) > 12:
+        print(f"      (… całość: {skroc_dom(LOG_SKRYPTOW / (ident + '.log'))})")
+    return kod
+
+
 def inwentaryzacja():
-    """Zwraca {(kanal, id): wersja} — to, co na maszynie FAKTYCZNIE jest."""
+    """Zwraca {(kanal, id): wersja} — to, co na maszynie FAKTYCZNIE jest
+    (apt/snap/flatpak + kanał `skrypt` wg `sprawdz` z skrypty.toml [252])."""
     stan = {}
     for k, f in (("apt", inwentarz_apt), ("snap", inwentarz_snap),
-                 ("flatpak", inwentarz_flatpak)):
+                 ("flatpak", inwentarz_flatpak), (KANAL_SKRYPT, inwentarz_skrypt)):
         for nazwa, wersja in f().items():
             stan[(k, nazwa)] = wersja
     return stan
@@ -379,6 +567,9 @@ def sprawdz_jedna_pozycje(kanal, ident):
         if kod != 0:
             return None
         return inwentarz_flatpak().get(ident, "?")
+    if kanal == KANAL_SKRYPT:
+        d = wczytaj_skrypty().get(ident)
+        return inwentarz_skrypt({ident: d}).get(ident) if d else None
     return None
 
 
@@ -495,7 +686,7 @@ _POZA_WERSJONOWANE = {
 
 
 def inwentarz_poza(znane_id=frozenset()):
-    """{(kanal, id): wersja} — instalacje SPOZA apt/snap/flatpak/gnome-extension,
+    """{(kanal, id): wersja} — instalacje SPOZA apt/snap/flatpak/gnome-extension/skrypt,
     do migawki inwentarza (`eksport_inwentarza()`/`lustra/inwentarz/<maszyna>.json`,
     27.08). Kanał `poza`. Dwa źródła:
 
@@ -536,6 +727,22 @@ def inwentarz_poza(znane_id=frozenset()):
         if nazwa in znane_id:
             continue
         wynik.setdefault(("poza", nazwa), "?")
+
+    # [252] uzup. 2 (29.08): aplikacje postawione RĘKĄ z ikoną w menu — pliki
+    # ~/.local/share/applications/*.desktop usera. Dotąd niewidoczne (skan wyżej
+    # patrzy tylko na katalogi z programami), więc AI Launcher i jego ikona „ginęły"
+    # w panelu. Identyfikator = nazwa pliku bez `.desktop`, wersja nieznana;
+    # pomijamy to, co migawka zna już w innym kanale (np. `ailauncher` jako pozycja
+    # `skrypt`) oraz wzorce z wykluczenia/obce.txt (żeby dało się wyciszyć np. pliki
+    # generowane przez rozszerzenia GNOME) — DANE, nie kod.
+    kat_desktop = DOM / ".local/share/applications"
+    if kat_desktop.is_dir():
+        wykl = wczytaj_wzorce(WYKLUCZENIA / "obce.txt")
+        for p in sorted(kat_desktop.glob("*.desktop")):
+            nazwa = p.stem
+            if nazwa in znane_id or pasuje(skroc_dom(p), wykl):
+                continue
+            wynik.setdefault(("poza", nazwa), "?")
     return wynik
 
 
@@ -1993,6 +2200,9 @@ def komenda_instalacji(kanal, ident):
         return jako_root(["snap", "install", ident])
     if kanal == "flatpak":
         return jako_root(["flatpak", "install", "-y", "flathub", ident])
+    if kanal == KANAL_SKRYPT:                       # tylko do POKAZANIA (szczegóły);
+        d = wczytaj_skrypty().get(ident)            # wykonanie: zainstaluj_skrypt()
+        return ["bash", "-c", d["zainstaluj"]] if d else None
     return None
 
 
@@ -2005,6 +2215,9 @@ def komenda_usuniecia(kanal, ident):
         if czy_flatpak_systemowy(ident):
             return jako_root(["flatpak", "uninstall", "-y", ident])
         return ["flatpak", "uninstall", "-y", "--user", ident]
+    if kanal == KANAL_SKRYPT:
+        d = wczytaj_skrypty().get(ident)
+        return ["bash", "-c", d["usun"]] if d and d.get("usun") else None
     return None
 
 
@@ -2014,6 +2227,8 @@ def wykryj_kanal(nazwa):
     Kolejność ma znaczenie: apt przed snapem przed flatpakiem.
     """
     kandydaci = []
+    if nazwa in wczytaj_skrypty():
+        kandydaci.append(KANAL_SKRYPT)          # definicja w skrypty.toml [252]
     if czy_jest("apt-cache"):
         kod, out = uruchom(["apt-cache", "policy", nazwa])
         if kod == 0 and "Candidate:" in out:
@@ -2809,6 +3024,11 @@ def polecenie_sync_auto(args):
       • TAK — instalacja: pakiet jest w dzienniku „dodano” gdzie indziej, a tu go
         nie ma (apt/snap/flatpak) → instalacja + wpis do dziennika (`zrodlo:
         sync`) — dokładnie ten sam kod co interaktywny `sync` (`wykonaj_pozycje`).
+      • TAK [252] — kanał `skrypt` (pozycje stawiane skryptem wg skrypty.toml,
+        np. AI Launcher): ta sama droga co wyżej, nieinteraktywnie. Pozycja
+        z niespełnionym `wymaga` (np. katalog roboczy jeszcze nie dojechał
+        Syncthingiem na nowej stacji) jest ODKŁADANA z czytelnym powodem —
+        nie liczy się jako nieudana, kolejny bieg timera spróbuje ponownie.
       • TAK — brakujące zewnętrzne źródło apt z zrodla-apt.toml (klucz + wpis
         .list), niezależnie od tego, czy akurat instalujemy z niego pakiet —
         ale WYŁĄCZNIE na maszynie będącej członkiem lustra ([218b], decyzja
@@ -2872,7 +3092,31 @@ def polecenie_sync_auto(args):
 
     do_instalacji = [(kanal, ident, zdarz)
                      for (kanal, ident), zdarz, rodzaj in dane["rozbieznosci"]
-                     if rodzaj == "brak-tutaj" and kanal in KANALY]
+                     if rodzaj == "brak-tutaj" and kanal in KANALY_INSTALOWALNE]
+
+    # [252] kanał skrypt: pozycje bez definicji albo z niespełnionym `wymaga`
+    # (np. katalog roboczy jeszcze nie dojechał Syncthingiem) ODKŁADAMY z powodem —
+    # to nie błąd, timer spróbuje za godzinę.
+    odlozone = []
+    if do_instalacji:
+        skrypty = wczytaj_skrypty()
+        gotowe = []
+        for kanal, ident, zdarz in do_instalacji:
+            if kanal == KANAL_SKRYPT:
+                d = skrypty.get(ident)
+                powody = ([f"brak definicji w {SKRYPTY_TOML.name}"] if d is None
+                          else wymagania_niespelnione(d))
+                if powody:
+                    odlozone.append((ident, powody))
+                    continue
+            gotowe.append((kanal, ident, zdarz))
+        do_instalacji = gotowe
+    if odlozone:
+        print(f"ODŁOŻONE — POZYCJE SKRYPT CZEKAJĄ NA WARUNKI ({len(odlozone)}):")
+        for ident, powody in odlozone:
+            print(f"  • {ident} (skrypt): " + "; ".join(powody))
+        print("  (to nie błąd — kolejny bieg timera lustro-sync spróbuje ponownie)")
+        print()
 
     if do_instalacji:
         print(f"PAKIETY DO DOCIĄGNIĘCIA ({len(do_instalacji)}):")
@@ -2916,9 +3160,11 @@ def polecenie_sync_auto(args):
         print()
 
     pominiete = len(dane["usuniete_poza"]) + (1 if roznice_pulpitu() else 0)
-    if not do_instalacji and not brak_zrodel and not dane["niezapisane"]:
+    if not do_instalacji and not brak_zrodel and not dane["niezapisane"] and not odlozone:
         print("Nic do automatycznego dociągnięcia/księgowania.")
     print()
+    if odlozone:
+        print(f"Odłożone (kanał skrypt, czekają na warunki — patrz wyżej): {len(odlozone)}.")
     if pominiete:
         print(f"Pominięte celowo (poza zakresem --auto — patrz `lustro status`): "
               f"{pominiete} pozycji (usunięcia gdzieś indziej / „dziennik mówi jest, "
@@ -3144,6 +3390,44 @@ def wykonaj_pozycje(poz, args):
         print("    ✓ usunięte, zapisane w dzienniku")
         return 1
 
+    # kanał skrypt [252] — polecenia z skrypty.toml, nieinteraktywnie, weryfikacja
+    # ponownym `sprawdz`; niespełnione `wymaga` = odłożone (powód), nie porażka
+    if kanal == KANAL_SKRYPT and rodzaj in ("instaluj", "usun"):
+        d = wczytaj_skrypty().get(ident)
+        if d is None:
+            print(f"[{ident}] brak definicji w {SKRYPTY_TOML.name} — nie wiem, jak "
+                  f"{'postawić' if rodzaj == 'instaluj' else 'usunąć'} tę pozycję; pomijam")
+            return 0
+        if rodzaj == "instaluj":
+            powody = wymagania_niespelnione(d)
+            if powody:
+                print(f"[{ident}] odłożone (skrypt): " + "; ".join(powody))
+                return 0
+            print(f"[{ident}] instaluję (skrypt: {d['zainstaluj']})…")
+            kod = zainstaluj_skrypt(d)
+            wersja = inwentarz_skrypt({ident: d}).get(ident)
+            if wersja is None:
+                print(f"    ⚠ po skrypcie `sprawdz` nadal nie widzi pozycji (kod {kod}) — "
+                      f"dziennika NIE ruszam")
+                return 0
+            dopisz_zdarzenie("dodano", kanal=kanal, ident=ident, wersja=wersja,
+                             zrodlo="sync", za=za)
+            print(f"    ✓ zainstalowane ({wersja}), zapisane w dzienniku")
+            return 1
+        if not d.get("usun"):
+            print(f"[{ident}] pozycja skrypt bez pola `usun` w {SKRYPTY_TOML.name} — "
+                  f"usuń ręcznie; `lustro sync` potem zaproponuje wpis „usunieto”")
+            return 0
+        print(f"[{ident}] usuwam (skrypt: {d['usun']})…")
+        kod, _ = uruchom_skrypt(d["usun"], timeout=300)
+        if inwentarz_skrypt({ident: d}).get(ident) is not None:
+            print(f"    ⚠ `sprawdz` nadal widzi pozycję (kod {kod}) — dziennika NIE ruszam")
+            return 0
+        dopisz_zdarzenie("usunieto", kanal=kanal, ident=ident, zrodlo="sync", za=za,
+                         notatka=zrodlowe.get("notatka"))
+        print("    ✓ usunięte, zapisane w dzienniku")
+        return 1
+
     if rodzaj == "instaluj":
         print(f"[{ident}] instaluję ({kanal})…")
         kod = _z_tlumikiem_haka(komenda_instalacji(kanal, ident))
@@ -3212,8 +3496,9 @@ def polecenie_dodaj(args):
     if not kanal:
         kandydaci = wykryj_kanal(nazwa)
         if not kandydaci:
-            print(f"Nie znalazłem „{nazwa}” ani w apt, ani w snapie, ani na Flathubie.")
-            print("Podaj kanał ręcznie: lustro dodaj <nazwa> --kanal apt|snap|flatpak")
+            print(f"Nie znalazłem „{nazwa}” ani w apt, ani w snapie, ani na Flathubie, "
+                  f"ani w {SKRYPTY_TOML.name}.")
+            print("Podaj kanał ręcznie: lustro dodaj <nazwa> --kanal apt|snap|flatpak|skrypt")
             return 1
         if len(kandydaci) == 1:
             kanal = kandydaci[0]
@@ -3226,6 +3511,25 @@ def polecenie_dodaj(args):
                         skroty.capitalize(), kandydaci[0][0])
             kanal = next(k for k in kandydaci if k[0] == odp)
 
+    # [252] kanał skrypt: pozycja musi mieć definicję (DANE) — `dodaj` niczego
+    # nie zgaduje; następny skrypt to nowy blok [[skrypt]] w skrypty.toml.
+    definicja_skryptu = None
+    if kanal == KANAL_SKRYPT:
+        definicja_skryptu = wczytaj_skrypty().get(nazwa)
+        if definicja_skryptu is None:
+            print(f"„{nazwa}” nie ma definicji w lustra/{SKRYPTY_TOML.name}.")
+            print("Kanał skrypt to DANE: dopisz blok [[skrypt]] (id, opis, sprawdz, "
+                  "zainstaluj, wymaga — wzór w nagłówku pliku), zrób commit i uruchom "
+                  f"`lustro dodaj {nazwa}` jeszcze raz.")
+            return 1
+        powody = wymagania_niespelnione(definicja_skryptu)
+        if powody:
+            print("Jeszcze nie da się zainstalować: " + "; ".join(powody))
+            return 1
+        if definicja_skryptu.get("opis"):
+            print(f"    {definicja_skryptu['opis']}")
+        print(f"    polecenie: {definicja_skryptu['zainstaluj']}")
+
     print(f"Instaluję „{nazwa}” z kanału {kanal}.")
     if not args.zatwierdzam_wszystko:
         if pytaj("Wykonać?", "Tn", "t") != "t":
@@ -3233,7 +3537,10 @@ def polecenie_dodaj(args):
             return 0
 
     przed = zdjecie_katalogow()
-    kod = _z_tlumikiem_haka(komenda_instalacji(kanal, nazwa))
+    if definicja_skryptu is not None:
+        kod = zainstaluj_skrypt(definicja_skryptu, pokaz_wszystko=True)
+    else:
+        kod = _z_tlumikiem_haka(komenda_instalacji(kanal, nazwa))
     wersja = sprawdz_jedna_pozycje(kanal, nazwa)
     if wersja is None:
         print(f"⚠ Po instalacji programu nie widzę (kod {kod}). Dziennika NIE ruszam.")
@@ -3268,13 +3575,20 @@ def polecenie_usun(args):
         return 1
     kanal, ident = trafienia[0]
 
+    komenda = komenda_usuniecia(kanal, ident)
+    if komenda is None:
+        print(f"Nie umiem usunąć „{ident}” ({kanal}) automatycznie"
+              + (f" — pozycja skrypt bez pola `usun` w {SKRYPTY_TOML.name}"
+                 if kanal == KANAL_SKRYPT else "")
+              + ". Usuń ręcznie; `lustro sync` potem zaproponuje wpis „usunieto”.")
+        return 1
     print(f"Usuwam „{ident}” ({kanal}, {inw[(kanal, ident)]}).")
     if not args.zatwierdzam_wszystko:
         if pytaj("Wykonać?", "Tn", "t") != "t":
             print("Nic nie zmieniam.")
             return 0
 
-    kod = _z_tlumikiem_haka(komenda_usuniecia(kanal, ident))
+    kod = _z_tlumikiem_haka(komenda)
     if sprawdz_jedna_pozycje(kanal, ident) is not None:
         print(f"⚠ Program nadal jest na maszynie (kod {kod}). Dziennika NIE ruszam.")
         return 1
@@ -3594,7 +3908,9 @@ def polecenie_lista(args):
     linie += [
         "",
         f"Razem pozycji: {len(wiersze)} (apt: {len(pakiety['apt'])}, "
-        f"snap: {len(pakiety['snap'])}, flatpak: {len(pakiety['flatpak'])}).",
+        f"snap: {len(pakiety['snap'])}, flatpak: {len(pakiety['flatpak'])}, "
+        f"skrypt: {sum(1 for w in wiersze if w[1] == KANAL_SKRYPT)} — "
+        f"pozycje skrypt dociąga `sync --auto`, nie packages.yaml).",
         "",
         "Lista wykonawcza dla chezmoi (ta sama treść, format maszynowy):",
         "`.chezmoidata/packages.yaml` — czyta ją `run_onchange_install-packages.sh.tmpl`.",
@@ -3675,17 +3991,19 @@ def main():
     sy.add_argument("--auto", action="store_true",
                     help="tryb bez pytań i bez terminala (timer lustro-sync, Faza 3 "
                          "automatu): dociąga TYLKO brakujące pakiety apt/snap/flatpak "
-                         "(dziennik mówi „jest”, tu brak) i brakujące źródła apt z "
-                         "zrodla-apt.toml. Nigdy nie usuwa, nigdy nie dopisuje "
-                         "„zainstalowane poza apką”, nigdy nie rusza pulpitu ani "
-                         "rozszerzeń GNOME — te kategorie zostają dla `lustro sync` "
-                         "ręcznego. Pozycje ze statusem `testowe`/`wyjatek` "
+                         "i pozycje kanału skrypt (skrypty.toml, [252]) "
+                         "(dziennik mówi „jest”, tu brak) oraz brakujące źródła apt z "
+                         "zrodla-apt.toml; księguje „jest tutaj, w dzienniku brak” "
+                         "(zrodlo: wykryte, [213]). Nigdy nie usuwa, nigdy nie rusza "
+                         "pulpitu ani rozszerzeń GNOME — te kategorie zostają dla "
+                         "`lustro sync` ręcznego. Pozycje ze statusem `testowe` "
                          "(statusy-pozycji.toml) są pomijane jak wszędzie indziej.")
     wspolne(sy)
 
     dd = pod.add_parser("dodaj", help="instalacja programu + zapis do dziennika")
     dd.add_argument("program")
-    dd.add_argument("--kanal", choices=list(KANALY), default=None)
+    dd.add_argument("--kanal", choices=list(KANALY_INSTALOWALNE), default=None,
+                    help="skrypt = pozycja z lustra/skrypty.toml [252]")
     wspolne(dd)
 
     us = pod.add_parser("usun", help="odinstalowanie programu + zapis do dziennika")

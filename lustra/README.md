@@ -90,6 +90,7 @@ alias lustro='python3 "$HOME/.local/share/chezmoi/lustra/lustro.py"'
 | `pulpit/rozszerzenia-gnome.txt` | które rozszerzenia GNOME Shell mają być **zainstalowane** (nie: włączone) na każdej maszynie, i skąd (`ego` = extensions.gnome.org, `lokalne` = zgłoszenie bez instalacji) |
 | `pulpit/pulpit.ini` | eksport ustawień pulpitu — **plik generowany**, `{{HOME}}` zamiast `/home/mk` |
 | `ustawienia-map.txt` | program → jego pliki ustawień |
+| `skrypty.toml` | pozycje kanału **`skrypt`** — programy stawiane skryptem, nie menedżerem pakietów (AI Launcher): `sprawdz`/`zainstaluj`/`wymaga` jako **dane** ([252], 29.08 — sekcja niżej) |
 | `zrodla-apt.toml` | zewnętrzne repozytoria apt (Fortinet, Tailscale…): skąd klucz, jaka linia `deb`, które pakiety — **dane**, apka je czyta w `status` i `dodaj` (od 25.08, [176]) |
 
 Poza tym katalogiem, ale należy do mechanizmu:
@@ -148,6 +149,43 @@ Zweryfikowane na żywo 25.08 na Vostro: źródło Fortinet dodane przez `dodaj` 
 `apt-cache policy forticlient` → kandydat `7.4.8.1904` z `repo.fortinet.com … ubuntu22 stable/non-free`,
 instalacja i wpis w dzienniku tą samą komendą. Tailscale (dodany wcześniej skryptem obszaru 6)
 rozpoznany jako obecny bez żadnej zmiany.
+
+## Kanał `skrypt` — programy stawiane skryptem, nie menedżerem pakietów (29.08, [252])
+
+Nie wszystko da się postawić z apt/snap/flatpak: AI Launcher ma własny `install.sh` (kopiuje
+pliki do `~/.local/share`). Do 29.08 lustro takich rzeczy nie umiało — widziało je najwyżej
+w migawce jako `poza`, więc na nowym HP launcher nie stanął. Decyzja usera [252]: „nawet jak
+ręcznie, to miało do lustra trafiać". Rozwiązane o poziom ogólniej — STRUKTURA na dane, nie
+wyjątek na launcher:
+
+- **`skrypty.toml`** — dane: jeden blok `[[skrypt]]` na program. `sprawdz` (polecenie; kod 0 =
+  pozycja jest — ma sprawdzać wszystko, co instalacja zostawia, także ikonę), `zainstaluj`
+  (polecenie), opcjonalnie `wersja`, `usun`, `wymaga` (warunki: `katalog-roboczy` albo ścieżka,
+  która musi istnieć — bo źródło leży w `~/AI-katalog-roboczy` i na nowej stacji musi najpierw
+  dojechać Syncthingiem). Ścieżki z `~`. Nowy program = nowy blok, kodu nikt nie rusza.
+- **Dalej wszystko jak dla apt:** `status`/`sync` pokazują rozbieżność, `sync --auto` (timer
+  co 60 min, K8 nowej stacji) dociąga brak — nieinteraktywnie (stdin z /dev/null, limit 15 min),
+  pełne wyjście w `~/.local/share/lustro/skrypty/<id>.log`; niespełnione `wymaga` = pozycja
+  **ODŁOŻONA** z powodem (nie błąd), następny bieg spróbuje znowu. Dziennik i migawka
+  inwentarza dostają kanał `skrypt` (nie `poza`). `sync --auto` księguje też „jest tutaj, w
+  dzienniku brak" (wykryte) — jak dla snapa.
+- **`lustro dodaj <id>`** — kanał wykrywany z `skrypty.toml` (albo `--kanal skrypt`); bez
+  definicji apka odsyła do pliku, niczego nie zgaduje. `lustro usun` tylko, gdy blok ma `usun`.
+- Tylko członkowie lustra (stacje), jak apt; wyjątki per maszyna → `statusy-pozycji.toml`
+  (`kanal = "skrypt"`). Bootstrap nowej stacji NIE wpisuje ich do `packages.yaml` — dociąga
+  je `sync --auto`, bo szablon chezmoi nie umie czekać na Syncthing.
+- Pierwsza pozycja: **`ailauncher`** (`install.sh` z `12_Narzedzia-AI/AILauncher_V2/linux/`;
+  od 29.08 razem z ikoną `ailauncher.png`). `python3-tk`, którego skrypt by dostawiał, jest
+  osobną pozycją **apt** lustra — skrypt zastaje go na miejscu; gdyby go nie było, hook dpkg
+  zaksięguje instalację jako apt (nie tłumimy go, bo to prawdziwa transakcja apt).
+- Migawka `poza` widzi też od 29.08 pliki `~/.local/share/applications/*.desktop` usera
+  (id = nazwa pliku) — to, co user postawi ręką z ikoną w menu, nie ginie w panelu;
+  wyciszanie wzorcem w `wykluczenia/obce.txt`.
+
+Zweryfikowane 29.08 na Katanie: na kopii repo (bez śladu w prawdziwym dzienniku) `sync --auto`
+zainstalował pozycję testową, zapisał zdarzenie `kanal: skrypt`, dał migawkę z kanałem `skrypt`
+i ODŁOŻYŁ pozycję z niespełnionym `wymaga`. Realne dociągnięcie na Vostro/HP przez timer —
+do obejrzenia w dziennikach po ich najbliższym biegu.
 
 ## ⚠️ Pułapka sprawdzona 2026-08-23: chezmoi rozwijał `lustra/`
 

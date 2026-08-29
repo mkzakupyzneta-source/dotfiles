@@ -8,7 +8,7 @@
 # konsensusie lustra. Wpis robi się tylko dla odstępstw:
 #
 # [[pozycja]]
-# kanal   = "apt" | "snap" | "flatpak" | "gnome-extension"
+# kanal   = "apt" | "snap" | "flatpak" | "gnome-extension" | "skrypt"   (skrypt: [252], skrypty.toml)
 # id      = "identyfikator pakietu / uuid rozszerzenia"
 # status  = "testowe"      → KWARANTANNA: automat NIE proponuje instalacji na innych
 #                            maszynach (sync/status pomijają rozbieżność, `lustro lista`

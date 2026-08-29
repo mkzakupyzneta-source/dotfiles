@@ -6,3 +6,5 @@
 ~/bin/*                  # własne skrypty usera — wozi je chezmoi
 ~/.nvm                   # Node.js przez nvm — decyzja [125]: w lustrze jako KROK
 ~/.nvm/*                 # bootstrapu, nie jako pliki (spec rozdz. 6)
+# Pliki .desktop usera (migawka inwentarza, kanał `poza`, [252] uzup. 2, 29.08):
+~/.local/share/applications/org.gnome.Shell.Extensions.GSConnect*.desktop   # generuje rozszerzenie GSConnect (pozycja gnome-extension)

@@ -1,0 +1,41 @@
+# Pozycje kanału `skrypt` — programy stawiane SKRYPTEM, nie menedżerem pakietów.
+# DANE, nie kod ([252], decyzja usera 2026-08-29: „nawet jak ręcznie, to miało do lustra
+# trafiać"). Apka (lustro.py) traktuje pozycję `skrypt` dokładnie jak apt/snap/flatpak:
+# konsensus z dziennika, rozbieżności w `status`/`sync`, dociąganie przez `sync --auto`
+# (timer co 60 min i K8 nowej stacji), księgowanie „jest, a w dzienniku brak" (wykryte),
+# migawka inwentarza (kanał `skrypt`, nie `poza`). Ten plik mówi tylko, JAK poznać, że
+# pozycja jest, i JAK ją postawić. Nowy program = nowy blok [[skrypt]] — kodu nikt nie rusza.
+#
+# Pola bloku [[skrypt]]:
+#   id          — identyfikator pozycji (jak nazwa pakietu; tak stoi w dzienniku i migawce)
+#   opis        — dla człowieka
+#   sprawdz     — polecenie (bash); kod wyjścia 0 = pozycja OBECNA na maszynie.
+#                 Ma sprawdzać WSZYSTKO, co instalacja zostawia (pliki, ikona) — wtedy
+#                 stara/niepełna instalacja wychodzi jako rozbieżność i sync ją wyrównuje.
+#   zainstaluj  — polecenie (bash) stawiające pozycję; uruchamiane NIEINTERAKTYWNIE
+#                 (stdin z /dev/null, limit 15 min); jeśli woła `sudo apt`, na stacjach
+#                 przejdzie bez hasła (reguła [194]). Pełne wyjście: ~/.local/share/lustro/skrypty/<id>.log
+#   usun        — (opcjonalne) polecenie usuwające; bez niego `lustro usun` odsyła do ręki
+#   wersja      — (opcjonalne) polecenie wypisujące wersję (pierwsza linia); brak = "?"
+#   wymaga      — (opcjonalne) lista warunków, BEZ których instalacja jest ODKŁADANA z powodem
+#                 (nie błąd — kolejny bieg timera spróbuje ponownie):
+#                   "katalog-roboczy" = katalog roboczy tej maszyny (maszyny.toml →
+#                                       `katalog_roboczy`) istnieje i nie jest pusty;
+#                                       na nowej stacji pojawia się po synchronizacji
+#                                       Syncthinga (K14, ~25 GB), więc K8 go nie ma
+#                   "~/ścieżka" lub "/ścieżka" = ten plik/katalog istnieje (np. sam skrypt
+#                                       instalacyjny — katalog może już być, plik jeszcze nie)
+#   uwagi       — dla człowieka (po co, od kiedy, numer sprawy)
+#
+# Ścieżki pisz z `~` (rozwija bash) — plik jest wspólny dla wszystkich maszyn, nigdy `/home/mk`.
+# Pozycja obowiązuje członków lustra (stacje) jak apt; wyjątki per maszyna → statusy-pozycji.toml.
+
+[[skrypt]]
+id         = "ailauncher"
+opis       = "AI Launcher — okienko: gdzie i z jakim kontem uruchomić Claude Code / Gemini / Happy"
+sprawdz    = "test -f ~/.local/share/ailauncher/ailauncher.py && test -f ~/.local/share/ailauncher/ailauncher.png && test -f ~/.local/share/applications/ailauncher.desktop && grep -q 'ailauncher/ailauncher.png' ~/.local/share/applications/ailauncher.desktop"
+zainstaluj = "bash ~/AI-katalog-roboczy/12_Narzedzia-AI/AILauncher_V2/linux/install.sh"
+wymaga     = ["katalog-roboczy",
+              "~/AI-katalog-roboczy/12_Narzedzia-AI/AILauncher_V2/linux/install.sh",
+              "~/AI-katalog-roboczy/12_Narzedzia-AI/AILauncher_V2/linux/ailauncher.png"]
+uwagi      = "[252] 2026-08-29 — pierwsza pozycja kanału. Źródło w katalogu roboczym (repo 12_Narzedzia-AI). `sprawdz` pilnuje też ikony i ścieżki ikony w .desktop (uzup. 1 Architekta): stare instalacje z ikoną pod ~/.local/share/applications/2026-08-22_20-40.png wychodzą jako rozbieżność i sync je wyrównuje ponownym install.sh. python3-tk NIE jest tu dostawiany — to osobna pozycja apt lustra (jest w dzienniku V/K/HP), install.sh zastaje go na miejscu."
