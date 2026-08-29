@@ -33,3 +33,20 @@
 # przyszłość, ale nie implementujemy tego teraz).
 #
 # (na razie pusto — pierwsze `pulpit skladaj` nie zmieni nic w pulpit.ini)
+
+# --- GOTOWY WPIS DO ODKOMENTOWANIA (sprawa [261], 29.08) ---------------------
+# Gałąź własnych skrótów klawiszowych. Dziś (29.08) stan HP w tej gałęzi jest
+# BIT-IDENTYCZNY z pulpit.ini (zmierzone), więc włączenie tego wpisu nie zmieni
+# ani jednego klucza — jest po to, żeby kolejna zmiana skrótu na HP szła do
+# wzorca komendą mechanizmu, a nie ręcznie.
+#
+# WARUNEK: najpierw `lustro pulpit oddaj-stan` NA HP przy ODBLOKOWANYM,
+# działającym pulpicie (bez migawki pulpit/stan/hp.ini `pulpit skladaj`
+# PRZERYWA twardym błędem). 29.08 migawki nie dało się zrobić — ekran HP był
+# wygaszony, rozszerzenia GNOME w stanie INACTIVE, a agent nie miał zgody na
+# budzenie ekranu usera.
+#
+# [[galaz]]
+# sciezka = "/org/gnome/settings-daemon/plugins/media-keys/"
+# zrodlo  = "hp"
+# uwagi   = "własne skróty klawiszowe; [261] wspólny schowek zrzutów, 2026-08-29"
