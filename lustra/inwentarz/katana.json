@@ -1,6 +1,6 @@
 {
   "maszyna": "katana",
-  "ts": "2026-08-29T16:25:48+02:00",
+  "ts": "2026-08-29T17:39:45+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -642,6 +642,12 @@
       "kanal": "flatpak",
       "id": "net.mkiol.SpeechNote",
       "wersja": "4.8.4",
+      "zrodlo": "flathub"
+    },
+    {
+      "kanal": "flatpak",
+      "id": "net.mkiol.SpeechNote.Addon.nvidia",
+      "wersja": "1.4.0",
       "zrodlo": "flathub"
     },
     {
