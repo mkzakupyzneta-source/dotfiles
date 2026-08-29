@@ -1,6 +1,6 @@
 {
   "maszyna": "serwer",
-  "ts": "2026-08-27T23:17:47+02:00",
+  "ts": "2026-08-29T13:28:37+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -544,6 +544,11 @@
     },
     {
       "kanal": "poza",
+      "id": "Hibernacja",
+      "wersja": "?"
+    },
+    {
+      "kanal": "poza",
       "id": "autologin-watchdog.sh",
       "wersja": "?"
     },
@@ -565,6 +570,31 @@
     {
       "kanal": "poza",
       "id": "chezmoi-git-pull.sh.bak-20260827",
+      "wersja": "?"
+    },
+    {
+      "kanal": "poza",
+      "id": "chrome-alddamigfjonblpigkpieckmhbjdgadd-Default",
+      "wersja": "?"
+    },
+    {
+      "kanal": "poza",
+      "id": "cinnamon-custom-launcher-1",
+      "wersja": "?"
+    },
+    {
+      "kanal": "poza",
+      "id": "cinnamon-custom-launcher-2",
+      "wersja": "?"
+    },
+    {
+      "kanal": "poza",
+      "id": "claude-code-url-handler",
+      "wersja": "?"
+    },
+    {
+      "kanal": "poza",
+      "id": "google-chrome",
       "wersja": "?"
     },
     {
@@ -609,12 +639,22 @@
     },
     {
       "kanal": "poza",
+      "id": "steam",
+      "wersja": "?"
+    },
+    {
+      "kanal": "poza",
       "id": "systemd",
       "wersja": "?"
     },
     {
       "kanal": "poza",
       "id": "sysusers.d",
+      "wersja": "?"
+    },
+    {
+      "kanal": "poza",
+      "id": "webapp-OnlineChat4519",
       "wersja": "?"
     }
   ]
