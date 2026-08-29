@@ -207,10 +207,10 @@ nazwa = "Katana"
 rola = "Stacja robocza — poligon E3 mechanizmu luster"
 system = "Ubuntu 24.04.4 LTS"  # /etc/os-release na Katanie 2026-08-29
 nazwa_hosta = "katana"
-host_lan = ""  # celowo puste do czasu przepięcia Katany na KABEL: dziś chodzi po Wi-Fi
-               # (adres zmienny, druga podsieć 192.168.100.x), więc stały wpis kłamałby.
-               # Panel łączy się przez Tailscale. Po przepięciu wpisać adres z podsieci
-               # 192.168.1.x — dopiero wtedy WOL z serwera ma prawo działać ([267c]).
+host_lan = "192.168.1.43"  # kabel enp4s0, zmierzone 29.08 22:25 ([267e]). DHCP — do
+               # rezerwacji w routerze (obszar 6); maszyna ma dwie karty w tej samej
+               # podsieci — docelowo lista kart, patrz TODO. Wi-Fi wlo1 ma równolegle
+               # 192.168.1.37.
 host_tailscale = "katana"
 ip_tailscale = "100.67.37.93"
 user = "mk"
