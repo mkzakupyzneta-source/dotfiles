@@ -73,7 +73,13 @@ def polecenie_cele(a):
 
 POLA_WPISU = ("nazwa", "rola", "nazwa_hosta", "host_lan", "host_tailscale", "ip_tailscale",
               "user", "katalog_roboczy", "dostepna_jako_cel", "aktywna", "profil",
-              "czlonek_lustra", "mac_lan")
+              "czlonek_lustra", "mac_lan", "system")
+# Pola USERA (opis człowieka): przy AKTUALIZACJI istniejącego bloku NIE są nadpisywane,
+# jeśli już mają niepustą wartość — automat daje je tylko nowemu blokowi. Wniosek z HP
+# 29.08 ([252] uzup. 3): K5 wpisywał `--rola "Stacja robocza"` przy każdym biegu, a nazwę
+# „HP (Windows)" zostawił — system operacyjny to DANA (pole `system`, z PRETTY_NAME
+# /etc/os-release, odświeżane przy każdym biegu), nie część nazwy.
+POLA_USERA = ("nazwa", "rola")
 
 
 def _toml_wartosc(w):
@@ -124,16 +130,23 @@ def polecenie_maszyna_wpisz(a):
             if l.startswith("uwagi") or l.startswith("[[maszyna.konto]]"):
                 stop = i
                 break
-        for pole, w in nowe.items():
+        pominiete = []
+        for pole, w in list(nowe.items()):
             wz = re.compile(r"^(\s*)" + re.escape(pole) + r"\s*=.*$")
             for i in range(s, stop):
                 m = wz.match(linie[i])
                 if m:
+                    if pole in POLA_USERA and re.search(r'=\s*"[^"]+"', linie[i]):
+                        pominiete.append(pole)      # pole usera z wartością — zostaje
+                        del nowe[pole]
+                        break
                     linie[i] = f"{m.group(1)}{pole} = {_toml_wartosc(w)}"
                     break
             else:
                 linie.insert(stop, f"{pole} = {_toml_wartosc(w)}")
                 stop += 1
+        if pominiete:
+            print(f"maszyna-wpisz: pola usera zostawione bez zmian: {', '.join(pominiete)}")
         tekst = "\n".join(linie)
     else:
         blok = [

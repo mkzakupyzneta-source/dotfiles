@@ -42,6 +42,12 @@
 #                        niego adnotacja z `powod_nie_usypiac`). Wyjątek twardy, nie zgadywany
 #                        z `uwagi` — dodane 2026-08-26 dla Katany ([189]).
 #   powod_nie_usypiac  — tekst adnotacji pokazywany zamiast przycisku, gdy `nie_usypiac = true`.
+#   system             — system operacyjny jako DANA (PRETTY_NAME z /etc/os-release), nie część
+#                        nazwy ([252] uzup. 3, 2026-08-29 — HP po przesiadce nazywał się dalej
+#                        „HP (Windows)"). Na stacjach wpisuje/odświeża K5 automatu
+#                        (`stacja-dane.py maszyna-wpisz --system`) przy KAŻDYM biegu; `nazwa`
+#                        i `rola` to pola usera — automat ich nie nadpisuje, gdy już są.
+#                        Brak pola = nieznany (maszyny bez automatu: Wyse, Asus, poligon).
 #
 # Bloki [[maszyna.konto]] — konta Claude Code NA TEJ maszynie (etykieta + katalog ustawień;
 # pusty katalog = domyślny ~/.claude). Przypisanie „etykieta → adres e-mail" bywa na każdej
@@ -67,6 +73,7 @@ wersja = 1
 klucz = "vostro"
 nazwa = "Vostro"
 rola = "Stacja robocza"
+system = "Ubuntu 24.04"  # wpisane ręcznie 2026-08-29 (bez pomiaru poziomu łatki); K5 nie biegł na Vostro
 nazwa_hosta = "vostro"
 host_lan = "192.168.1.60"
 host_tailscale = "vostro"
@@ -93,6 +100,7 @@ przy okazji fizycznej wizyty."""
 klucz = "serwer"
 nazwa = "Serwer (OptiPlex 7050)"
 rola = "Serwer domowy 24/7"
+system = "Linux Mint 22.3 (Zena)"  # odczyt /etc/os-release przez ssh 2026-08-29
 nazwa_hosta = "mk-OptiPlex-7050"
 host_lan = "192.168.1.49"
 host_tailscale = "mk-optiplex-7050"
@@ -136,8 +144,9 @@ instalacji nie ma w dzienniku" — instalacje SĄ w dzienniku (dla wglądu w pan
 # ── HP — stacja robocza pod Windows ────────────────────────────────────────────
 [[maszyna]]
 klucz = "hp"
-nazwa = "HP (Windows)"
-rola = "Stacja robocza"
+nazwa = "HP"
+rola = "Stacja robocza (laptop PW, jeździ z userem)"
+system = "Ubuntu 24.04"  # poziom łatki doprecyzuje K5 przy następnym biegu automatu na HP
 nazwa_hosta = "hp"
 host_lan = "192.168.1.65"
 host_tailscale = "hp"
@@ -150,15 +159,9 @@ profil = "stacja"
 mac_lan = "28:2e:89:ac:db:48"
 czlonek_lustra = true
 uwagi = """
-Tylko „skąd" — punkt startowy, nie cel. Windows ma inną ścieżkę katalogu roboczego i nie ma
-tmux, więc `ssh -t ... cd ... && tmux ...` nie zadziała wprost. Po przesiadce HP na Linuksa
-wpis się uzupełnia i `dostepna_jako_cel` staje się true.
-Uzupełnione 2026-08-26 (obszar 1_Serwer, panel menadżera sieci [202]): host_tailscale
-i ip_tailscale odczytane z `tailscale status --json` na serwerze (węzeł `lapekhp`,
-100.112.73.10, Windows) — nie zmierzone, tylko przepisane z żywego stanu tailnetu.
-host_lan wciąż pusty (adres Wi-Fi HP nieznany/zmienny, niezmierzony).
-`mac_lan` pusty (2026-08-26, E3a): HP niedostępna po SSH stąd (Windows, brak konta/klucza),
-nie dało się zmierzyć — panel pokaże przycisk „obudź" wyszarzony do czasu uzupełnienia."""
+Ubuntu 24.04 od 2026-08-29 (automat nowa-stacja.sh; dysk LUKS). Wcześniej Windows 11
+(`lapekhp`, Tailscale 100.112.73.10 — węzeł do usunięcia). Wi-Fi 6E MediaTek MT7922,
+NVIDIA RTX 2000 Ada 8 GB, dok USB4."""
 
 # ── Katana — stacja robocza, poligon E3 mechanizmu luster ──────────────────────
 # Dodana 2026-08-26 przez obszar 1_Serwer (panel menadżera sieci [202]) — maszyna
@@ -172,6 +175,7 @@ nie dało się zmierzyć — panel pokaże przycisk „obudź" wyszarzony do cza
 klucz = "katana"
 nazwa = "Katana"
 rola = "Stacja robocza — poligon E3 mechanizmu luster"
+system = "Ubuntu 24.04.4 LTS"  # /etc/os-release na Katanie 2026-08-29
 nazwa_hosta = "katana"
 host_lan = ""
 host_tailscale = "katana"
