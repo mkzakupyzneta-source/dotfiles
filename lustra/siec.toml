@@ -15,3 +15,22 @@
 # bez ruszania kodu.
 
 podsieci_lan = ["192.168.1.0/24", "192.168.100.0/24", "192.168.122.0/24"]  # 192.168.122.0/24 = sieć libvirt poligonu (VM na serwerze) — usunąć po testach T7 (27.08)
+
+# ── Panel menadzera sieci — GDZIE stoi i JAK go otworzyc ([262], 2026-08-29) ──
+# Uslugę serwuje `menadzer-sieci.service` na serwerze (/srv/uslugi/menadzer-sieci/app.py,
+# obszar 1_Serwer; port jest tam dzis stala `PORT = 8100`). Stacje maja skrot na pasku —
+# pozycja `panel-sieci` kanalu `skrypt` (lustra/skrypty.toml) + ~/bin/panel-sieci.sh,
+# ktory czyta te sekcje. Przeprowadzka panelu albo zmiana portu = zmiana TYCH danych,
+# skryptu nikt nie rusza.
+[panel]
+maszyna = "serwer"     # `klucz` bloku [[maszyna]] w lustra/maszyny.toml
+port    = 8100         # zgodne z `PORT` w app.py panelu (obszar 1) — sprawdzone 2026-08-29
+sciezka = "/"
+tryb    = "app"        # "app" = osobne okno Chrome bez paska adresu (wlasna ikona w doku),
+                       # "karta" = zwykla karta w domyslnej przegladarce (xdg-open).
+                       # Brak Chrome'a na maszynie = automatyczny fallback na "karta".
+# Kolejnosc pol adresu z maszyny.toml — pierwsze wypelnione wygrywa. TAILSCALE JEST PIERWSZY
+# celowo: przyciski panelu („Pulpit", „terminal SSH") generuja odsylacze do adresow Tailscale
+# floty, wiec panel otwarty po LAN dzialalby poprawnie tylko w domu. Dopisanie "host_lan"
+# na koniec listy to zmiana danych, nie kodu.
+pola_adresu = ["ip_tailscale", "host_tailscale"]

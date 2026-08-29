@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Panel sieci
+Name[pl]=Panel sieci
+GenericName=Menadzer sieci domowej
+GenericName[pl]=Menadżer sieci domowej
+Comment=Panel menadzera sieci domowej — maszyny, lustra, zdalny pulpit, terminal SSH
+Comment[pl]=Panel menadżera sieci domowej — maszyny, lustra, zdalny pulpit, terminal SSH
+Exec={{ .chezmoi.homeDir }}/bin/panel-sieci.sh
+Icon={{ .chezmoi.homeDir }}/.local/share/panel-sieci/panel-sieci.png
+Terminal=false
+StartupNotify=true
+StartupWMClass=panel-sieci
+Categories=Network;System;Monitor;
+Keywords=siec;panel;menadzer;maszyny;lustro;vnc;ssh;
