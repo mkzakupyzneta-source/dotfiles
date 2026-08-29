@@ -128,3 +128,4 @@
 {"ts": "2026-08-27T23:01:20+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "tmux", "wersja": "3.4-1ubuntu0.1", "zrodlo": "apka", "notatka": "[221]/[232] zdalny pulpit i tmux na kazdej stacji — decyzja usera 27.08 (obszar 2)"}
 {"ts": "2026-08-28T00:09:28+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "espeak-ng", "wersja": "1.51+dfsg-12build1", "zrodlo": "sync", "za": {"maszyna": "katana", "ts": "2026-08-27T23:29:18+02:00"}}
 {"ts": "2026-08-29T10:43:36+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "lvm2", "wersja": "2.03.16-3ubuntu3.2", "zrodlo": "sync", "za": {"maszyna": "hp", "ts": "2026-08-29T09:06:48+02:00"}}
+{"ts": "2026-08-29T12:45:15+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "skrypt", "id": "ailauncher", "wersja": "?", "zrodlo": "sync", "za": {"maszyna": "katana", "ts": "2026-08-29T12:44:10+02:00"}}
