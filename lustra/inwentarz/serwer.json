@@ -1,6 +1,6 @@
 {
   "maszyna": "serwer",
-  "ts": "2026-08-29T16:29:37+02:00",
+  "ts": "2026-08-29T18:29:58+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -695,6 +695,12 @@
     {
       "kanal": "poza",
       "id": "chezmoi-git-pull.sh.bak-20260827",
+      "wersja": "?",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "poza",
+      "id": "chezmoi-git-pull.sh.bak-20260829-258i",
       "wersja": "?",
       "zrodlo": ""
     },
