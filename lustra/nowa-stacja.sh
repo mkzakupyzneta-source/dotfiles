@@ -4,12 +4,14 @@
 # z procedura-nowej-stacji.md (bootstrap.sh z Przesiadka_Linux nie istnieje od 22.08).
 #
 # JEDNA LINIA NA ŚWIEŻEJ MASZYNIE (serwer udostępnia ten plik po LAN — obszar 1):
-#   curl -fsSL http://192.168.1.49:8100/nowa-stacja.sh -o /tmp/nowa-stacja.sh && bash /tmp/nowa-stacja.sh
+#   wget -qO /tmp/nowa-stacja.sh http://192.168.1.49:8100/nowa-stacja.sh && bash /tmp/nowa-stacja.sh
+# (wget, NIE curl: świeże Ubuntu 24.04 Desktop nie ma curla — zmierzone na HP 29.08; curl dochodzi w K1)
 #
 # Co wymaga człowieka przy klawiaturze (i NIC więcej):
 #   1. hasło sudo tej maszyny (raz, na początku),
 #   2. fraza do klucza osobistego id_ed25519 (ssh-keygen pyta; Enter = bez frazy — NIE zalecane),
-#   3. logowanie Tailscale w przeglądarce (skrypt wypisze adres i poczeka).
+#   3. hasło konta na SERWERZE — raz, w K4b (ssh-copy-id klucza domowego; potem wszystko wchodzi kluczem),
+#   4. logowanie Tailscale w przeglądarce (skrypt wypisze adres i poczeka).
 # Na końcu skrypt wypisuje RAPORT: klucze publiczne tej maszyny, ID Syncthinga, wynik
 # `lustro status` i listę rzeczy, które trzeba zrobić ręcznie (logowania itp.).
 # Potem na SERWERZE: lustra/przyjmij-maszyne.sh <nazwa> <adres> — roznosi klucze i Syncthing.
@@ -37,6 +39,11 @@ REPO_GITHUB="git@github.com:mkzakupyzneta-source/dotfiles.git"
 REPO="$HOME/.local/share/chezmoi"
 LUSTRA="$REPO/lustra"
 LOG="$HOME/nowa-stacja.log"
+# Git/ssh z tego skryptu (także z wnętrza lustro.py — dziedziczy środowisko) NIGDY nie pytają o hasło:
+# HP 29.08 — prompt ssh wychodził z `subprocess.run(capture_output, timeout)`, user wpisywał hasło,
+# timeout ubijał gita i następna operacja pytała od nowa. Brak klucza = natychmiastowy, czytelny błąd;
+# jedynym miejscem na hasło serwera jest K4b. (accept-new: nowy odcisk hosta przyjmij, zmieniony odrzuć.)
+export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new"
 
 NAZWA=""; PACZKA=""; GALAZ="main"; KONTENER=0
 BEZ_PAKIETOW=0; BEZ_TAILSCALE=0; BEZ_SYNCTHING=0; BEZ_ZAPORY=0; BEZ_VPN=0; BEZ_PULPITU=0; BEZ_NODE=0
@@ -54,7 +61,7 @@ while [ $# -gt 0 ]; do
         --bez-pulpitu) BEZ_PULPITU=1 ;;
         --bez-node) BEZ_NODE=1 ;;
         --kontener) KONTENER=1; BEZ_TAILSCALE=1; BEZ_ZAPORY=1; BEZ_VPN=1; BEZ_PULPITU=1 ;;
-        -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,31p' "$0"; exit 0 ;;
         *) echo "nieznany przełącznik: $1"; exit 2 ;;
     esac
     shift
@@ -134,7 +141,8 @@ else
         if [ -n "$KAT" ]; then mv "$(dirname "$KAT")" "$REPO"; ok "repozytorium rozpakowane" "$ZRODLO"; else blad "paczka bez .git"; fi
     else
         echo "   HTTP nie odpowiada — próbuję git clone po SSH z serwera ($SERWER_SSH, pyta o hasło konta na serwerze)"
-        if git clone -q "$SERWER_SSH:.local/share/chezmoi" "$REPO"; then ok "repozytorium sklonowane po SSH"; else blad "nie umiem pobrać repozytorium (HTTP i SSH)"; exit 1; fi
+        # jedyny git PRZED K4b (klucza jeszcze nie ma) — tu wyjątkowo bez BatchMode, ssh może spytać o hasło
+        if GIT_SSH_COMMAND="ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new" git clone -q "$SERWER_SSH:.local/share/chezmoi" "$REPO"; then ok "repozytorium sklonowane po SSH"; else blad "nie umiem pobrać repozytorium (HTTP i SSH)"; exit 1; fi
     fi
     rm -rf "$TMP"
 fi
@@ -195,6 +203,28 @@ while IFS= read -r h; do
     if ssh-keyscan -T 4 -t ed25519,rsa "$h" 2>/dev/null >>"$HOME/.ssh/known_hosts"; then ZNANE=$((ZNANE+1)); fi
 done < <($PYTHON "$LUSTRA/stacja-dane.py" hosty --bez "$NAZWA")
 ok "known_hosts: odciski maszyn domowych (ssh-keyscan)" "nowe: $ZNANE (nieosiągalne pominięte)"
+
+# ------------------------------------------------------------------ K4b klucz domowy → serwer
+krok "K4b Klucz domowy tej maszyny na serwer (raz, hasłem konta na serwerze)"
+# Do 28.08 klucz nowej stacji trafiał na serwer dopiero w przyjmij-maszyne.sh (NA KOŃCU, z serwera),
+# więc K8/K11/K16 (git pull/push do zdalnego `serwer`) pytały o hasło z wnętrza lustro.py i padały
+# na timeoucie (HP 29.08; na VM nie wyszło, bo VM miała klucz wpuszczony wcześniej). Serwer wpuszcza
+# hasłem (PasswordAuthentication yes); ssh-copy-id nie dubluje linii (idempotentne). Przed K6 nie ma
+# jeszcze ~/.ssh/config z chezmoi, dlatego klucz podany jawnie (-i, IdentitiesOnly).
+SSH_SERWER="ssh -i $HOME/.ssh/id_ed25519_dom -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new"
+if $SSH_SERWER "$SERWER_SSH" true >>"$LOG" 2>&1; then
+    ok "serwer $SERWER_SSH wpuszcza kluczem domowym (już było)"
+elif [ ! -f "$HOME/.ssh/id_ed25519_dom.pub" ]; then
+    blad "brak ~/.ssh/id_ed25519_dom.pub (K4 padł?) — nie mam czego wysłać na serwer"
+elif [ $TTY = 1 ]; then
+    echo "   To JEDYNE pytanie o hasło serwera w całym automacie: podaj hasło konta $SERWER_SSH."
+    echo "   Klucz domowy tej maszyny wejdzie do authorized_keys serwera — potem wszystko wchodzi kluczem."
+    ssh-copy-id -i "$HOME/.ssh/id_ed25519_dom.pub" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 "$SERWER_SSH" </dev/tty 2>&1 | tee -a "$LOG" | grep -v '^$' | sed 's/^/   /'
+    if $SSH_SERWER "$SERWER_SSH" true >>"$LOG" 2>&1; then ok "klucz domowy wpisany na serwer (ssh-copy-id) — git/ssh do serwera bez hasła"
+    else blad "serwer nadal nie wpuszcza kluczem domowym" "powtórz: ssh-copy-id -i ~/.ssh/id_ed25519_dom.pub $SERWER_SSH; do tego czasu git do serwera pada od razu (BatchMode)"; fi
+else
+    recznie "klucz domowy na serwer (brak terminala)" "w terminalu: ssh-copy-id -i ~/.ssh/id_ed25519_dom.pub $SERWER_SSH  (albo z serwera: przyjmij-maszyne.sh $NAZWA <adres>)"
+fi
 
 # ------------------------------------------------------------------ K5 wpis maszyny w danych
 krok "K5 Maszyna jako DANA: blok [[maszyna]] w lustra/maszyny.toml"
@@ -378,7 +408,7 @@ if [ -n "$(git -C "$REPO" status --porcelain)" ]; then
     git -C "$REPO" add -A && git -C "$REPO" commit -q -m "lustra: nowa stacja $NAZWA — nowa-stacja.sh ($(date -I))" && ok "commit lokalny danych maszyny"
 fi
 if git -C "$REPO" push -q serwer "$GALAZ" >>"$LOG" 2>&1; then ok "git push na serwer ($GALAZ)"; else
-    recznie "git push" "jeszcze bez dostępu do serwera — przyjmij-maszyne.sh na serwerze sam dociągnie commity z tej maszyny"
+    recznie "git push" "serwer nie wpuścił kluczem (K4b?) — przyjmij-maszyne.sh na serwerze sam dociągnie commity z tej maszyny"
 fi
 
 # ------------------------------------------------------------------ RAPORT
@@ -397,6 +427,9 @@ DO ZROBIENIA RĘCZNIE (automat tu się kończy — spec rozdz. 10.3):
   1. NA SERWERZE:  ~/.local/share/chezmoi/lustra/przyjmij-maszyne.sh $NAZWA ${IP_LAN:-<adres>}
      → klucz domowy tej maszyny do authorized_keys wszystkich maszyn, known_hosts, Syncthing,
        commit kluczy i wpisu maszyny do repo + push na GitHub.
+       (Na serwer sam klucz poszedł już w K4b — przyjmij roznosi go na RESZTĘ maszyn i robi Syncthing.
+        Można to uruchomić także W TRAKCIE automatu, z serwera, po K8 — tak zrobiono na HP 29.08;
+        wtedy drugi bieg po K14 domyka Syncthing.)
   2. GitHub → Settings → SSH and GPG keys → dodać klucz id_ed25519_github.pub (wyżej);
      potem:  ssh -T git@github.com  i  git -C ~/.local/share/chezmoi branch -u origin/$GALAZ
   3. Sejf (Bitwarden):  bw login  → sekrety-odswiez;  trzy pozycje „SSH — $NAZWA (<plik>)" i
