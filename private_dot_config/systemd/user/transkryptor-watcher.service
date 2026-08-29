@@ -1,0 +1,32 @@
+[Unit]
+Description=Transkryptor — watcher inboxu (nowy plik audio -> transkrypcja -> archiwum)
+# KOPIA wozona lustrem (chezmoi), profil `stacja`. Zrodlo prawdy tresci:
+#   12_Narzedzia-AI/Transkryptor/systemd/transkryptor-watcher.service
+# Roznica celowa (obszar 5, [266], 2026-08-29): dodany ConditionPathExists na venv.
+# Tu chodzi o WIECEJ niz petla restartow: watcher startuje na systemowym pythonie
+# (same stdlib), wiec BEZ venva wstalby i dzialal — polozylby znacznik `<nagranie>.liczy`
+# na cudzym nagraniu (znacznik jedzie Syncthingiem = "ja to biore"), a potem wywolanie
+# bin/transkrybuj padloby na braku venva. Maszyna bez instalatora zabralaby robote
+# maszynie, ktora umie ja wykonac. Warunek na venv temu zapobiega.
+# Prosba do projektu Transkryptor: dodac ten sam warunek u zrodla.
+Documentation=file://%h/AI-katalog-roboczy/12_Narzedzia-AI/Transkryptor/README.md
+After=default.target
+ConditionPathExists=%h/.local/share/transkryptor/venv
+
+[Service]
+Type=simple
+# Sciezki przez %h (katalog domowy), nie na sztywno /home/mk — te same unity jada
+# lustrem (chezmoi) na hp i vostro; patrz README, rozdzial "Wiele maszyn".
+# --ignoruj-istniejace dziala TYLKO przy pierwszym starcie (gdy nie ma jeszcze
+# pliku stanu): to, co juz lezalo w inboxie (material benchmarkowy), zostaje
+# wpisane jako pominiete zamiast trafic na GPU.
+ExecStart=/usr/bin/python3 %h/AI-katalog-roboczy/12_Narzedzia-AI/Transkryptor/bin/watcher.py --ignoruj-istniejace
+Restart=always
+RestartSec=15
+# transkrypcja to dlugie zadanie GPU — nie ma sie spieszyc kosztem pracy usera
+Nice=5
+KillMode=mixed
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target

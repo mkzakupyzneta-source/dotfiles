@@ -209,6 +209,16 @@ opis    = "Klucze API narzędzi AI (bazy publikacji, LLM, patenty)"
   pozycja = "PQAI_TOKEN"
   pole    = "notes"
 
+  # --- Hugging Face (Transkryptor: gated modele pyannote, 2026-08-27) ---
+  # Zgloszone przez 12_Narzedzia-AI/Transkryptor; wpisane tutaj (zrodlo lustra),
+  # bo ten plik wozi chezmoi — recznym dopiskiem na maszynie nadpisze go
+  # najblizszy `chezmoi apply` (tak zniknal dopisek z Katany, [266] 29.08).
+
+  [[plik.zmienna]]
+  nazwa   = "HF_TOKEN"
+  pozycja = "HF_TOKEN"
+  pole    = "notes"
+
   # --- Perplexity (plan 2D4) ---
 
   [[plik.zmienna]]

@@ -1,0 +1,27 @@
+#!/bin/sh
+# Wlacza uslugi user Transkryptora po kazdej zmianie ktoregos z ich plikow
+# (chezmoi run_onchange: odpala sie, gdy zmieni sie TRESC tego skryptu — a w niej
+# sa odciski obu unitow). Zalozone 2026-08-29, obszar 5_Wspolna_konfiguracja, sprawa [266].
+#
+# Uwaga o kolejnosci: oba unity maja ConditionPathExists na
+# ~/.local/share/transkryptor/venv. Dopoki instalator (bin/instaluj-worker.sh z projektu
+# Transkryptor) nie zalozy venva, `enable --now` konczy sie bez bledu, a systemd tylko
+# pomija start ("Condition check ... skipped") — zadnej petli restartow. Po instalatorze
+# uslugi wstana same przy najblizszym zalogowaniu (WantedBy=default.target); instalator
+# i tak robi wlasne `enable --now`.
+# odcisk nagrywacza: {{ include "private_dot_config/systemd/user/transkryptor-nagrywacz.service" | sha256sum }}
+# odcisk watchera:   {{ include "private_dot_config/systemd/user/transkryptor-watcher.service" | sha256sum }}
+set -u
+if ! systemctl --user is-system-running >/dev/null 2>&1 && ! systemctl --user status >/dev/null 2>&1; then
+    echo "[transkryptor] brak menedzera systemd usera w tej sesji — uslugi wlaczy nastepny apply z sesji graficznej"
+    exit 0
+fi
+systemctl --user daemon-reload
+for u in transkryptor-nagrywacz.service transkryptor-watcher.service; do
+    systemctl --user enable "$u" >/dev/null 2>&1 || echo "[transkryptor] nie udalo sie enable $u"
+    systemctl --user start "$u" >/dev/null 2>&1 || true
+    echo "[transkryptor] $u: $(systemctl --user is-enabled "$u" 2>&1) / $(systemctl --user is-active "$u" 2>&1)"
+done
+if [ ! -d "$HOME/.local/share/transkryptor/venv" ]; then
+    echo "[transkryptor] brak $HOME/.local/share/transkryptor/venv — uslugi czekaja na instalator (bin/instaluj-worker.sh)"
+fi

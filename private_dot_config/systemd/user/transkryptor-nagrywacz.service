@@ -1,0 +1,28 @@
+[Unit]
+Description=Transkryptor — demon nagrywajacy rozmowy z komunikatorow (PipeWire)
+# KOPIA wozona lustrem (chezmoi), profil `stacja`. Zrodlo prawdy tresci:
+#   12_Narzedzia-AI/Transkryptor/systemd/transkryptor-nagrywacz.service
+# Roznica celowa (obszar 5, [266], 2026-08-29): dodany ConditionPathExists na venv.
+# Bez niego `enable --now` na maszynie BEZ instalatora daje petle restartow
+# (ExecStart wskazuje na pythona z venva, ktorego nie ma -> 203/EXEC, Restart=always).
+# Prosba do projektu Transkryptor: dodac ten sam warunek u zrodla, wtedy kopia
+# bedzie bit-identyczna.
+Documentation=file://%h/AI-katalog-roboczy/12_Narzedzia-AI/Transkryptor/README.md
+After=pipewire.service wireplumber.service
+Wants=pipewire.service wireplumber.service
+ConditionPathExists=%h/.local/share/transkryptor/venv
+
+[Service]
+Type=simple
+# Sciezki przez %h (katalog domowy), nie na sztywno /home/mk — patrz README,
+# rozdzial "Wiele maszyn" (unity jada lustrem na pozostale stacje).
+# venv, bo konwersja WAV->FLAC idzie przez PyAV (systemowego ffmpeg celowo nie ma).
+ExecStart=%h/.local/share/transkryptor/venv/bin/python3 %h/AI-katalog-roboczy/12_Narzedzia-AI/Transkryptor/bin/nagrywacz.py
+Restart=always
+RestartSec=10
+# SIGINT zamiast SIGTERM: demon zdazy zamknac trwajace nagranie i oddac je do inboxu.
+KillSignal=SIGINT
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target
