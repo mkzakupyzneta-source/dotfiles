@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Ikona pozycji `panel-sieci` (kanal `skrypt` lustra, sprawa [262], 2026-08-29).
+     ZRODLO ikony — plik wynikowy PNG 256x256 powstaje z tego pliku skryptem
+     lustra/ikony/zrob-png.py i lezy w repo jako
+     dot_local/share/panel-sieci/panel-sieci.png (to jego chezmoi wozi na maszyny).
+     Motyw: dom (serwer domowy 24/7) u gory, dwie stacje u dolu, polaczone liniami
+     = domowa siec. Grube linie i trzy duze elementy, zeby czytac sie z 24 px w doku. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect x="0" y="0" width="256" height="256" rx="52" ry="52" fill="#16304a"/>
+  <g stroke="#4fd1c5" stroke-width="12" stroke-linecap="round" fill="none">
+    <line x1="128" y1="112" x2="62" y2="186"/>
+    <line x1="128" y1="112" x2="194" y2="186"/>
+    <line x1="62" y1="186" x2="194" y2="186"/>
+  </g>
+  <!-- dom = serwer -->
+  <path d="M128 34 L196 88 L196 116 L60 116 L60 88 Z" fill="#f4f7fb"/>
+  <rect x="112" y="86" width="32" height="30" rx="4" fill="#16304a"/>
+  <!-- stacje -->
+  <circle cx="62" cy="186" r="30" fill="#f4f7fb"/>
+  <circle cx="194" cy="186" r="30" fill="#f4f7fb"/>
+</svg>
