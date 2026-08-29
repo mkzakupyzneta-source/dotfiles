@@ -1,661 +1,798 @@
 {
   "maszyna": "serwer",
-  "ts": "2026-08-29T13:28:37+02:00",
+  "ts": "2026-08-29T14:28:41+02:00",
   "pozycje": [
     {
       "kanal": "apt",
       "id": "cabextract",
-      "wersja": "1.11-2"
+      "wersja": "1.11-2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "chezmoi",
-      "wersja": "2.72.0"
+      "wersja": "2.72.0",
+      "zrodlo": ""
     },
     {
       "kanal": "apt",
       "id": "cloud-image-utils",
-      "wersja": "0.33-1"
+      "wersja": "0.33-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "containerd.io",
-      "wersja": "2.3.3-1~ubuntu.24.04~noble"
+      "wersja": "2.3.3-1~ubuntu.24.04~noble",
+      "zrodlo": "download.docker.com"
     },
     {
       "kanal": "apt",
       "id": "docker-buildx-plugin",
-      "wersja": "0.36.1-1~ubuntu.24.04~noble"
+      "wersja": "0.36.1-1~ubuntu.24.04~noble",
+      "zrodlo": "download.docker.com"
     },
     {
       "kanal": "apt",
       "id": "docker-ce",
-      "wersja": "5:29.7.2-1~ubuntu.24.04~noble"
+      "wersja": "5:29.7.2-1~ubuntu.24.04~noble",
+      "zrodlo": "download.docker.com"
     },
     {
       "kanal": "apt",
       "id": "docker-ce-cli",
-      "wersja": "5:29.7.2-1~ubuntu.24.04~noble"
+      "wersja": "5:29.7.2-1~ubuntu.24.04~noble",
+      "zrodlo": "download.docker.com"
     },
     {
       "kanal": "apt",
       "id": "docker-compose-plugin",
-      "wersja": "5.5.0-1~ubuntu.24.04~noble"
+      "wersja": "5.5.0-1~ubuntu.24.04~noble",
+      "zrodlo": "download.docker.com"
     },
     {
       "kanal": "apt",
       "id": "gh",
-      "wersja": "2.45.0-1ubuntu0.3"
+      "wersja": "2.45.0-1ubuntu0.3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "git",
-      "wersja": "1:2.43.0-1ubuntu7.3"
+      "wersja": "1:2.43.0-1ubuntu7.3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "google-chrome-stable",
-      "wersja": "152.0.7977.64-1"
+      "wersja": "152.0.7977.64-1",
+      "zrodlo": "google-chrome"
     },
     {
       "kanal": "apt",
       "id": "gstreamer1.0-libav",
-      "wersja": "1.24.1-1build1"
+      "wersja": "1.24.1-1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "gstreamer1.0-plugins-bad",
-      "wersja": "1.24.2-1ubuntu4"
+      "wersja": "1.24.2-1ubuntu4",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "gstreamer1.0-plugins-ugly",
-      "wersja": "1.24.1-1build1"
+      "wersja": "1.24.1-1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "gstreamer1.0-vaapi",
-      "wersja": "1.24.2-1"
+      "wersja": "1.24.2-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "imagemagick-6-common",
-      "wersja": "8:6.9.12.98+dfsg1-5.2build2"
+      "wersja": "8:6.9.12.98+dfsg1-5.2build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "input-remapper",
-      "wersja": "2.0.1-1"
+      "wersja": "2.0.1-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "intel-gpu-tools",
-      "wersja": "1.28-1ubuntu2"
+      "wersja": "1.28-1ubuntu2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "jq",
-      "wersja": "1.7.1-3ubuntu0.24.04.2"
+      "wersja": "1.7.1-3ubuntu0.24.04.2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "jstest-gtk",
-      "wersja": "0.1.1~git20180602-2build2"
+      "wersja": "0.1.1~git20180602-2build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "latexmk",
-      "wersja": "1:4.83-1"
+      "wersja": "1:4.83-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "liba52-0.7.4",
-      "wersja": "0.7.4-20build1"
+      "wersja": "0.7.4-20build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libaribb24-0t64",
-      "wersja": "1.0.3-2.1build2"
+      "wersja": "1.0.3-2.1build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libavcodec-extra",
-      "wersja": "7:6.1.1-3ubuntu5"
+      "wersja": "7:6.1.1-3ubuntu5",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libavcodec-extra60",
-      "wersja": "7:6.1.1-3ubuntu5"
+      "wersja": "7:6.1.1-3ubuntu5",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libavtp0",
-      "wersja": "0.2.0-1build1"
+      "wersja": "0.2.0-1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libdca0",
-      "wersja": "0.0.7-2build1"
+      "wersja": "0.0.7-2build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libdirectfb-1.7-7t64",
-      "wersja": "1.7.7-11.1ubuntu2"
+      "wersja": "1.7.7-11.1ubuntu2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libdvdcss2",
-      "wersja": "1.4.2-dmo1"
+      "wersja": "1.4.2-dmo1",
+      "zrodlo": "packages.linuxmint.com"
     },
     {
       "kanal": "apt",
       "id": "libfaad2",
-      "wersja": "2.11.1-1build1"
+      "wersja": "2.11.1-1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libfluidsynth3",
-      "wersja": "2.3.4-1build3"
+      "wersja": "2.3.4-1build3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libgssdp-1.6-0",
-      "wersja": "1.6.3-1build3"
+      "wersja": "1.6.3-1build3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libgstreamer-plugins-bad1.0-0",
-      "wersja": "1.24.2-1ubuntu4"
+      "wersja": "1.24.2-1ubuntu4",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libgupnp-1.6-0",
-      "wersja": "1.6.6-1build3"
+      "wersja": "1.6.6-1build3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libgupnp-igd-1.6-0",
-      "wersja": "1.6.0-3build3"
+      "wersja": "1.6.0-3build3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libinstpatch-1.0-2",
-      "wersja": "1.1.6-1build2"
+      "wersja": "1.1.6-1build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libjxr-tools",
-      "wersja": "1.2~git20170615.f752187-5.1ubuntu2"
+      "wersja": "1.2~git20170615.f752187-5.1ubuntu2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libjxr0t64",
-      "wersja": "1.2~git20170615.f752187-5.1ubuntu2"
+      "wersja": "1.2~git20170615.f752187-5.1ubuntu2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "liblqr-1-0",
-      "wersja": "0.4.2-2.1build2"
+      "wersja": "0.4.2-2.1build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "liblrdf0",
-      "wersja": "0.6.1-4build1"
+      "wersja": "0.6.1-4build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libltc11",
-      "wersja": "1.3.2-1build1"
+      "wersja": "1.3.2-1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libmagickcore-6.q16-7-extra",
-      "wersja": "8:6.9.12.98+dfsg1-5.2build2"
+      "wersja": "8:6.9.12.98+dfsg1-5.2build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libmagickcore-6.q16-7t64",
-      "wersja": "8:6.9.12.98+dfsg1-5.2build2"
+      "wersja": "8:6.9.12.98+dfsg1-5.2build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libmagickwand-6.q16-7t64",
-      "wersja": "8:6.9.12.98+dfsg1-5.2build2"
+      "wersja": "8:6.9.12.98+dfsg1-5.2build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libmfx1",
-      "wersja": "22.5.4-1"
+      "wersja": "22.5.4-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libmjpegutils-2.1-0t64",
-      "wersja": "1:2.1.0+debian-8.1build1"
+      "wersja": "1:2.1.0+debian-8.1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libmodplug1",
-      "wersja": "1:0.8.9.0-3build1"
+      "wersja": "1:0.8.9.0-3build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libmpcdec6",
-      "wersja": "2:0.1~r495-2build1"
+      "wersja": "2:0.1~r495-2build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libmpeg2-4",
-      "wersja": "0.5.1-9build1"
+      "wersja": "0.5.1-9build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libmpeg2encpp-2.1-0t64",
-      "wersja": "1:2.1.0+debian-8.1build1"
+      "wersja": "1:2.1.0+debian-8.1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libmplex2-2.1-0t64",
-      "wersja": "1:2.1.0+debian-8.1build1"
+      "wersja": "1:2.1.0+debian-8.1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libmspack0t64",
-      "wersja": "0.11-1.1build1"
+      "wersja": "0.11-1.1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libneon27t64",
-      "wersja": "0.33.0-1.1build3"
+      "wersja": "0.33.0-1.1build3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libnice10",
-      "wersja": "0.1.21-2build3"
+      "wersja": "0.1.21-2build3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libopencore-amrnb0",
-      "wersja": "0.1.6-1build1"
+      "wersja": "0.1.6-1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libopencore-amrwb0",
-      "wersja": "0.1.6-1build1"
+      "wersja": "0.1.6-1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libopenh264-7",
-      "wersja": "2.4.1+dfsg-1"
+      "wersja": "2.4.1+dfsg-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libopenni2-0",
-      "wersja": "2.2.0.33+dfsg-18"
+      "wersja": "2.2.0.33+dfsg-18",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libqrencode4",
-      "wersja": "4.1.1-1build2"
+      "wersja": "4.1.1-1build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libsidplay1v5",
-      "wersja": "1.36.60-1build1"
+      "wersja": "1.36.60-1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libsoundtouch1",
-      "wersja": "2.3.2+ds1-1build1"
+      "wersja": "2.3.2+ds1-1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libspandsp2t64",
-      "wersja": "0.0.6+dfsg-2.1build1"
+      "wersja": "0.0.6+dfsg-2.1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libsrtp2-1",
-      "wersja": "2.5.0-3build1"
+      "wersja": "2.5.0-3build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libunshield0",
-      "wersja": "1.5.1-1"
+      "wersja": "1.5.1-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libvirt-daemon-system",
-      "wersja": "10.0.0-2ubuntu8.16"
+      "wersja": "10.0.0-2ubuntu8.16",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libvo-aacenc0",
-      "wersja": "0.1.3-2build1"
+      "wersja": "0.1.3-2build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libvo-amrwbenc0",
-      "wersja": "0.1.3-2build1"
+      "wersja": "0.1.3-2build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libwildmidi2",
-      "wersja": "0.4.3-1build3"
+      "wersja": "0.4.3-1build3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libzbar0t64",
-      "wersja": "0.23.93-4build3"
+      "wersja": "0.23.93-4build3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "libzxing3",
-      "wersja": "2.2.1-3"
+      "wersja": "2.2.1-3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "mint-meta-codecs",
-      "wersja": "2025.12.15+mint22.3"
+      "wersja": "2025.12.15+mint22.3",
+      "zrodlo": "packages.linuxmint.com"
     },
     {
       "kanal": "apt",
       "id": "nmap",
-      "wersja": "7.94+git20230807.3be01efb1+dfsg-3build2"
+      "wersja": "7.94+git20230807.3be01efb1+dfsg-3build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "openssh-server",
-      "wersja": "1:9.6p1-3ubuntu13.18"
+      "wersja": "1:9.6p1-3ubuntu13.18",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "pamtester",
-      "wersja": "0.1.2-4"
+      "wersja": "0.1.2-4",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "pandoc",
-      "wersja": "3.1.3+ds-2"
+      "wersja": "3.1.3+ds-2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "pipx",
-      "wersja": "1.4.3-1"
+      "wersja": "1.4.3-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "python-is-python3",
-      "wersja": "3.11.4-1"
+      "wersja": "3.11.4-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "python3-docx",
-      "wersja": "1.1.0+dfsg-2"
+      "wersja": "1.1.0+dfsg-2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "python3-dotenv",
-      "wersja": "1.0.1-1"
+      "wersja": "1.0.1-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "python3-evdev",
-      "wersja": "1.7.0+dfsg-1build1"
+      "wersja": "1.7.0+dfsg-1build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "python3-fitz",
-      "wersja": "1.23.7+ds1-1ubuntu2"
+      "wersja": "1.23.7+ds1-1ubuntu2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "python3-flask",
-      "wersja": "3.0.2-1ubuntu1.1"
+      "wersja": "3.0.2-1ubuntu1.1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "python3-openai",
-      "wersja": "1.12.0-1"
+      "wersja": "1.12.0-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "python3-pip",
-      "wersja": "24.0+dfsg-1ubuntu1.3"
+      "wersja": "24.0+dfsg-1ubuntu1.3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "python3-pypdf",
-      "wersja": "4.0.2-1"
+      "wersja": "4.0.2-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "python3-tenacity",
-      "wersja": "8.2.3-2"
+      "wersja": "8.2.3-2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "python3-venv",
-      "wersja": "3.12.3-0ubuntu2.1"
+      "wersja": "3.12.3-0ubuntu2.1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "qemu-system-x86",
-      "wersja": "1:8.2.2+ds-0ubuntu1.18"
+      "wersja": "1:8.2.2+ds-0ubuntu1.18",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "scrot",
-      "wersja": "1.10-1build2"
+      "wersja": "1.10-1build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "smbios-utils",
-      "wersja": "2.4.3-1build2"
+      "wersja": "2.4.3-1build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "syncthing",
-      "wersja": "1.27.2~ds4-1ubuntu0.24.04.3"
+      "wersja": "1.27.2~ds4-1ubuntu0.24.04.3",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "tailscale",
-      "wersja": "1.102.3"
+      "wersja": "1.102.3",
+      "zrodlo": "tailscale"
     },
     {
       "kanal": "apt",
       "id": "tailscale-archive-keyring",
-      "wersja": "1.35.181"
+      "wersja": "1.35.181",
+      "zrodlo": "tailscale"
     },
     {
       "kanal": "apt",
       "id": "texlive-lang-polish",
-      "wersja": "2023.20240207-1"
+      "wersja": "2023.20240207-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "texlive-latex-extra",
-      "wersja": "2023.20240207-1"
+      "wersja": "2023.20240207-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "texlive-science",
-      "wersja": "2023.20240207-1"
+      "wersja": "2023.20240207-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "tigervnc-viewer",
-      "wersja": "1.13.1+dfsg-2build2"
+      "wersja": "1.13.1+dfsg-2build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "timgm6mb-soundfont",
-      "wersja": "1.3-5"
+      "wersja": "1.3-5",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "tmux",
-      "wersja": "3.4-1ubuntu0.1"
+      "wersja": "3.4-1ubuntu0.1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "unclutter-xfixes",
-      "wersja": "1.6-1build2"
+      "wersja": "1.6-1build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "unshield",
-      "wersja": "1.5.1-1"
+      "wersja": "1.5.1-1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "virtinst",
-      "wersja": "1:4.1.0-3ubuntu0.1"
+      "wersja": "1:4.1.0-3ubuntu0.1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "wakeonlan",
-      "wersja": "0.41-12.1"
+      "wersja": "0.41-12.1",
+      "zrodlo": "ubuntu"
+    },
+    {
+      "kanal": "apt",
+      "id": "websockify",
+      "wersja": "0.10.0+dfsg1-5build2",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "x11vnc",
-      "wersja": "0.9.16-10"
+      "wersja": "0.9.16-10",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "xboxdrv",
-      "wersja": "0.8.8-4build1"
+      "wersja": "0.8.8-4build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "apt",
       "id": "xdotool",
-      "wersja": "1:3.20160805.1-5build1"
+      "wersja": "1:3.20160805.1-5build1",
+      "zrodlo": "ubuntu"
     },
     {
       "kanal": "flatpak",
       "id": "com.moonlight_stream.Moonlight",
-      "wersja": "6.1.0"
+      "wersja": "6.1.0",
+      "zrodlo": "flathub"
     },
     {
       "kanal": "flatpak",
       "id": "dev.lizardbyte.app.Sunshine",
-      "wersja": "2025.924.154138"
+      "wersja": "2025.924.154138",
+      "zrodlo": "flathub"
     },
     {
       "kanal": "poza",
       "id": "Hibernacja",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "autologin-watchdog.sh",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "autologin-watchdog.sh.bak-2026-08-08-v2",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "autologin-watchdog.sh.bak-2026-08-08-v31",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "chezmoi-git-pull.sh",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "chezmoi-git-pull.sh.bak-20260827",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "chrome-alddamigfjonblpigkpieckmhbjdgadd-Default",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "cinnamon-custom-launcher-1",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "cinnamon-custom-launcher-2",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "claude-code-url-handler",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "google-chrome",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "keyd",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "keyd-application-mapper",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "luna-fullscreen-keeper.sh",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "luna-kiosk.sh",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "luna-kiosk.sh.bak-2026-08-02",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "luna-pad-uhid.py",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "lustro-sync-serwer.sh",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "lustro-sync-serwer.sh.bak-20260827",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "steam",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "systemd",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "sysusers.d",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     },
     {
       "kanal": "poza",
       "id": "webapp-OnlineChat4519",
-      "wersja": "?"
+      "wersja": "?",
+      "zrodlo": ""
     }
   ]
 }
