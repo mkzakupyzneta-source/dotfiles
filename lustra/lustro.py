@@ -771,6 +771,164 @@ def eksport_inwentarza():
     return stan
 
 
+# ------------------------------------------------- pole `zrodlo` w migawce [257b]
+
+def _nazwij_zrodlo_apt(url, wg_url):
+    """Adres repozytorium → krótki napis dla człowieka.
+
+    Kolejność (od najbardziej do najmniej konkretnej wiedzy):
+      1. adres pasuje do bloku [[zrodlo]] w zrodla-apt.toml → jego pole `nazwa`
+         (najlepsze: ta sama etykieta, którą apka posługuje się wszędzie indziej),
+      2. archiwum Ubuntu (host *.ubuntu.com) → "ubuntu" — WSZYSTKIE lustra tego
+         archiwum (pl.archive…, security…, archive…) to dla człowieka jedno źródło,
+      3. inaczej → sam host adresu (np. "download.opensuse.org") — uczciwe „nie
+         wiem, jak to nazwać", ale widać, skąd pakiet przyszedł.
+    """
+    czysty = (url or "").rstrip("/")
+    for u, nazwa in wg_url.items():
+        if czysty.startswith(u):
+            return nazwa
+    from urllib.parse import urlparse
+    host = urlparse(url).hostname or ""
+    if host == "ubuntu.com" or host.endswith(".ubuntu.com"):
+        return "ubuntu"
+    return host
+
+
+def _zrodla_apt(pakiety):
+    """{pakiet: "napis"} — skąd pochodzi ZAINSTALOWANA wersja pakietu apt.
+
+    Czytamy `apt-cache policy` (wiersz `***` = wersja zainstalowana, pod nim
+    wiersze „priorytet adres …”). Pierwszy adres http(s) pod `***` to repozytorium,
+    z którego ta wersja jest. Wiersz `100 /var/lib/dpkg/status` przeskakujemy —
+    mówi tylko „to jest zainstalowane", nie „skąd".
+
+    Pakiet zainstalowany z pliku .deb ma pod `***` wyłącznie `/var/lib/dpkg/status`
+    — wtedy zwracamy pusty napis (panel pokaże „—"), bo źródła po prostu nie ma.
+
+    JEDNO wywołanie na wszystkie pakiety naraz (ok. 120 na stację) — `apt-cache
+    policy` przyjmuje listę; wołanie w pętli kosztowałoby ok. 120 uruchomień apta.
+    """
+    if not pakiety or not czy_jest("apt-cache"):
+        return {}
+    wg_url = {}
+    for z in wczytaj_zrodla_apt():
+        u = (z.get("url") or "").rstrip("/")
+        if u and z.get("nazwa"):
+            wg_url[u] = z["nazwa"]
+
+    _, out = uruchom(["apt-cache", "policy", *sorted(pakiety)], timeout=180)
+    wynik, biezacy, pod_gwiazdkami = {}, None, False
+    for linia in out.splitlines():
+        if linia[:1] not in (" ", "\t") and linia.rstrip().endswith(":"):
+            biezacy = linia.rstrip()[:-1]
+            pod_gwiazdkami = False
+            continue
+        if biezacy is None:
+            continue
+        tresc = linia.strip()
+        if tresc.startswith("***"):
+            pod_gwiazdkami = True
+            continue
+        if not pod_gwiazdkami:
+            continue
+        pola = tresc.split()
+        if len(pola) >= 2 and pola[0].isdigit():
+            if pola[1].startswith(("http://", "https://")):
+                wynik[biezacy] = _nazwij_zrodlo_apt(pola[1], wg_url)
+                pod_gwiazdkami = False
+            continue        # np. „100 /var/lib/dpkg/status" — szukamy dalej
+        pod_gwiazdkami = False
+    return wynik
+
+
+def _zrodla_snap():
+    """{nazwa: kanał} — śledzony kanał snapa (kolumna „Tracking").
+
+    `snap list` przycina tę kolumnę na sztywno i zamiast
+    `latest/stable/ubuntu-24.04` pisze `latest/stable/…` (sprawdzone 29.08: to NIE
+    jest szerokość terminala, COLUMNS=200 daje to samo). Dla przyciętych — i tylko
+    dla nich — dopytujemy `snap info <nazwa>`, gdzie pełna wartość stoi w polu
+    `tracking:`. Na HP dotyczyło to 6 z 13 snapów, koszt ok. 1,4 s raz na migawkę."""
+    if not czy_jest("snap"):
+        return {}
+    _, out = uruchom(["snap", "list"])
+    linie = out.splitlines()
+    if len(linie) < 2:
+        return {}
+    naglowek = linie[0].split()
+    try:
+        kol = naglowek.index("Tracking")
+    except ValueError:
+        return {}
+    wynik = {}
+    for linia in linie[1:]:
+        pola = linia.split()
+        if len(pola) > kol:
+            wynik[pola[0]] = pola[kol]
+    for nazwa, kanal in list(wynik.items()):
+        if "…" not in kanal and "..." not in kanal:
+            continue
+        kod, info = uruchom(["snap", "info", nazwa], timeout=30)
+        if kod != 0:
+            continue
+        for w in info.splitlines():
+            if w.startswith("tracking:"):
+                pelny = w.split(":", 1)[1].strip()
+                if pelny:
+                    wynik[nazwa] = pelny
+                break
+    return wynik
+
+
+def _zrodla_flatpak():
+    """{id: zdalne repo} — nazwa remote'a flatpaka (np. „flathub")."""
+    if not czy_jest("flatpak"):
+        return {}
+    _, out = uruchom(["flatpak", "list", "--app", "--columns=application,origin"])
+    wynik = {}
+    for linia in out.splitlines():
+        pola = [c.strip() for c in linia.split("\t")]
+        if len(pola) >= 2 and pola[0]:
+            wynik[pola[0]] = pola[1]
+    return wynik
+
+
+def zrodla_pozycji(stan):
+    """{(kanal, id): "napis"} — SKĄD pochodzi to, co na maszynie stoi. [257b], 29.08.
+
+    Kontrakt z panelem (obszar 1): pole `zrodlo` przy każdej pozycji migawki,
+    krótki napis dla człowieka, wyprowadzony z DANYCH maszyny (nie z listy zaszytej
+    w kodzie):
+      • apt             — `nazwa` bloku z zrodla-apt.toml, gdy adres pasuje;
+                          "ubuntu" dla archiwum Ubuntu; inaczej host adresu;
+                          "" gdy pakiet nie pochodzi z żadnego repozytorium (.deb z pliku)
+      • snap            — śledzony kanał (np. "latest/stable")
+      • flatpak         — nazwa zdalnego repo (np. "flathub")
+      • gnome-extension, skrypt, poza — "" (nie ma sensownego „skąd"; dla `skrypt`
+                          źródłem jest definicja w skrypty.toml, dla `poza` — ręka)
+
+    Pusty napis i brak pola znaczą dla panelu to samo: „—".
+    Liczone TYLKO przy zapisie migawki, nie w `status`/`sync` — rdzeń
+    (`inwentaryzacja()`/`zbierz_pozycje()`) zostaje nietknięty.
+    """
+    apt_pakiety = [ident for kanal, ident in stan if kanal == "apt"]
+    z_apt = _zrodla_apt(apt_pakiety)
+    z_snap = _zrodla_snap() if any(k == "snap" for k, _ in stan) else {}
+    z_flat = _zrodla_flatpak() if any(k == "flatpak" for k, _ in stan) else {}
+    wynik = {}
+    for kanal, ident in stan:
+        if kanal == "apt":
+            wynik[(kanal, ident)] = z_apt.get(ident, "")
+        elif kanal == "snap":
+            wynik[(kanal, ident)] = z_snap.get(ident, "")
+        elif kanal == "flatpak":
+            wynik[(kanal, ident)] = z_flat.get(ident, "")
+        else:
+            wynik[(kanal, ident)] = ""
+    return wynik
+
+
 INWENTARZ_DIR = KATALOG / "inwentarz"   # migawki <maszyna>.json, 27.08
 
 
@@ -781,7 +939,10 @@ def zapisz_migawke_inwentarza():
     zaśmiecał historię gita identycznymi commitami co godzinę, wbrew
     zleceniu "commit+push przy zmianie, bez commitu gdy identyczna").
 
-    Format pliku: {"maszyna": ..., "ts": ISO, "pozycje": [{"kanal","id","wersja"}, …]}
+    Format pliku: {"maszyna": ..., "ts": ISO,
+                   "pozycje": [{"kanal","id","wersja","zrodlo"}, …]}
+    (pole `zrodlo` doszło 29.08, [257b] — patrz `zrodla_pozycji()`; pole DODATKOWE,
+    stary czytelnik migawki działa dalej, brak pola = panel pokazuje „—")
     — lista, posortowana po (kanal, id), żeby diff gita był czytelny i stabilny.
 
     Nie rusza gita — wołający decyduje (`polecenie_inwentarz_eksportuj` woła
@@ -793,7 +954,9 @@ def zapisz_migawke_inwentarza():
     """
     maszyna = nazwa_maszyny()
     stan = eksport_inwentarza()
-    pozycje = [{"kanal": k, "id": i, "wersja": w} for (k, i), w in sorted(stan.items())]
+    zrodla = zrodla_pozycji(stan)               # [257b] — skąd to jest
+    pozycje = [{"kanal": k, "id": i, "wersja": w, "zrodlo": zrodla.get((k, i), "")}
+               for (k, i), w in sorted(stan.items())]
 
     plik = INWENTARZ_DIR / f"{maszyna}.json"
     stara_tresc = None
@@ -1086,7 +1249,8 @@ def czy_czlonek_lustra(maszyna, czlonkowie=None):
 def wczytaj_zrodla_apt():
     """
     Czyta lustra/zrodla-apt.toml → lista słowników [[zrodlo]] (patrz nagłówek pliku).
-    Zastępnik {codename} podstawiany od razu. Brak pliku = pusta lista (nic nie blokuje).
+    Zastępniki {codename} i {wersja_systemu} podstawiane od razu.
+    Brak pliku = pusta lista (nic nie blokuje).
     """
     if not ZRODLA_APT.exists():
         return []
@@ -1096,28 +1260,45 @@ def wczytaj_zrodla_apt():
     except (tomllib.TOMLDecodeError, OSError) as e:
         print(f"⚠ nie umiem odczytać {ZRODLA_APT.name}: {e} — źródła apt pomijam")
         return []
-    codename = _codename_wydania()
+    podstawienia = {"{codename}": _codename_wydania(),
+                    "{wersja_systemu}": _wersja_wydania()}
     wynik = []
     for z in dane.get("zrodlo", []):
         z = dict(z)
         for pole in ("url", "klucz_url", "linia_deb"):
             if isinstance(z.get(pole), str):
-                z[pole] = z[pole].replace("{codename}", codename)
+                for znacznik, wartosc in podstawienia.items():
+                    z[pole] = z[pole].replace(znacznik, wartosc)
         z.setdefault("pakiety", [])
         z.setdefault("klucz_format", "ascii")
+        z.setdefault("pakiet_zaklada_zrodlo", False)
         wynik.append(z)
     return wynik
 
 
-def _codename_wydania():
-    """VERSION_CODENAME z /etc/os-release (np. noble); gdy brak — pusty napis."""
+def _pole_os_release(klucz):
+    """Wartość pola z /etc/os-release; gdy brak pliku albo pola — pusty napis."""
     try:
         for linia in Path("/etc/os-release").read_text(encoding="utf-8").splitlines():
-            if linia.startswith("VERSION_CODENAME="):
+            if linia.startswith(klucz + "="):
                 return linia.split("=", 1)[1].strip().strip('"')
     except OSError:
         pass
     return ""
+
+
+def _codename_wydania():
+    """VERSION_CODENAME z /etc/os-release (np. noble); gdy brak — pusty napis."""
+    return _pole_os_release("VERSION_CODENAME")
+
+
+def _wersja_wydania():
+    """VERSION_ID z /etc/os-release (np. 24.04); gdy brak — pusty napis.
+
+    Potrzebne, bo część producentów numeruje repozytoria WERSJĄ, nie nazwą wydania
+    (OBS: `xUbuntu_24.04`), a część nazwą (`noble`). Jeden zastępnik nie wystarcza —
+    stąd dwa, oba jako DANE w polach `url`/`klucz_url`/`linia_deb`."""
+    return _pole_os_release("VERSION_ID")
 
 
 def _tresc_zrodel_apt():
@@ -1327,6 +1508,154 @@ def dodaj_zrodlo_apt(zrodlo):
         return True
     print(f"    ⚠ po wykonaniu nadal nie widzę źródła „{nazwa}”")
     return False
+
+
+def _pliki_zrodel_z_url(url):
+    """Ścieżki plików .list/.sources w /etc/apt/sources.list.d/, w których stoi ten
+    adres (linie-komentarze pominięte). Odpowiada na pytanie „ile razy apt ma to
+    repozytorium skonfigurowane"."""
+    czysty = (url or "").rstrip("/")
+    znalezione = []
+    if not czysty or not SOURCES_D.is_dir():
+        return znalezione
+    for plik in sorted(SOURCES_D.iterdir()):
+        if plik.suffix not in (".list", ".sources"):
+            continue
+        try:
+            tresc = "\n".join(l for l in plik.read_text(encoding="utf-8",
+                                                        errors="replace").splitlines()
+                              if not l.lstrip().startswith("#"))
+        except OSError:
+            continue
+        if czysty in tresc:
+            znalezione.append(plik)
+    return znalezione
+
+
+def _wlasciciel_dpkg(sciezka):
+    """Nazwa pakietu dpkg, do którego należy plik; "" gdy do żadnego."""
+    kod, out = uruchom(["dpkg-query", "-S", str(sciezka)])
+    if kod != 0 or ":" not in out:
+        return ""
+    return out.split(":", 1)[0].strip()
+
+
+def posprzataj_zdublowane_zrodla(tylko_pokaz=False):
+    """[257c], 29.08 — usuwa PODWÓJNY wpis tego samego repozytorium apt.
+
+    Problem (zmierzony na HP 29.08): apka dodaje `/etc/apt/sources.list.d/
+    google-chrome.list` PRZED pierwszą instalacją Chrome (bez tego `apt install
+    google-chrome-stable` nic nie znajdzie). Instalator Chrome zakłada zaraz potem
+    SWÓJ `google-chrome.sources` z tym samym adresem — i apt przy każdym `update`
+    ostrzega „Target Packages … is configured multiple times". Na Vostro i Katanie
+    problemu nie ma tylko dlatego, że tam Chrome był PRZED apką.
+
+    Dlaczego naprawa jest tutaj, a nie „nie zakładaj .list, gdy istnieje .sources"
+    (to apka już sprawdza, `zrodlo_obecne`): w chwili zakładania `.list` pliku
+    `.sources` jeszcze NIE MA — powstaje dopiero przy instalacji pakietu. Sprawdzenie
+    „przed" nie ma czego znaleźć. Duplikat da się usunąć wyłącznie PO instalacji.
+
+    Dlaczego zdejmujemy sam plik listy, a nie cały mikro-pakiet `lustro-zrodlo-*`:
+    ten pakiet niesie TEŻ keyring, a na HP `/usr/share/keyrings/google-chrome.gpg`
+    należy właśnie do niego (`dpkg -S`, 29.08). `apt remove` zabrałby klucz i repo
+    Chrome przestałoby działać do najbliższego biegu codziennego skryptu Google.
+    Zamiast tego przebudowujemy mikro-pakiet w NOWEJ wersji, już bez pliku listy,
+    i kładziemy `dpkg -i` — dpkg przy podniesieniu wersji usuwa pliki, których
+    w nowej wersji nie ma, a keyring zostawia. `dpkg` mieści się w NOPASSWD [194],
+    więc sprzątanie działa też z timera, bez hasła i bez okienka.
+
+    Warunki bezpieczeństwa (wszystkie muszą być spełnione, inaczej nic nie ruszamy):
+      • blok ma `pakiet_zaklada_zrodlo = true` (DANA w zrodla-apt.toml),
+      • nasz `plik_listy` istnieje I należy do pakietu `lustro-zrodlo-<nazwa>`,
+      • ten sam adres stoi w CO NAJMNIEJ jednym INNYM pliku źródeł (czyli po
+        zdjęciu naszego repozytorium nie zniknie).
+
+    Zwraca listę nazw posprzątanych źródeł.
+    """
+    import tempfile
+
+    posprzatane = []
+    for z in wczytaj_zrodla_apt():
+        if not z.get("pakiet_zaklada_zrodlo"):
+            continue
+        nazwa = z.get("nazwa", "?")
+        sciezka_listy = z.get("plik_listy") or ""
+        if not sciezka_listy:
+            continue
+        nasz = Path(sciezka_listy)
+        if not nasz.exists():
+            continue
+        inne = [p for p in _pliki_zrodel_z_url(z.get("url")) if p != nasz]
+        if not inne:
+            continue        # jesteśmy jedynym wpisem — bez nas apt nie ma tego repo
+
+        pakiet_id = f"lustro-zrodlo-{nazwa}"
+        wlasciciel = _wlasciciel_dpkg(nasz)
+        if wlasciciel != pakiet_id:
+            print(f"⚠ źródło „{nazwa}”: {nasz} jest zdublowane z "
+                  f"{', '.join(str(i) for i in inne)}, ale nie należy do {pakiet_id} "
+                  f"(właściciel: {wlasciciel or 'brak'}) — NIE ruszam, zdejmij ręcznie")
+            continue
+
+        print(f"ŹRÓDŁO ZDUBLOWANE: „{nazwa}” stoi w {nasz.name} (nasz) "
+              f"i w {', '.join(i.name for i in inne)} (pakietu) [257c]")
+        if tylko_pokaz:
+            print("    apt ostrzega „configured multiple times”; `lustro sync` "
+                  "zdejmie nasz wpis sam")
+            print()
+            continue
+
+        keyring = Path(z.get("keyring") or "")
+        if not keyring.is_file():
+            print(f"    ⚠ nie widzę keyringu {keyring} — nie przebudowuję pakietu")
+            continue
+        _, obecna = uruchom(["dpkg-query", "-W", "-f=${Version}", pakiet_id])
+        try:
+            wersja = str(int((obecna or "1").strip().split(".")[0]) + 1)
+        except ValueError:
+            wersja = "2"
+
+        katalog_tmp = Path(tempfile.mkdtemp(prefix="lustro-zrodlo-przytnij-"))
+        try:
+            korzen = katalog_tmp / "pakiet"
+            (korzen / "DEBIAN").mkdir(parents=True)
+            cel = korzen / keyring.relative_to("/")
+            cel.parent.mkdir(parents=True, exist_ok=True)
+            cel.write_bytes(keyring.read_bytes())
+            cel.chmod(0o644)
+            (korzen / "DEBIAN" / "control").write_text(
+                f"Package: {pakiet_id}\n"
+                f"Version: {wersja}\n"
+                "Section: misc\n"
+                "Priority: optional\n"
+                "Architecture: all\n"
+                "Maintainer: lustro (mechanizm luster) <mk@localhost>\n"
+                f"Description: Klucz zrodla apt „{nazwa}” (bez wpisu .list)\n"
+                " Sam keyring. Wpis w sources.list.d utrzymuje juz pakiet\n"
+                " producenta — nasz plik listy zdjety, zeby apt nie mial tego\n"
+                " repozytorium skonfigurowanego dwa razy [257c].\n",
+                encoding="utf-8")
+            deb = katalog_tmp / f"{pakiet_id}.deb"
+            kod, out = uruchom(["dpkg-deb", "--root-owner-group", "--build",
+                                str(korzen), str(deb)])
+            if kod != 0 or not deb.exists():
+                print(f"    ⚠ budowa pakietu nie powiodła się (kod {kod}): {out.strip()}")
+                continue
+            print(f"    → {pakiet_id} w wersji {wersja} (sam klucz, bez {nasz.name})")
+            kod = uruchom_widoczne(jako_root(["dpkg", "-i", str(deb)]))
+            if kod != 0:
+                print(f"    ⚠ `dpkg -i` zakończone kodem {kod}")
+                continue
+        finally:
+            shutil.rmtree(katalog_tmp, ignore_errors=True)
+
+        if nasz.exists():
+            print(f"    ⚠ {nasz} nadal istnieje — nie udało się zdjąć")
+            continue
+        print(f"    ✓ zdublowanie źródła „{nazwa}” usunięte (klucz {keyring.name} został)")
+        uruchom_widoczne(jako_root(["apt-get", "update"]))
+        posprzatane.append(nazwa)
+    return posprzatane
 
 
 def zapewnij_zrodlo_dla(pakiet, args):
@@ -2566,6 +2895,8 @@ def polecenie_status(args):
             print("    propozycja: `lustro dodaj <pakiet>` doda je samo przed instalacją")
             print()
 
+    posprzataj_zdublowane_zrodla(tylko_pokaz=True)   # [257c] — sam meldunek
+
     numer = _wypisz_pulpit(numer)
 
     obce = instalacje_obce()
@@ -3090,6 +3421,12 @@ def polecenie_sync_auto(args):
                 nieudane += 1
         print()
 
+    # [257c] — samonaprawa: zdejmij nasz wpis źródła tam, gdzie pakiet już
+    # utrzymuje własny (inaczej apt przy każdym `update` ostrzega
+    # „configured multiple times"). `dpkg` jest w NOPASSWD [194], więc działa
+    # z timera bez hasła. Nic nie robi, gdy duplikatu nie ma.
+    posprzataj_zdublowane_zrodla()
+
     do_instalacji = [(kanal, ident, zdarz)
                      for (kanal, ident), zdarz, rodzaj in dane["rozbieznosci"]
                      if rodzaj == "brak-tutaj" and kanal in KANALY_INSTALOWALNE]
@@ -3199,6 +3536,7 @@ def polecenie_sync(args):
         return polecenie_status(args)
 
     git_pull_rebase()
+    posprzataj_zdublowane_zrodla()      # [257c] — patrz `polecenie_sync_auto`
     dane = zbierz_pozycje()
     naglowek(dane)
 

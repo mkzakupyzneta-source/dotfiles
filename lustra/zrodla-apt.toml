@@ -27,15 +27,26 @@
 #   linia_deb    — pełna linia `deb …` do tego pliku (format jednolinijkowy .list)
 #   pakiety      — nazwy pakietów, które z tego źródła pochodzą (po tym `lustro dodaj`
 #                  wie, że przed instalacją ma sprawdzić źródło)
+#   pakiet_zaklada_zrodlo — true, gdy PAKIET SAM zakłada i utrzymuje swoje źródło apt
+#                  po instalacji (Google Chrome robi to codziennym skryptem
+#                  /opt/google/chrome/cron/google-chrome: zapisuje własny
+#                  .sources ORAZ własny keyring). Wtedy wpis apki jest potrzebny
+#                  WYŁĄCZNIE na pierwszą instalację, a potem jest zbędny i apt
+#                  ostrzega „configured multiple times". Apka sprząta to sama —
+#                  patrz `posprzataj_zdublowane_zrodla()` w lustro.py [257c].
+#                  Domyślnie false.
 #   uwagi        — dla człowieka
 #
 # Zastępniki w polach `url`, `klucz_url`, `linia_deb`:
-#   {codename}   — nazwa wydania z /etc/os-release (VERSION_CODENAME, np. noble)
-#                  Użyć TYLKO tam, gdzie producent naprawdę ma osobne repo per wydanie.
+#   {codename}       — nazwa wydania z /etc/os-release (VERSION_CODENAME, np. noble)
+#   {wersja_systemu} — numer wydania z /etc/os-release (VERSION_ID, np. 24.04)
+#                  Użyć TYLKO tam, gdzie producent naprawdę ma osobne repo per wydanie;
+#                  jedni numerują je nazwą (Tailscale: `noble`), inni wersją
+#                  (OBS/OneDrive: `xUbuntu_24.04`) — stąd dwa zastępniki.
 #
-# ⚠ Ubuntu Pro / OneDrive: jeszcze NIE spisane — zainstalowane na Vostro ręcznie przed
-#   powstaniem tego pliku. Dopisać, gdy będą potrzebne apce. (Chrome / VS Code / WezTerm
-#   spisane 25.08, poprawka 6 planu automatu.)
+# ⚠ Ubuntu Pro: jeszcze NIE spisane — włączone na Vostro ręcznie przed powstaniem
+#   tego pliku. Dopisać, gdy będzie potrzebne apce. (Chrome / VS Code / WezTerm
+#   spisane 25.08, poprawka 6 planu automatu; OneDrive 29.08 [257a].)
 #
 # ⚠ Format plików: apka pisze jednolinijkowe `.list` (pole `linia_deb`). Na Vostro
 #   i Katanie Chrome i VS Code stoją jako `.sources` (deb822) pisane przez pakiety —
@@ -77,6 +88,12 @@ keyring = "/usr/share/keyrings/google-chrome.gpg"
 plik_listy = "/etc/apt/sources.list.d/google-chrome.list"
 linia_deb = "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome-stable/deb/ stable main"
 pakiety = ["google-chrome-stable"]
+# [257c] 29.08: pakiet SAM zakłada /etc/apt/sources.list.d/google-chrome.sources
+# i /usr/share/keyrings/google-chrome.gpg (codzienny /opt/google/chrome/cron/google-chrome —
+# sprawdzone na Vostro: ANI JEDEN z tych plików nie należy do żadnego pakietu dpkg,
+# a mimo to oba istnieją i repo działa). Nasz `.list` po instalacji jest zbędny
+# i produkuje ostrzeżenie apta „configured multiple times" — apka go sama zdejmuje.
+pakiet_zaklada_zrodlo = true
 uwagi = "Przeglądarka [126: synchronizacja przez konto Google, pliki NIE lustrzone]. Dane spisane 25.08 z /etc/apt/sources.list.d/google-chrome.sources na Katanie (kopia z Vostro): URI chrome-stable/deb, keyring google-chrome.gpg; klucz_url = HTTP 200 (sprawdzone 25.08 z Katany). Pakiet sam dba o swoje źródło po instalacji — apka potrzebuje bloku na PIERWSZĄ instalację na świeżej maszynie."
 
 [[zrodlo]]
@@ -100,3 +117,14 @@ plik_listy = "/etc/apt/sources.list.d/wezterm.list"
 linia_deb = "deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *"
 pakiety = ["wezterm"]
 uwagi = "Terminal WezTerm — OFICJALNE repo apt autora (Gemfury, metoda z dokumentacji wezterm dla Linuksa). Zweryfikowane 25.08 z Katany: gpg.key = HTTP 200, dists/*/Release = HTTP 200 (Codename: *, amd64). Dotąd instalowany RĘCZNIE z .deb 20240203-110809-5046fc22 (GitHub releases) na Vostro i Katanie — bez źródła nie miał aktualizacji; po dodaniu źródła apt aktualizuje. Uwaga: repo zawiera też pakiet wezterm-nightly — lustro wozi tylko `wezterm` (wydania)."
+
+[[zrodlo]]
+nazwa = "onedrive"
+url = "https://download.opensuse.org/repositories/home:/npreining:/debian-ubuntu-onedrive/xUbuntu_{wersja_systemu}/"
+klucz_url = "https://download.opensuse.org/repositories/home:/npreining:/debian-ubuntu-onedrive/xUbuntu_{wersja_systemu}/Release.key"
+klucz_format = "ascii"
+keyring = "/usr/share/keyrings/obs-onedrive.gpg"
+plik_listy = "/etc/apt/sources.list.d/onedrive.list"
+linia_deb = "deb [arch=amd64 signed-by=/usr/share/keyrings/obs-onedrive.gpg] https://download.opensuse.org/repositories/home:/npreining:/debian-ubuntu-onedrive/xUbuntu_{wersja_systemu}/ ./"
+pakiety = ["onedrive"]
+uwagi = "Klient OneDrive (abraunegg) — repozytorium autora [257a, 29.08]. PO CO: Ubuntu 24.04 wozi w swoim archiwum wersję 2.4.25 z 2023 r., autor wydaje 2.5.x; Vostro ma 2.5.11 z tego repo od 20.08, HP i Katana stały na 2.4.25. Dane zweryfikowane 29.08 DWOMA drogami: (1) odczyt z Vostro (/etc/apt/sources.list.d/onedrive.list + apt-cache policy + odcisk klucza w /usr/share/keyrings/obs-onedrive.gpg = 63CE 457B 3C26 9D01 1BCD 74AB B8AC 39B0 876D 807E), (2) oficjalna instrukcja projektu docs/ubuntu-package-install.md (github.com/abraunegg/onedrive, gałąź master, pobrana 29.08) — ten sam adres repo, ta sama nazwa keyringu, ten sam plik listy. Klucz_url pobrany realnie: HTTP 200, 1101 B, odcisk IDENTYCZNY jak keyring na Vostro. Repo jest numerowane WERSJĄ wydania (xUbuntu_24.04), nie nazwą — stąd {wersja_systemu}. Uwaga: klucz OBS ma datę ważności 2026-10-24 — po tej dacie apt zacznie odrzucać repo i trzeba pobrać nowy Release.key (wystarczy `lustro` ponownie dodające źródło)."
