@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-08-29T14:00:02+02:00",
+  "ts": "2026-08-29T15:16:44+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -317,8 +317,8 @@
     {
       "kanal": "apt",
       "id": "onedrive",
-      "wersja": "2.4.25-1build5",
-      "zrodlo": "ubuntu"
+      "wersja": "2.5.11-1+np1+1.1",
+      "zrodlo": "onedrive"
     },
     {
       "kanal": "apt",
@@ -705,9 +705,21 @@
       "zrodlo": ""
     },
     {
+      "kanal": "poza",
+      "id": "vnc-otworz",
+      "wersja": "?",
+      "zrodlo": ""
+    },
+    {
       "kanal": "skrypt",
       "id": "ailauncher",
-      "wersja": "?",
+      "wersja": "1b01f4bd",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "skrypt",
+      "id": "vnc-handler",
+      "wersja": "f440b911",
       "zrodlo": ""
     },
     {
