@@ -38,6 +38,12 @@ adresy = ["tcp://100.67.37.93:22000", "dynamic"]
 # HP dostaje NOWĄ tożsamość Syncthinga (tożsamość węzła powstaje na miejscu, spec 7.6),
 # a stary wpis „lapekhp" na serwerze/Vostro/Katanie do skasowania — obszar 4.
 
+[[urzadzenie]]
+klucz = "hp"
+id = "BXO5NNV-4663TVA-L4R45LA-EBGD2DP-5ZVOR5P-CST6JTE-TVFALDO-CRIWMQ3"
+nazwa = "hp"
+adresy = ["tcp://192.168.1.65:22000", "tcp://100.125.21.112:22000", "dynamic"]
+
 [[folder]]
 id = "ai-katalog-roboczy"
 etykieta = "AI-katalog-roboczy"
