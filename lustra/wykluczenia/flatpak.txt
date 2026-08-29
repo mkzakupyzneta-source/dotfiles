@@ -1,4 +1,23 @@
 # Wykluczenia flatpak — spec rozdz. 5.4.
-# Pusty z założenia: sam przełącznik `--app` odsiewa biblioteki uruchomieniowe.
-# Dodatki (Addon) też są odsiewane przez --app — np. net.mkiol.SpeechNote.Addon.nvidia
-# (6,7 GB, tylko maszyny z NVIDIA — patrz programy.md, sekcja "Zależne od sprzętu").
+#
+# Co inwentaryzuje kanał flatpak (od [268], 2026-08-29 — patrz `inwentarz_flatpak`
+# w lustro.py): APLIKACJE (`flatpak list --app`) ORAZ DODATKI tych aplikacji
+# (`flatpak list --runtime`, wpuszczane tylko wtedy, gdy identyfikator zaczyna się
+# od identyfikatora aplikacji, która już jest na liście). Runtime'y platformy
+# (org.freedesktop.Platform*, org.gnome.Platform, org.kde.*, org.gtk.Gtk3theme.*)
+# odpadają SAME — ich podkład nie jest aplikacją — więc nie trzeba ich tu wypisywać.
+#
+# Do 29.08 stała tu notatka, że dodatki „też są odsiewane przez --app" i że
+# net.mkiol.SpeechNote.Addon.nvidia jest poza lustrem. Decyzją usera [268] dodatek
+# NVIDIA do Speech Note jest pozycją lustra (wszystkie stacje mają kartę NVIDIA),
+# więc mechanizm musi go widzieć — stąd zmiana wyżej.
+#
+# Ten plik jest miejscem na wyciszenie DODATKÓW, które flatpak dociąga sam jako
+# zależność aplikacji (user ich nie wybierał, a wyglądałyby jak nowa pozycja lustra).
+# Wzorce w stylu `fnmatch` (gwiazdka = dowolny ciąg).
+
+# Tłumaczenia interfejsu — flatpak dokłada je sam, wg języków systemu.
+*.Locale
+# Symbole do debugowania i źródła — dokładane przy aplikacjach z SDK, nie warsztat usera.
+*.Debug
+*.Sources

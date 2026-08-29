@@ -348,22 +348,72 @@ def inwentarz_snap():
     return wynik
 
 
-def inwentarz_flatpak():
-    """Programy flatpak. '--app' sam odsiewa biblioteki uruchomieniowe i dodatki."""
-    if not czy_jest("flatpak"):
-        return {}
-    _, out = uruchom(["flatpak", "list", "--app",
+def _flatpak_lista(przelacznik):
+    """[(id, wersja)] z `flatpak list <przełącznik> --columns=application,version`."""
+    _, out = uruchom(["flatpak", "list", przelacznik,
                       "--columns=application,version"])
-    wykl = wczytaj_wzorce(WYKLUCZENIA / "flatpak.txt")
-    wynik = {}
+    pary = []
     for linia in out.splitlines():
         if not linia.strip():
             continue
         pola = linia.split("\t")
         nazwa = pola[0].strip()
-        wersja = pola[1].strip() if len(pola) > 1 else "?"
-        if nazwa and not pasuje(nazwa, wykl):
-            wynik[nazwa] = wersja
+        wersja = (pola[1].strip() if len(pola) > 1 else "") or "?"
+        if nazwa:
+            pary.append((nazwa, wersja))
+    return pary
+
+
+def inwentarz_flatpak():
+    """Programy flatpak: APLIKACJE (`--app`) oraz DODATKI aplikacji, które lustro
+    już liczy (`--runtime`) — [268], 29.08.
+
+    Dlaczego samo `--app` nie wystarczało. Dodatek do aplikacji jest we flatpaku
+    RUNTIME-em, nie aplikacją: `net.mkiol.SpeechNote.Addon.nvidia` ma
+    `Ref: runtime/net.mkiol.SpeechNote.Addon.nvidia/x86_64/stable`, więc
+    `flatpak list --app` go nie pokazuje. Taka pozycja była dla mechanizmu
+    NIEWIDZIALNA i nie dało się jej wprowadzić do lustra: `lustro dodaj` co
+    prawda by ją zainstalował, ale `sprawdz_jedna_pozycje()` nie znalazłby
+    wersji, a gdyby wpis do dziennika jednak powstał — każdy następny `status`
+    krzyczałby „brak-tutaj" mimo dodatku leżącego na dysku (dziennik mówi „jest",
+    inwentarz mówi „nie ma").
+
+    Dlaczego NIE wszystkie runtime'y. `org.freedesktop.Platform`,
+    `org.gnome.Platform`, `org.kde.Platform`, sterowniki `…Platform.GL.nvidia-…`
+    i motywy `org.gtk.Gtk3theme.*` instalują się SAME jako zależności aplikacji,
+    mają po kilka gałęzi naraz (24.08, 25.08, 25.08-extra…) i zmieniają się przy
+    każdej aktualizacji. To nie są pozycje, które user wybiera — wpuszczenie ich
+    do lustra zamieniłoby dziennik w śmietnik i kazałoby maszynom „dociągać"
+    cudze wersje platform.
+
+    Reguła (DANE z maszyny, nie lista identyfikatorów w kodzie): runtime wchodzi
+    do inwentarza wtedy, gdy jest DODATKIEM APLIKACJI, którą lustro już liczy —
+    czyli jego identyfikator zaczyna się od „<id aplikacji z tej samej listy>.".
+    `net.mkiol.SpeechNote.Addon.nvidia` wchodzi (aplikacja `net.mkiol.SpeechNote`
+    jest wyżej), `org.freedesktop.Platform.GL.default` nie wchodzi
+    (`org.freedesktop.Platform` nie jest aplikacją). Dzięki temu działa też
+    dodatek nazwany inaczej niż „Addon" (bywa `.Extension.`, `.Plugin`,
+    `.Codecs`) i dodatek do dowolnej przyszłej aplikacji — bez ruszania kodu.
+
+    Rodzaju pozycji (aplikacja/dodatek) CELOWO nie zapisujemy w dzienniku ani
+    w statusy-pozycji.toml: instalacja, usunięcie i sprawdzenie idą po samym
+    identyfikatorze (`flatpak install/uninstall/info <id>` radzą sobie z jednym
+    i drugim), więc takie pole byłoby drugim źródłem prawdy do pilnowania.
+
+    Wykluczenia z `wykluczenia/flatpak.txt` działają na obie listy — to jest
+    miejsce (DANE), w którym wycisza się dodatki dociągane przez flatpaka SAM
+    jako zależność aplikacji, np. `*.Locale`.
+    """
+    if not czy_jest("flatpak"):
+        return {}
+    wykl = wczytaj_wzorce(WYKLUCZENIA / "flatpak.txt")
+    wynik = {nazwa: wersja for nazwa, wersja in _flatpak_lista("--app")
+             if not pasuje(nazwa, wykl)}
+    aplikacje = tuple(f"{n}." for n in wynik)
+    for nazwa, wersja in _flatpak_lista("--runtime"):
+        if pasuje(nazwa, wykl) or not nazwa.startswith(aplikacje):
+            continue
+        wynik[nazwa] = wersja          # dodatek w kilku gałęziach: ostatnia wygrywa
     return wynik
 
 
@@ -882,10 +932,16 @@ def _zrodla_snap():
 
 
 def _zrodla_flatpak():
-    """{id: zdalne repo} — nazwa remote'a flatpaka (np. „flathub")."""
+    """{id: zdalne repo} — nazwa remote'a flatpaka (np. „flathub").
+
+    Bez `--app` ([268], 29.08) — inaczej DODATEK aplikacji (runtime, patrz
+    `inwentarz_flatpak`) trafiałby do migawki inwentarza z pustym polem `zrodlo`
+    („—" w panelu), mimo że pochodzi z tego samego Flathuba co aplikacja.
+    Wpisy runtime'ów platformy są tu nieszkodliwe: to mapa do odpytania, czytana
+    tylko dla identyfikatorów, które i tak są w migawce."""
     if not czy_jest("flatpak"):
         return {}
-    _, out = uruchom(["flatpak", "list", "--app", "--columns=application,origin"])
+    _, out = uruchom(["flatpak", "list", "--columns=application,origin"])
     wynik = {}
     for linia in out.splitlines():
         pola = [c.strip() for c in linia.split("\t")]
@@ -2545,8 +2601,14 @@ def chezmoi_zapomnij(sciezki):
 # ---------------------------------------------------------------- kanały: instalacja
 
 def czy_flatpak_systemowy(ident):
-    """Flatpak zainstalowany systemowo wymaga roota; --user nie wymaga."""
-    kod, out = uruchom(["flatpak", "list", "--app",
+    """Flatpak zainstalowany systemowo wymaga roota; --user nie wymaga.
+
+    Bez `--app` ([268], 29.08): pozycją lustra bywa też DODATEK aplikacji, który
+    jest runtime'em (patrz `inwentarz_flatpak`). Z `--app` dodatek nie znajdował
+    się na liście i funkcja wpadała w gałąź „ostrożnie: zakładamy systemowy" —
+    tu akurat z dobrym skutkiem, ale dla dodatku zainstalowanego per-user dałaby
+    `sudo flatpak uninstall`, które usuwa Z SYSTEMU, nie z konta usera."""
+    kod, out = uruchom(["flatpak", "list",
                         "--columns=application,installation"])
     if kod != 0:
         return True                        # ostrożnie: zakładamy systemowy
