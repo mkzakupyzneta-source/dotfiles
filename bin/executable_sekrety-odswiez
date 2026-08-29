@@ -12,9 +12,11 @@ Co robi:
 ŻELAZNA ZASADA: skrypt nigdy nie wypisuje wartości sekretu — ani na ekran,
 ani do logu. Wartości trafiają wyłącznie do plików docelowych (600).
 
-Od 27.08 ([221], obszar 2): `pozycja_wg_hosta` (sekret inny na każdej maszynie —
-pozycja wybierana po `hostname`) i `pole = "notatka:KLUCZ"` (linia `KLUCZ: wartość`
-w Notatce pozycji). Opis w nagłówku sekrety-map.toml, blok 3.
+Umie też: `pozycja_wg_hosta` (sekret inny na każdej maszynie — pozycja wybierana
+po `hostname`) i `pole = "notatka:KLUCZ"` (linia `KLUCZ: wartość` w Notatce pozycji).
+Dodane 27.08 dla hasła VNC; od 29.08 ([270]) nikt tego nie używa — mechanizm zostaje,
+bo to jedyny sposób na sekret różny na każdej maszynie. Opis: sekrety-map.toml
+(nagłówek) i 10_Siec_domowa/7_Bezpieczenstwo/sejf-konwencja.md.
 
 Wymaga: klient `bw` (Bitwarden CLI) ustawiony na serwer https://vault.bitwarden.eu
 Autor: obszar 7_Bezpieczenstwo projektu „Sieć domowa”, 2026-08-24
