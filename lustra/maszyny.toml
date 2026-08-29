@@ -42,6 +42,21 @@
 #                        niego adnotacja z `powod_nie_usypiac`). Wyjątek twardy, nie zgadywany
 #                        z `uwagi` — dodane 2026-08-26 dla Katany ([189]).
 #   powod_nie_usypiac  — tekst adnotacji pokazywany zamiast przycisku, gdy `nie_usypiac = true`.
+#   wolno_wylaczac     — true = panel POKAZUJE przycisk „wyłącz" (pełne wyłączenie maszyny przez
+#                        SSH, `sudo -n systemctl poweroff`). Sprawa [267c], 2026-08-29.
+#                        ⚠️ BIEGUNOWOŚĆ ODWROTNA NIŻ `nie_usypiac` — i tak ma być:
+#                        uśpienie jest odwracalne (domyślnie wolno, `nie_usypiac` to wyjątek),
+#                        a wyłączenie NIE jest (maszyna bez fizycznego dostępu zostaje wyłączona
+#                        do najbliższej wizyty), więc BRAK POLA = BRAK ZGODY. Kontrakt panelu
+#                        (obszar 1_Serwer): `not maszyna.get("wolno_wylaczac")` → przycisk
+#                        wyszarzony z adnotacją.
+#                        Maszyna z `wolno_wylaczac = true` potrzebuje też reguły sudo bez hasła
+#                        na samo wyłączanie — zakłada ją `lustra/zasilanie-stacja.sh`
+#                        (plik /etc/sudoers.d/91-lustro-zasilanie), wołany z K3b automatu
+#                        nowej stacji; na maszynie postawionej wcześniej trzeba go raz uruchomić
+#                        ręcznie z `--wykonaj` (wymaga hasła sudo).
+#   powod_nie_wylaczac — tekst adnotacji pokazywany zamiast przycisku, gdy pola `wolno_wylaczac`
+#                        nie ma (opcjonalny; bez niego panel pisze zdanie domyślne).
 #   system             — system operacyjny jako DANA (PRETTY_NAME z /etc/os-release), nie część
 #                        nazwy ([252] uzup. 3, 2026-08-29 — HP po przesiadce nazywał się dalej
 #                        „HP (Windows)"). Na stacjach wpisuje/odświeża K5 automatu
@@ -192,7 +207,10 @@ nazwa = "Katana"
 rola = "Stacja robocza — poligon E3 mechanizmu luster"
 system = "Ubuntu 24.04.4 LTS"  # /etc/os-release na Katanie 2026-08-29
 nazwa_hosta = "katana"
-host_lan = ""
+host_lan = ""  # celowo puste do czasu przepięcia Katany na KABEL: dziś chodzi po Wi-Fi
+               # (adres zmienny, druga podsieć 192.168.100.x), więc stały wpis kłamałby.
+               # Panel łączy się przez Tailscale. Po przepięciu wpisać adres z podsieci
+               # 192.168.1.x — dopiero wtedy WOL z serwera ma prawo działać ([267c]).
 host_tailscale = "katana"
 ip_tailscale = "100.67.37.93"
 user = "mk"
@@ -200,8 +218,11 @@ katalog_roboczy = "/home/mk/AI-katalog-roboczy"
 dostepna_jako_cel = true
 aktywna = true
 profil = "stacja"
-mac_lan = ""  # uzupełnić przy wizycie — nie dotykałem Katany zdalnie (patrz uwagi)
+mac_lan = "04:7c:16:33:f2:90"  # karta KABLOWA enp4s0, zmierzone 29.08 ([267c]); WOL zadziała
+                              # dopiero po wpięciu Katany kablem — dziś chodzi po Wi-Fi
 nie_usypiac = true
+wolno_wylaczac = true  # [267c] 29.08 — Katana jest „zapasową mocą": user ją włącza na czas
+                       # zadania i wyłącza po nim, więc panel ma pokazywać przycisk „wyłącz".
 zdalny_pulpit = ["vnc"]  # usluga `zdalny-pulpit` z lustra (x11vnc) — [258c] 2026-08-29
 powod_nie_usypiac = "[189] — budzenie bez ekranu; usypianie dozwolone dopiero po wdrożeniu roli headless"
 uwagi = """
@@ -209,10 +230,11 @@ Poligon etapu E3 mechanizmu luster (decyzja usera [150], 2026-08-24) — stawian
 czystego Ubuntu 24.04 przez `lustro`. [189] NIE USYPIAĆ — zawiesza się po wybudzeniu
 (przyszły panel akcji E3 ma to respektować, patrz `nie_usypiac`/`powod_nie_usypiac` wyżej).
 host_lan pusty celowo, patrz uwaga wyżej.
-`mac_lan` celowo NIE uzupełniony 2026-08-26 (E3a) — zlecenie wyraźnie zabraniało dotykania
-Katany zdalnie w tej sesji (klucz SSH serwera zresztą i tak nie jest jeszcze w jej
-authorized_keys, patrz DO ARCHITEKTA/obszar 6). Uzupełnić przy najbliższej fizycznej
-wizycie (`ip link` na Katanie)."""
+`mac_lan` uzupełniony 2026-08-29 ([267c]): 04:7c:16:33:f2:90 — karta KABLOWA `enp4s0`.
+Do 26.08 był pusty (zakaz dotykania Katany zdalnie w sesji E3a). WOL zadziała dopiero po
+przepięciu Katany na kabel do podsieci 192.168.1.x — po Wi-Fi budzenie przez sieć nie działa.
+[267c] 29.08 — rola „zapasowa moc": user włącza Katanę na czas cięższego zadania i wyłącza po nim,
+dlatego `wolno_wylaczac = true` (usypianie nadal zablokowane — patrz `nie_usypiac`/[189])."""
 
 # ── Wyse 5070 — Home Assistant OS (produkcja) ───────────────────────────────────
 # Dodana 2026-08-26 przez obszar 1_Serwer (panel menadżera sieci [202]) TYLKO żeby

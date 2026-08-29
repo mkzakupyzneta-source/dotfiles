@@ -182,6 +182,26 @@ else
     rm -f /tmp/90-lustro-pakiety
 fi
 
+# ------------------------------------------------------------------ K3b sudo na wyłączanie [267c]
+# Tylko dla maszyn, które MAJĄ w danych zgodę na wyłączanie (`wolno_wylaczac = true`
+# w lustra/maszyny.toml). Skrypt sam pyta danych — my tu tylko decydujemy, czy go wołać,
+# żeby maszyna bez zgody nie dostała niepotrzebnego pytania o hasło sudo.
+# UWAGA: ten krok idzie PRZED K5, który dopisuje maszynę do maszyny.toml — świeża maszyna
+# nie ma tam jeszcze bloku, więc krok wyjdzie „pominięte". To POPRAWNE: brak danych = brak
+# zgody na wyłączanie. Gdy user później nada maszynie `wolno_wylaczac = true`, regułę zakłada
+# jedno uruchomienie `lustra/zasilanie-stacja.sh --wykonaj` (pyta o hasło sudo).
+krok "K3b Reguła sudo na wyłączanie ([267c] — tylko maszyny z wolno_wylaczac = true)"
+ZASILANIE="$LUSTRA/zasilanie-stacja.sh"
+if [ ! -f "$ZASILANIE" ]; then
+    pomin "zasilanie-stacja.sh" "brak skryptu w repozytorium"
+elif [ "$(LUSTRO_HOSTNAME=$NAZWA sh "$ZASILANIE" 2>/dev/null | grep -c 'wolno_wylaczac: tak')" = "1" ]; then
+    if LUSTRO_HOSTNAME=$NAZWA sh "$ZASILANIE" --wykonaj >>"$LOG" 2>&1; then
+        ok "reguła [267c] założona" "/etc/sudoers.d/91-lustro-zasilanie"
+    else blad "zasilanie-stacja.sh --wykonaj"; fi
+else
+    pomin "reguła [267c]" "$NAZWA nie ma wolno_wylaczac = true w maszyny.toml"
+fi
+
 # ------------------------------------------------------------------ K4 klucze SSH
 krok "K4 Trzy klucze SSH (wzorzec obszaru 7, etap S1) + known_hosts maszyn domowych"
 mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
@@ -486,8 +506,12 @@ DO ZROBIENIA RĘCZNIE (automat tu się kończy — spec rozdz. 10.3):
      — TYLKO jeśli krok K16b wypisał „RĘCZNIE". Po dodaniu klucza:
        git -C ~/.local/share/chezmoi push origin $GALAZ && git -C ~/.local/share/chezmoi branch -u origin/$GALAZ
      Do tej chwili commity tej maszyny NIE są widoczne dla pozostałych maszyn przez GitHuba ([259]).
-  3. Sejf (Bitwarden):  bw login  → sekrety-odswiez;  trzy pozycje „SSH — $NAZWA (<plik>)" i
-     „Maszyna — $NAZWA (mk)" z hasłem konta (etap S3/S7 obszaru 7).
+  3. Sejf (Bitwarden):  bw login  → sekrety-odswiez.  Do sejfu idą DWIE pozycje ([270], 29.08):
+     • wpis maszyny o nazwie „$NAZWA" (login konta) — folder Siec_domowa;
+     • „SSH — $NAZWA (id_ed25519)" — TYLKO klucz osobisty (ten z frazą).
+     Kluczy id_ed25519_dom i id_ed25519_github do sejfu NIE wkładamy: automat generuje je
+     od nowa przy każdej instalacji, więc kopia niczego nie ratuje.
+     Konwencja nazw i pól: 10_Siec_domowa/7_Bezpieczenstwo/sejf-konwencja.md.
   4. Logowania: Chrome (synchronizacja + Zotero Connector), Zotero (+Better BibTeX), Teams,
      Claude Code ×2 konta (pierwsze uruchomienie claude w ~/AI-katalog-roboczy: zatwierdzić MCP), Bitwarden.
   5. Speech Note: modele (polski Whisper + Vosk), „wpisuj do aktywnego okna".

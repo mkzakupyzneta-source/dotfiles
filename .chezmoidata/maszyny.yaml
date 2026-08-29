@@ -51,6 +51,15 @@ maszyny:
         # override "obecne" w lustra/statusy-pozycji.toml. UWAGA: .ssh/config i
         # .ssh/authorized_keys sa CELOWO poza serwerem — serwer ma jeden klucz RSA
         # (bez id_ed25519_dom / _github), szablon stacji by mu popsul GitHuba.
+        #
+        # [258i] 29.08 (obszar 5) — SPROSTOWANIE POMIARU: te trzy pozycje SA na liscie
+        # od 27.08, wiec serwer dostaje DOKLADNIE TEN SAM `zdalny-pulpit.sh` co stacje,
+        # razem ze zmiana [258a] (x11vnc tylko na 127.0.0.1, bez hasla). Powodem, dla
+        # ktorego serwer 29.08 nadal chodzil na starej wersji, NIE byl profil, tylko brak
+        # kroku `chezmoi apply` na serwerze: timer /etc/systemd/system/chezmoi-git-pull.*
+        # robi wylacznie `git pull --rebase --autostash`, a `lustro sync --auto`
+        # (lustro-sync-serwer.timer) nie stosuje konfiguracji. Zastosowanie na serwerze
+        # nalezy do obszaru 1_Serwer.
         - bin/zdalny-pulpit.sh
         - .config/systemd/user/zdalny-pulpit.service
         - wlacz-zdalny-pulpit.sh
