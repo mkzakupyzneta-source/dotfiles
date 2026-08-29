@@ -54,5 +54,18 @@ wersja     = "sha256sum ~/bin/vnc-otworz.sh | cut -c1-8"
 usun       = "bash ~/bin/vnc-rejestruj.sh --wyrejestruj"
 wymaga     = ["~/bin/vnc-otworz.sh",
               "~/bin/vnc-rejestruj.sh",
+              "~/bin/schemat-rejestruj.sh",
               "~/.local/share/applications/vnc-otworz.desktop"]
 uwagi      = """[258b] 2026-08-29 — kontrakt z panelem menadżera sieci (obszar 1): panel generuje wyłącznie `vnc://<adres>` (BEZ portu i BEZ użytkownika), stacja dokłada użytkownika z `maszyny.toml` i port 5900, i łączy się TUNELEM SSH (`vncviewer -via <user>@<adres> localhost:5900`, TigerVNC). Uwierzytelnieniem jest klucz SSH — hasła VNC nie ma ([258a]). Trzy pliki wozi chezmoi (`bin/vnc-otworz.sh`, `bin/vnc-rejestruj.sh`, `.local/share/applications/vnc-otworz.desktop`) — dlatego są w `wymaga`: przed pierwszym `chezmoi apply` pozycja jest ODŁOŻONA, nie błędna. Sama instalacja to wyłącznie REJESTRACJA schematu (`xdg-mime default` + zapasowo wpis w `~/.config/mimeapps.list`) — to akcja, nie plik, więc chezmoi jej nie zrobi. Klient: pakiet apt `tigervnc-viewer` (jest w dzienniku wszystkich stacji od 27.08); `sprawdz` pilnuje też jego obecności, żeby brak klienta wychodził jako rozbieżność, a nie jako martwy odsyłacz."""
+
+[[skrypt]]
+id         = "ssh-handler"
+opis       = 'Obsługa odsyłaczy ssh:// — przycisk „terminal SSH” w panelu menadżera sieci'
+sprawdz    = 'test -x ~/bin/ssh-otworz.sh && test -x ~/bin/schemat-rejestruj.sh && test -f ~/.local/share/applications/ssh-otworz.desktop && command -v ssh >/dev/null && grep -qs "^x-scheme-handler/ssh=ssh-otworz.desktop" ~/.config/mimeapps.list'
+zainstaluj = "bash ~/bin/schemat-rejestruj.sh x-scheme-handler/ssh ssh-otworz.desktop"
+wersja     = "sha256sum ~/bin/ssh-otworz.sh | cut -c1-8"
+usun       = "bash ~/bin/schemat-rejestruj.sh x-scheme-handler/ssh ssh-otworz.desktop --wyrejestruj"
+wymaga     = ["~/bin/ssh-otworz.sh",
+              "~/bin/schemat-rejestruj.sh",
+              "~/.local/share/applications/ssh-otworz.desktop"]
+uwagi      = """[260b] 2026-08-29, decyzja usera („w menadżerze powinien być przycisk do uruchamiania terminala z ssh do maszyny"). Kontrakt z panelem menadżera sieci (obszar 1): panel generuje odsyłacz w standardowej postaci `ssh://user@host[:port]`; użytkownik jest OPCJONALNY — gdy go nie ma, stacja dokłada go z `lustra/maszyny.toml` (pole `user`, domyślnie `mk`; Asus ma `kiosk`), port domyślny 22. Dokładnie ta sama zasada co w `vnc-handler`. Skrypt otwiera TERMINAL użytkownika z `ssh -t -o StrictHostKeyChecking=accept-new`; który terminal — dana, nie kod: kolejno `LUSTRO_TERMINAL`, plik `~/.config/lustro/terminal`, `x-terminal-emulator` (na naszych stacjach → gnome-terminal), lista awaryjna. Gdy połączenie padnie od razu, okno czeka na Enter, żeby user zdążył przeczytać błąd. UWAGA: schemat `ssh://` ma w Ubuntu domyślnego obsługiwacza `ktelnetservice5.desktop` (z pakietów KDE) — rejestracja go NADPISUJE w sekcji [Default Applications] pliku ~/.config/mimeapps.list. Rejestrację robi wspólny `~/bin/schemat-rejestruj.sh` (schemat i plik .desktop to argumenty = dane); `~/bin/vnc-rejestruj.sh` jest od [258f] tylko nakładką na niego."""

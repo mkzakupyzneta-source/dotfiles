@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Terminal SSH (odsylacz ssh://)
+Name[pl]=Terminal SSH (odsyłacz ssh://)
+Comment=Obsluguje odsylacze ssh:// z panelu menadzera sieci — otwiera terminal z polaczeniem SSH
+GenericName=Klient SSH
+Exec={{ .chezmoi.homeDir }}/bin/ssh-otworz.sh %u
+Icon=utilities-terminal
+Terminal=false
+NoDisplay=true
+StartupNotify=false
+MimeType=x-scheme-handler/ssh;
+Categories=Network;RemoteAccess;System;

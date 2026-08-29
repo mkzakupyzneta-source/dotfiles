@@ -11,9 +11,11 @@
 #   • uzytkownika bierze z lustra/maszyny.toml (pole `user` maszyny o tym adresie; domyslnie mk —
 #     Asus ma `kiosk`, dlatego to DANA, nie stala),
 #   • port zawsze 5900 PO STRONIE MASZYNY (chyba ze odsylacz jawnie poda inny),
-#   • polaczenie idzie TUNELEM SSH: `vncviewer -via <user>@<adres> localhost:5900`.
+#   • polaczenie idzie TUNELEM SSH: `vncviewer -via <user>@<adres> localhost::5900`.
 #     TigerVNC `-via` sam stawia `ssh -f -L ...` (man vncviewer: „-via gateway", TigerVNC-specific;
 #     nazwa hosta jest liczona Z PUNKTU WIDZENIA bramy, wiec `localhost` = maszyna docelowa).
+#     PODWOJNY dwukropek = PORT; pojedynczy znaczylby NUMER EKRANU (poprawka [258f], 29.08).
+#     Polecenie tunelu nadpisujemy zmienna VNC_VIA_CMD (BatchMode + accept-new) — patrz koniec pliku.
 #     Uwierzytelnieniem jest KLUCZ SSH — zadnego hasla VNC nie ma ([258a]).
 #
 # Odsylacz tolerujemy w kilku postaciach (przegladarki i panele roznie je skladaja):
@@ -95,5 +97,33 @@ if [ -z "$KLIENT" ]; then
     exit 3
 fi
 
-zapisz "otwieram $ODSYLACZ → $KLIENT -via $UZYTKOWNIK@$CEL localhost:$PORT"
-exec "$KLIENT" -via "$UZYTKOWNIK@$CEL" "localhost:$PORT"
+
+# --- tunel SSH: WLASNE polecenie zamiast domyslnego --------------------------
+# TigerVNC stawia tunel domyslnie poleceniem (man vncviewer, opis -via):
+#     /usr/bin/ssh -f -L "$L":"$H":"$R" "$G" sleep 20
+# Zmienne L/H/R/G podstawia sam TigerVNC (port lokalny, host zdalny, port zdalny,
+# brama) — dlatego ponizej cudzyslowy POJEDYNCZE: ten skrypt ich nie rusza.
+# Domyslne polecenie leci w tle, bez terminala, wiec nie ma jak o nic zapytac.
+# Gdy odcisk hosta nie jest jeszcze znany (np. maszyna pod adresem Tailscale,
+# do ktorej dotad chodzilismy po adresie LAN), ssh probuje wywolac ssh-askpass,
+# ktorego na stacjach nie ma — tunel pada z „Host key verification failed",
+# a viewer pokazuje tylko „End of stream". Zmierzone 29.08 na Vostro. Dlatego:
+#   BatchMode=yes                    — nigdy nie pytaj; blad zamiast zawieszenia,
+#   StrictHostKeyChecking=accept-new — pierwszy raz przyjmij odcisk i ZAPISZ go,
+#                                      przy PODMIANIE odcisku odmow (to nasza siec;
+#                                      klucze publiczne floty wozi lustro),
+#   ExitOnForwardFailure=yes         — gdy przekierowanie sie nie uda, ssh konczy
+#                                      sie bledem, zamiast udawac sukces,
+#   ConnectTimeout=10                — maszyna spiaca/niedostepna nie wiesza klikniecia.
+export VNC_VIA_CMD='/usr/bin/ssh -f -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ExitOnForwardFailure=yes -o ConnectTimeout=10 -L "$L":"$H":"$R" "$G" sleep 20'
+
+# --- cel po stronie bramy: PORT, nie numer ekranu ----------------------------
+# man vncviewer, SYNOPSIS: „[host][:display#]" ORAZ „[host][::port]".
+# Pojedynczy dwukropek = NUMER EKRANU, wiec „localhost:5900" znaczy dla TigerVNC
+# ekran 5900, czyli port 5900+5900 = 11800. Tak bylo do 29.08 — sshd maszyny
+# docelowej meldowal „connect_to localhost port 11800: failed", a viewer „End of
+# stream". Port podaje sie PODWOJNYM dwukropkiem.
+CEL_VIEWERA="localhost::$PORT"
+
+zapisz "otwieram $ODSYLACZ → $KLIENT -via $UZYTKOWNIK@$CEL $CEL_VIEWERA"
+exec "$KLIENT" -via "$UZYTKOWNIK@$CEL" "$CEL_VIEWERA"
