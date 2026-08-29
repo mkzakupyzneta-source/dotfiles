@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-08-29T09:35:55+02:00",
+  "ts": "2026-08-29T10:02:26+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -528,6 +528,31 @@
       "wersja": "30.0.4"
     },
     {
+      "kanal": "flatpak",
+      "id": "com.orcaslicer.OrcaSlicer",
+      "wersja": "2.4.2"
+    },
+    {
+      "kanal": "flatpak",
+      "id": "net.mkiol.SpeechNote",
+      "wersja": "4.8.4"
+    },
+    {
+      "kanal": "flatpak",
+      "id": "org.ferdium.Ferdium",
+      "wersja": "7.2.1"
+    },
+    {
+      "kanal": "flatpak",
+      "id": "org.onlyoffice.desktopeditors",
+      "wersja": "9.4.0"
+    },
+    {
+      "kanal": "flatpak",
+      "id": "org.zotero.Zotero",
+      "wersja": "10.0.1"
+    },
+    {
       "kanal": "poza",
       "id": "chezmoi",
       "wersja": "2.72.0"
@@ -539,8 +564,18 @@
     },
     {
       "kanal": "snap",
+      "id": "bitwarden",
+      "wersja": "2026.7.0"
+    },
+    {
+      "kanal": "snap",
       "id": "firefox",
       "wersja": "147.0.3-1"
+    },
+    {
+      "kanal": "snap",
+      "id": "teams-for-linux",
+      "wersja": "2.18.1"
     }
   ]
 }
