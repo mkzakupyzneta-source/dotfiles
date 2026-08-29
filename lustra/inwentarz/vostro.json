@@ -1,6 +1,6 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-08-29T15:48:19+02:00",
+  "ts": "2026-08-29T16:25:37+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -732,6 +732,18 @@
       "kanal": "skrypt",
       "id": "ailauncher",
       "wersja": "1b01f4bd",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "skrypt",
+      "id": "panel-sieci",
+      "wersja": "ec26ae1d",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "skrypt",
+      "id": "ssh-handler",
+      "wersja": "74b4164e",
       "zrodlo": ""
     },
     {

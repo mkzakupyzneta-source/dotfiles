@@ -130,3 +130,4 @@
 {"ts": "2026-08-29T10:43:36+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "lvm2", "wersja": "2.03.16-3ubuntu3.2", "zrodlo": "sync", "za": {"maszyna": "hp", "ts": "2026-08-29T09:06:48+02:00"}}
 {"ts": "2026-08-29T12:45:15+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "skrypt", "id": "ailauncher", "wersja": "?", "zrodlo": "sync", "za": {"maszyna": "katana", "ts": "2026-08-29T12:44:10+02:00"}}
 {"ts": "2026-08-29T15:48:15+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "skrypt", "id": "vnc-handler", "wersja": "c3f1352e", "zrodlo": "sync", "za": {"maszyna": "katana", "ts": "2026-08-29T15:19:09+02:00"}}
+{"ts": "2026-08-29T16:25:33+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "skrypt", "id": "ssh-handler", "wersja": "74b4164e", "zrodlo": "sync", "za": {"maszyna": "katana", "ts": "2026-08-29T16:20:09+02:00"}}
