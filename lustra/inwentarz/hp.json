@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-08-29T15:16:44+02:00",
+  "ts": "2026-08-29T15:48:23+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -706,6 +706,12 @@
     },
     {
       "kanal": "poza",
+      "id": "ssh-otworz",
+      "wersja": "?",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "poza",
       "id": "vnc-otworz",
       "wersja": "?",
       "zrodlo": ""
@@ -718,8 +724,14 @@
     },
     {
       "kanal": "skrypt",
+      "id": "ssh-handler",
+      "wersja": "74b4164e",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "skrypt",
       "id": "vnc-handler",
-      "wersja": "f440b911",
+      "wersja": "c3f1352e",
       "zrodlo": ""
     },
     {
