@@ -48,6 +48,18 @@
 #                        (`stacja-dane.py maszyna-wpisz --system`) przy KAŻDYM biegu; `nazwa`
 #                        i `rola` to pola usera — automat ich nie nadpisuje, gdy już są.
 #                        Brak pola = nieznany (maszyny bez automatu: Wyse, Asus, poligon).
+#   zdalny_pulpit      — LISTA dróg do żywego pulpitu tej maszyny ([258c], 2026-08-29, obszar 5).
+#                        Wartości są DANYMI, nie kolumnami: "vnc" (x11vnc, port 5900 na pętli
+#                        zwrotnej, wejście tunelem SSH — [258a]), "sunshine" (strumień gier/pulpitu,
+#                        porty 47989/47990). Nowa droga (np. "rdp") = nowy element listy, nikt nie
+#                        rusza kodu. PUSTA LISTA `[]` = maszyna nie ma zdalnego pulpitu.
+#                        Dlaczego lista, a nie napis: panel menadżera sieci pyta o to pole
+#                        `bool(maszyna.get("zdalny_pulpit"))` (app.py, `czy_ma_pulpit`), więc `[]`
+#                        czyta się jako „nie ma", a `["vnc","sunshine"]` jako „ma" — i przy okazji
+#                        widać, KTÓRE drogi; napis "brak" byłby dla `bool()` prawdą i włączyłby
+#                        przycisk maszynie, która pulpitu nie ma.
+#                        Pole ma PIERWSZEŃSTWO przed sondą SSH panelu — brak pola = panel sonduje
+#                        port 5900 na żywo.
 #
 # Bloki [[maszyna.konto]] — konta Claude Code NA TEJ maszynie (etykieta + katalog ustawień;
 # pusty katalog = domyślny ~/.claude). Przypisanie „etykieta → adres e-mail" bywa na każdej
@@ -84,6 +96,7 @@ dostepna_jako_cel = true
 aktywna = true
 profil = "stacja"
 mac_lan = "54:bf:64:31:4d:b7"
+zdalny_pulpit = ["vnc"]  # usluga `zdalny-pulpit` (x11vnc 127.0.0.1:5900) — [258c] 2026-08-29
 uwagi = """
 Stacja robocza. Konta Claude bierzemy z ~/.config/ailauncher/settings.json.
 Tailscale na Vostro jeszcze NIE zainstalowany (stan 2026-08-23) — pola tailscale puste.
@@ -110,6 +123,7 @@ katalog_roboczy = "/home/mk/AI-katalog-roboczy"
 dostepna_jako_cel = true
 aktywna = true
 profil = "serwer"
+zdalny_pulpit = ["vnc", "sunshine"]  # zmierzone 29.08 po SSH: x11vnc na 5900 + flatpak dev.lizardbyte.app.Sunshine (47989/47990, autostart) — [258c]
 czlonek_lustra = false  # 2026-08-26, decyzja usera po incydencie [dziura dzienników] —
                         # patrz uwagi. Zapisane JAWNIE (nie tylko domyślne z `profil`),
                         # żeby było widać, że to świadoma decyzja, nie przeoczenie.
@@ -157,6 +171,7 @@ dostepna_jako_cel = true
 aktywna = true
 profil = "stacja"
 mac_lan = "28:2e:89:ac:db:48"
+zdalny_pulpit = ["vnc"]  # usluga `zdalny-pulpit` (x11vnc 127.0.0.1:5900) — [258c] 2026-08-29
 czlonek_lustra = true
 uwagi = """
 Ubuntu 24.04 od 2026-08-29 (automat nowa-stacja.sh; dysk LUKS). Wcześniej Windows 11
@@ -187,6 +202,7 @@ aktywna = true
 profil = "stacja"
 mac_lan = ""  # uzupełnić przy wizycie — nie dotykałem Katany zdalnie (patrz uwagi)
 nie_usypiac = true
+zdalny_pulpit = ["vnc"]  # usluga `zdalny-pulpit` z lustra (x11vnc) — [258c] 2026-08-29
 powod_nie_usypiac = "[189] — budzenie bez ekranu; usypianie dozwolone dopiero po wdrożeniu roli headless"
 uwagi = """
 Poligon etapu E3 mechanizmu luster (decyzja usera [150], 2026-08-24) — stawiana od
@@ -224,6 +240,7 @@ katalog_roboczy = ""
 dostepna_jako_cel = false
 aktywna = true
 czlonek_lustra = false  # ustawione z panelu menadzera sieci [202]/[217], 2026-08-27 22:10
+zdalny_pulpit = []  # HAOS — nie ma sesji graficznej do podejrzenia ([258c], 2026-08-29)
 mac_lan = ""  # 24/7, nigdy nie śpi — WOL bez sensu; puste celowo (E3a, 2026-08-26)
 uwagi = """
 Home Assistant OS, 24/7, bez wentylatora. Treść i utrzymanie → `11_Home-Assistant/`,
@@ -265,6 +282,10 @@ czlonek_lustra = false
 mac_lan = "F8:B5:4D:9D:D6:1D"
 akcje_zablokowane = false  # 2026-08-27: serwer wchodzi na kiosk@ (meldunek obszaru 1) — blokada zdjęta przez obszar 5
 powod_blokady_akcji = "czeka na klucze SSH [214]"
+zdalny_pulpit = ["vnc"]  # x11vnc konta `kiosk`, ale UWAGA: nasluch tylko na 192.168.1.36:5900
+                         # (`-listen <IP LAN>`, asus.md) — NIE na 127.0.0.1, wiec tunel SSH panelu
+                         # i `vncviewer -via` dzis do niego nie trafia; ma tez wlasne haslo VNC.
+                         # Do zrownania z [258a] przez obszar 3 (dopisac `-localhost -nopw`).
 uwagi = """
 Laptop Asus ExpertBook (hostname mDNS `expertbook.home`, hipoteza z nazwy — nie
 zweryfikowane loginem), Linux Mint 22.3 Cinnamon (niezweryfikowane, zgodne z

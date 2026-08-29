@@ -1287,17 +1287,52 @@ def _pole_os_release(klucz):
     return ""
 
 
+def _pole_upstream_lsb(klucz):
+    """Wartość pola z /etc/upstream-release/lsb-release; gdy brak pliku albo pola — pusty napis.
+
+    Plik zakładają dystrybucje POCHODNE (Linux Mint) i sam zapisuje w nim, na jakim
+    wydaniu Ubuntu stoi: DISTRIB_ID=Ubuntu, DISTRIB_RELEASE=24.04, DISTRIB_CODENAME=noble.
+    To deklaracja samego systemu, a nie nasza tabela przeliczeniowa — dlatego z niej
+    korzystamy zamiast zaszywać mapę „nazwa wydania → numer"."""
+    try:
+        for linia in Path("/etc/upstream-release/lsb-release").read_text(encoding="utf-8").splitlines():
+            if linia.startswith(klucz + "="):
+                return linia.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+    return ""
+
+
 def _codename_wydania():
-    """VERSION_CODENAME z /etc/os-release (np. noble); gdy brak — pusty napis."""
-    return _pole_os_release("VERSION_CODENAME")
+    """Nazwa wydania UBUNTU, na którym stoi ten system (np. noble); gdy brak — pusty napis.
+
+    Na czystym Ubuntu to po prostu VERSION_CODENAME. Na dystrybucji pochodnej (serwer
+    domowy: Linux Mint 22.3 „zena") VERSION_CODENAME to nazwa POCHODNEJ, której żadne
+    zewnętrzne repozytorium nie zna — a /etc/os-release ma tam obok pole UBUNTU_CODENAME
+    z nazwą bazy (`noble`). Bierzemy więc bazę, gdy system sam ją deklaruje
+    (decyzja Architekta 2026-08-29, [258]/drobiazgi)."""
+    return _pole_os_release("UBUNTU_CODENAME") or _pole_os_release("VERSION_CODENAME")
 
 
 def _wersja_wydania():
-    """VERSION_ID z /etc/os-release (np. 24.04); gdy brak — pusty napis.
+    """Numer wydania UBUNTU, na którym stoi ten system (np. 24.04); gdy brak — pusty napis.
 
     Potrzebne, bo część producentów numeruje repozytoria WERSJĄ, nie nazwą wydania
     (OBS: `xUbuntu_24.04`), a część nazwą (`noble`). Jeden zastępnik nie wystarcza —
-    stąd dwa, oba jako DANE w polach `url`/`klucz_url`/`linia_deb`."""
+    stąd dwa, oba jako DANE w polach `url`/`klucz_url`/`linia_deb`.
+
+    Na dystrybucji pochodnej VERSION_ID to numer POCHODNEJ (Mint: 22.3) — dla repozytorium
+    zbudowanego dla Ubuntu dałoby nieistniejące `xUbuntu_22.3`. Rozpoznajemy taki system po
+    tym, że deklaruje UBUNTU_CODENAME inny niż własny VERSION_CODENAME, i wtedy bierzemy
+    numer bazy z /etc/upstream-release/lsb-release (Mint 22.3 → 24.04, zmierzone na serwerze
+    2026-08-29). Gdy tego pliku nie ma, zostaje VERSION_ID — lepszy niż nic, ale wtedy adres
+    źródła trzeba obejrzeć ręcznie."""
+    ubuntu_cn = _pole_os_release("UBUNTU_CODENAME")
+    wlasny_cn = _pole_os_release("VERSION_CODENAME")
+    if ubuntu_cn and ubuntu_cn != wlasny_cn:
+        z_bazy = _pole_upstream_lsb("DISTRIB_RELEASE")
+        if z_bazy:
+            return z_bazy
     return _pole_os_release("VERSION_ID")
 
 

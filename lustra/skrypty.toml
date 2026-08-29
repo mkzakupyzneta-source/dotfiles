@@ -35,7 +35,24 @@ id         = "ailauncher"
 opis       = "AI Launcher — okienko: gdzie i z jakim kontem uruchomić Claude Code / Gemini / Happy"
 sprawdz    = "test -f ~/.local/share/ailauncher/ailauncher.py && test -f ~/.local/share/ailauncher/ailauncher.png && test -f ~/.local/share/applications/ailauncher.desktop && grep -q 'ailauncher/ailauncher.png' ~/.local/share/applications/ailauncher.desktop"
 zainstaluj = "bash ~/AI-katalog-roboczy/12_Narzedzia-AI/AILauncher_V2/linux/install.sh"
+# Launcher nie ma wlasnego numeru wersji (brak --version w ailauncher.py), a panel bez pola
+# `wersja` pokazuje „?”. Bierzemy wiec 8 znakow sumy kontrolnej ZAINSTALOWANEGO pliku:
+# jest zawsze dostepna, zmienia sie razem z trescia i da sie POROWNAC miedzy maszynami
+# (rozny skrot = rozne wersje launchera). [258] drobiazg, 2026-08-29.
+wersja     = "sha256sum ~/.local/share/ailauncher/ailauncher.py | cut -c1-8"
 wymaga     = ["katalog-roboczy",
               "~/AI-katalog-roboczy/12_Narzedzia-AI/AILauncher_V2/linux/install.sh",
               "~/AI-katalog-roboczy/12_Narzedzia-AI/AILauncher_V2/linux/ailauncher.png"]
 uwagi      = "[252] 2026-08-29 — pierwsza pozycja kanału. Źródło w katalogu roboczym (repo 12_Narzedzia-AI). `sprawdz` pilnuje też ikony i ścieżki ikony w .desktop (uzup. 1 Architekta): stare instalacje z ikoną pod ~/.local/share/applications/2026-08-22_20-40.png wychodzą jako rozbieżność i sync je wyrównuje ponownym install.sh. python3-tk NIE jest tu dostawiany — to osobna pozycja apt lustra (jest w dzienniku V/K/HP), install.sh zastaje go na miejscu."
+
+[[skrypt]]
+id         = "vnc-handler"
+opis       = 'Obsługa odsyłaczy vnc:// — przycisk „otwórz w programie” w panelu menadżera sieci'
+sprawdz    = 'test -x ~/bin/vnc-otworz.sh && test -f ~/.local/share/applications/vnc-otworz.desktop && command -v vncviewer >/dev/null && grep -qs "^x-scheme-handler/vnc=vnc-otworz.desktop" ~/.config/mimeapps.list'
+zainstaluj = "bash ~/bin/vnc-rejestruj.sh"
+wersja     = "sha256sum ~/bin/vnc-otworz.sh | cut -c1-8"
+usun       = "bash ~/bin/vnc-rejestruj.sh --wyrejestruj"
+wymaga     = ["~/bin/vnc-otworz.sh",
+              "~/bin/vnc-rejestruj.sh",
+              "~/.local/share/applications/vnc-otworz.desktop"]
+uwagi      = """[258b] 2026-08-29 — kontrakt z panelem menadżera sieci (obszar 1): panel generuje wyłącznie `vnc://<adres>` (BEZ portu i BEZ użytkownika), stacja dokłada użytkownika z `maszyny.toml` i port 5900, i łączy się TUNELEM SSH (`vncviewer -via <user>@<adres> localhost:5900`, TigerVNC). Uwierzytelnieniem jest klucz SSH — hasła VNC nie ma ([258a]). Trzy pliki wozi chezmoi (`bin/vnc-otworz.sh`, `bin/vnc-rejestruj.sh`, `.local/share/applications/vnc-otworz.desktop`) — dlatego są w `wymaga`: przed pierwszym `chezmoi apply` pozycja jest ODŁOŻONA, nie błędna. Sama instalacja to wyłącznie REJESTRACJA schematu (`xdg-mime default` + zapasowo wpis w `~/.config/mimeapps.list`) — to akcja, nie plik, więc chezmoi jej nie zrobi. Klient: pakiet apt `tigervnc-viewer` (jest w dzienniku wszystkich stacji od 27.08); `sprawdz` pilnuje też jego obecności, żeby brak klienta wychodził jako rozbieżność, a nie jako martwy odsyłacz."""

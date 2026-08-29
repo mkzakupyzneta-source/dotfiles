@@ -11,7 +11,10 @@
 #   1. hasło sudo tej maszyny (raz, na początku),
 #   2. fraza do klucza osobistego id_ed25519 (ssh-keygen pyta; Enter = bez frazy — NIE zalecane),
 #   3. hasło konta na SERWERZE — raz, w K4b (ssh-copy-id klucza domowego; potem wszystko wchodzi kluczem),
-#   4. logowanie Tailscale w przeglądarce (skrypt wypisze adres i poczeka).
+#   4. logowanie Tailscale w przeglądarce (skrypt wypisze adres i poczeka),
+#   5. wklejenie klucza id_ed25519_github.pub na koncie GitHub — w K16b, przy klawiaturze;
+#      bez tego commity tej maszyny zostają lokalnie i na serwerze, a GitHub (dom kanoniczny
+#      repozytorium) ich nie widzi ([259], 2026-08-29).
 # Na końcu skrypt wypisuje RAPORT: klucze publiczne tej maszyny, ID Syncthinga, wynik
 # `lustro status` i listę rzeczy, które trzeba zrobić ręcznie (logowania itp.).
 # Potem na SERWERZE: lustra/przyjmij-maszyne.sh <nazwa> <adres> — roznosi klucze i Syncthing.
@@ -61,7 +64,7 @@ while [ $# -gt 0 ]; do
         --bez-pulpitu) BEZ_PULPITU=1 ;;
         --bez-node) BEZ_NODE=1 ;;
         --kontener) KONTENER=1; BEZ_TAILSCALE=1; BEZ_ZAPORY=1; BEZ_VPN=1; BEZ_PULPITU=1 ;;
-        -h|--help) sed -n '2,31p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,34p' "$0"; exit 0 ;;
         *) echo "nieznany przełącznik: $1"; exit 2 ;;
     esac
     shift
@@ -159,7 +162,10 @@ git -C "$REPO" config "branch.$GALAZ.remote" serwer
 git -C "$REPO" config "branch.$GALAZ.merge" "refs/heads/$GALAZ"
 git -C "$REPO" config user.name  >/dev/null || git -C "$REPO" config user.name "mk@$NAZWA"
 git -C "$REPO" config user.email >/dev/null || git -C "$REPO" config user.email "mk@$NAZWA.local"
-ok "git: gałąź $GALAZ, origin=GitHub, upstream=serwer (przełączenie na GitHub: git -C $REPO branch -u origin/$GALAZ)"
+echo "   UWAGA: do kroku K16b commity tej maszyny NIE trafiają na GitHub — idą tylko do"
+echo "   lokalnego repozytorium i (gdy klucz domowy zadziała) na serwer. GitHub jest domem"
+echo "   kanonicznym repozytorium; przełączy na niego K16b, po dodaniu klucza na koncie."
+ok "git: gałąź $GALAZ, origin=GitHub (jeszcze bez klucza), upstream=serwer" "dom repozytorium ustawi K16b"
 
 if [ ! -f "$LUSTRA/lustro.py" ]; then blad "w repozytorium nie ma lustra/lustro.py — to nie jest repo konfiguracji"; exit 1; fi
 
@@ -412,6 +418,51 @@ if git -C "$REPO" push -q serwer "$GALAZ" >>"$LOG" 2>&1; then ok "git push na se
     recznie "git push" "serwer nie wpuścił kluczem (K4b?) — przyjmij-maszyne.sh na serwerze sam dociągnie commity z tej maszyny"
 fi
 
+# ------------------------------------------------------------------ K16b dom repozytorium = GitHub
+krok "K16b Dom repozytorium: GitHub (origin) — wypchnięcie i przełączenie gałęzi"
+# Dlaczego ten krok istnieje ([259], 2026-08-29): HP po instalacji miało `branch -u serwer/main`
+# (repozytorium przyszło klonem z serwera), więc jego commity szły na serwer, a Vostro, Katana
+# i serwer ciągną z GitHuba — powstały DWA „domy" tego samego repozytorium i zmiany się rozjeżdżały.
+# Kanoniczny zdalny jest JEDEN: origin = GitHub. Serwer zostaje jako droga awaryjna (klon po SSH).
+# Ten krok wymaga, żeby klucz `id_ed25519_github.pub` był już dodany na koncie GitHub — dlatego
+# przy terminalu pytamy o to TUTAJ (klucz wypisujemy), a bez terminalu zostawiamy gotową komendę.
+proba_github() {
+    GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new" \
+        ssh -T -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new git@github.com 2>&1 \
+        | grep -q "successfully authenticated"
+}
+GH=0
+proba_github && GH=1
+if [ $GH = 0 ] && [ $TTY = 1 ]; then
+    echo "   GitHub jeszcze nie zna klucza tej maszyny. Klucz publiczny (skopiuj CAŁĄ linię):"
+    [ -f "$HOME/.ssh/id_ed25519_github.pub" ] && sed 's/^/      /' "$HOME/.ssh/id_ed25519_github.pub"
+    echo "   → github.com → Settings → SSH and GPG keys → New SSH key → wklej → Add SSH key"
+    PROBA=0
+    while [ $PROBA -lt 3 ]; do
+        PROBA=$((PROBA+1))
+        printf '   Dodane? [Enter = sprawdzam, p = pomijam ten krok] '
+        read -r ODP </dev/tty || ODP=p
+        [ "$ODP" = "p" ] && break
+        if proba_github; then GH=1; break; fi
+        echo "   GitHub nadal nie wpuszcza tym kluczem (próba $PROBA z 3)."
+    done
+fi
+if [ $GH = 1 ]; then
+    GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new" \
+        git -C "$REPO" fetch -q origin "$GALAZ" >>"$LOG" 2>&1 || true
+    if git -C "$REPO" rev-parse --verify -q "origin/$GALAZ" >/dev/null; then
+        git -C "$REPO" rebase -q "origin/$GALAZ" >>"$LOG" 2>&1 \
+            || { git -C "$REPO" rebase --abort >>"$LOG" 2>&1 || true; echo "   (rebase na origin/$GALAZ nie przeszedł — push może odmówić, szczegóły w $LOG)"; }
+    fi
+    if git -C "$REPO" push -q origin "$GALAZ" >>"$LOG" 2>&1 && git -C "$REPO" branch -u "origin/$GALAZ" >>"$LOG" 2>&1; then
+        ok "GitHub = dom repozytorium tej maszyny" "push origin/$GALAZ + upstream przełączony"
+    else
+        recznie "push na GitHub" "ssh wpuszcza, ale push/branch -u nie przeszedł — patrz $LOG; komenda: git -C $REPO push origin $GALAZ && git -C $REPO branch -u origin/$GALAZ"
+    fi
+else
+    recznie "klucz GitHub na koncie" "DOPÓKI tego nie zrobisz, commity tej maszyny zostają lokalnie (i na serwerze) — GitHub ich NIE widzi. Po dodaniu klucza: git -C $REPO push origin $GALAZ && git -C $REPO branch -u origin/$GALAZ"
+fi
+
 # ------------------------------------------------------------------ RAPORT
 krok "RAPORT — $NAZWA, $(date '+%F %T')"
 printf '\n%-72s %-10s %s\n' "krok" "stan" "uwaga"; printf '%0.s─' $(seq 1 110); echo
@@ -431,8 +482,10 @@ DO ZROBIENIA RĘCZNIE (automat tu się kończy — spec rozdz. 10.3):
        (Na serwer sam klucz poszedł już w K4b — przyjmij roznosi go na RESZTĘ maszyn i robi Syncthing.
         Można to uruchomić także W TRAKCIE automatu, z serwera, po K8 — tak zrobiono na HP 29.08;
         wtedy drugi bieg po K14 domyka Syncthing.)
-  2. GitHub → Settings → SSH and GPG keys → dodać klucz id_ed25519_github.pub (wyżej);
-     potem:  ssh -T git@github.com  i  git -C ~/.local/share/chezmoi branch -u origin/$GALAZ
+  2. GitHub → Settings → SSH and GPG keys → dodać klucz id_ed25519_github.pub (wyżej)
+     — TYLKO jeśli krok K16b wypisał „RĘCZNIE". Po dodaniu klucza:
+       git -C ~/.local/share/chezmoi push origin $GALAZ && git -C ~/.local/share/chezmoi branch -u origin/$GALAZ
+     Do tej chwili commity tej maszyny NIE są widoczne dla pozostałych maszyn przez GitHuba ([259]).
   3. Sejf (Bitwarden):  bw login  → sekrety-odswiez;  trzy pozycje „SSH — $NAZWA (<plik>)" i
      „Maszyna — $NAZWA (mk)" z hasłem konta (etap S3/S7 obszaru 7).
   4. Logowania: Chrome (synchronizacja + Zotero Connector), Zotero (+Better BibTeX), Teams,

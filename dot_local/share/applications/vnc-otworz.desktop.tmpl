@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Zdalny pulpit (VNC przez tunel SSH)
+Name[pl]=Zdalny pulpit (VNC przez tunel SSH)
+Comment=Obsluguje odsylacze vnc:// z panelu menadzera sieci — laczy sie tunelem SSH, bez hasla VNC
+GenericName=Klient VNC
+Exec={{ .chezmoi.homeDir }}/bin/vnc-otworz.sh %u
+Icon=preferences-desktop-remote-desktop
+Terminal=false
+NoDisplay=true
+StartupNotify=false
+MimeType=x-scheme-handler/vnc;
+Categories=Network;RemoteAccess;

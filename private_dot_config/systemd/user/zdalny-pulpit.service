@@ -1,8 +1,9 @@
 [Unit]
-Description=Zdalny pulpit — x11vnc do ZYWEJ sesji graficznej tej maszyny (lustro, [221])
+Description=Zdalny pulpit — x11vnc do ZYWEJ sesji graficznej tej maszyny (lustro, [221]/[258a])
 # Wozony przez lustro (chezmoi). Wlaczany skryptem run_onchange_after_wlacz-zdalny-pulpit.sh.
-# Ten sam schemat co na Asusie (3_Maszyny_pozostale/_MEMORY/asus.md): usluga USER,
-# skrypt czeka na serwer X i haslo, Restart=always.
+# Od 2026-08-29 ([258a]): x11vnc bez hasla, nasluch tylko na 127.0.0.1 — wejscie wylacznie
+# tunelem SSH (panel menadzera sieci albo `vncviewer -via`). Skrypt czeka juz tylko na
+# serwer X, zadnego sekretu nie potrzebuje, wiec usluga wstaje zaraz po zalogowaniu.
 After=graphical-session.target
 
 [Service]
