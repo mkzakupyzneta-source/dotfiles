@@ -137,17 +137,18 @@ instalacji nie ma w dzienniku" — instalacje SĄ w dzienniku (dla wglądu w pan
 [[maszyna]]
 klucz = "hp"
 nazwa = "HP (Windows)"
-rola = "Stacja robocza (Windows, w trakcie przesiadki na Linux)"
-nazwa_hosta = ""
-host_lan = ""
+rola = "Stacja robocza"
+nazwa_hosta = "hp"
+host_lan = "192.168.1.65"
 host_tailscale = "lapekhp"
 ip_tailscale = "100.112.73.10"
-user = ""
-katalog_roboczy = ""
-dostepna_jako_cel = false
+user = "mk"
+katalog_roboczy = "/home/mk/AI-katalog-roboczy"
+dostepna_jako_cel = true
 aktywna = true
 profil = "stacja"
-mac_lan = ""
+mac_lan = "28:2e:89:ac:db:48"
+czlonek_lustra = true
 uwagi = """
 Tylko „skąd" — punkt startowy, nie cel. Windows ma inną ścieżkę katalogu roboczego i nie ma
 tmux, więc `ssh -t ... cd ... && tmux ...` nie zadziała wprost. Po przesiadce HP na Linuksa
