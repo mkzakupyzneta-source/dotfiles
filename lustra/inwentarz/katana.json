@@ -1,6 +1,6 @@
 {
   "maszyna": "katana",
-  "ts": "2026-08-29T16:20:12+02:00",
+  "ts": "2026-08-29T16:25:48+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -720,6 +720,12 @@
       "kanal": "skrypt",
       "id": "ailauncher",
       "wersja": "1b01f4bd",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "skrypt",
+      "id": "panel-sieci",
+      "wersja": "ec26ae1d",
       "zrodlo": ""
     },
     {
