@@ -127,3 +127,4 @@
 {"ts": "2026-08-27T23:03:52+02:00", "maszyna": "katana", "zdarzenie": "dodano", "kanal": "apt", "id": "x11vnc", "wersja": "0.9.16-10", "zrodlo": "sync", "za": {"maszyna": "vostro", "ts": "2026-08-27T23:01:02+02:00"}}
 {"ts": "2026-08-27T23:29:18+02:00", "maszyna": "katana", "zdarzenie": "dodano", "kanal": "apt", "id": "espeak-ng", "wersja": "1.51+dfsg-12build1", "zrodlo": "wykryte", "notatka": "wykryte automatycznie hookiem dpkg — zainstalowane poza `lustro dodaj` [213]"}
 {"ts": "2026-08-29T11:21:21+02:00", "maszyna": "katana", "zdarzenie": "dodano", "kanal": "apt", "id": "lvm2", "wersja": "2.03.16-3ubuntu3.2", "zrodlo": "sync", "za": {"maszyna": "vostro", "ts": "2026-08-29T10:43:36+02:00"}}
+{"ts": "2026-08-29T12:44:10+02:00", "maszyna": "katana", "zdarzenie": "dodano", "kanal": "skrypt", "id": "ailauncher", "wersja": "?", "zrodlo": "apka", "notatka": "[252] pierwsza pozycja kanału skrypt; ponowny install.sh z ikoną z repo"}

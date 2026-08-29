@@ -36,3 +36,4 @@ czcionki-wlasne  .local/share/fonts
 autostart        .config/autostart
 uslugi-uzytkownika .config/systemd/user
 forticlient          # nie wozimy — decyzja usera 2026-08-25
+ailauncher           # nie wozimy — decyzja usera 2026-08-29
