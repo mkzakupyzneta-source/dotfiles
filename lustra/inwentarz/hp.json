@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-08-29T11:38:00+02:00",
+  "ts": "2026-08-29T13:23:11+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -579,7 +579,17 @@
     },
     {
       "kanal": "poza",
+      "id": "claude-code-url-handler",
+      "wersja": "?"
+    },
+    {
+      "kanal": "poza",
       "id": "lustro",
+      "wersja": "?"
+    },
+    {
+      "kanal": "skrypt",
+      "id": "ailauncher",
       "wersja": "?"
     },
     {
