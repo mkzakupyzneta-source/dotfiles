@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-08-29T17:18:44+02:00",
+  "ts": "2026-08-29T19:20:41+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -654,6 +654,12 @@
       "kanal": "flatpak",
       "id": "org.ferdium.Ferdium",
       "wersja": "7.2.1",
+      "zrodlo": "flathub"
+    },
+    {
+      "kanal": "flatpak",
+      "id": "org.gnome.SoundRecorder",
+      "wersja": "42.0",
       "zrodlo": "flathub"
     },
     {
