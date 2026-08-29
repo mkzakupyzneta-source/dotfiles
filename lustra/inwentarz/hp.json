@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-08-29T10:02:26+02:00",
+  "ts": "2026-08-29T10:29:42+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -553,9 +553,29 @@
       "wersja": "10.0.1"
     },
     {
+      "kanal": "gnome-extension",
+      "id": "Vitals@CoreCoding.com",
+      "wersja": "82"
+    },
+    {
+      "kanal": "gnome-extension",
+      "id": "gTile@vibou",
+      "wersja": "59"
+    },
+    {
+      "kanal": "gnome-extension",
+      "id": "gsconnect@andyholmes.github.io",
+      "wersja": "72"
+    },
+    {
       "kanal": "poza",
       "id": "chezmoi",
       "wersja": "2.72.0"
+    },
+    {
+      "kanal": "poza",
+      "id": "claude",
+      "wersja": "2.1.251"
     },
     {
       "kanal": "poza",
