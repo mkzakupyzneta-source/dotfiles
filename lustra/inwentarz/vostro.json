@@ -1,6 +1,6 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-08-29T14:47:21+02:00",
+  "ts": "2026-08-29T15:48:19+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -717,9 +717,27 @@
       "zrodlo": ""
     },
     {
+      "kanal": "poza",
+      "id": "ssh-otworz",
+      "wersja": "?",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "poza",
+      "id": "vnc-otworz",
+      "wersja": "?",
+      "zrodlo": ""
+    },
+    {
       "kanal": "skrypt",
       "id": "ailauncher",
-      "wersja": "?",
+      "wersja": "1b01f4bd",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "skrypt",
+      "id": "vnc-handler",
+      "wersja": "c3f1352e",
       "zrodlo": ""
     },
     {
