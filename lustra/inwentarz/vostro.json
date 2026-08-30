@@ -1,6 +1,6 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-08-30T13:01:38+02:00",
+  "ts": "2026-08-30T13:32:52+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -696,6 +696,18 @@
       "kanal": "poza",
       "id": "academic-refchecker",
       "wersja": "?",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "poza",
+      "id": "chezmoi",
+      "wersja": "2.72.0",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "poza",
+      "id": "claude",
+      "wersja": "2.1.247",
       "zrodlo": ""
     },
     {
