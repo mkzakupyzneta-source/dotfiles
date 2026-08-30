@@ -30,11 +30,61 @@
 # i uruchamia go dopiero wtedy, gdy lista programów faktycznie się zmieniła.
 # Dlatego listy są wpisane niżej w treść — to one są tym odciskiem.
 
+# FILTR PROFILU (sprawa [293a], 30.08). `.chezmoidata/packages.yaml` jest JEDEN dla całej
+# floty — generuje go `lustro lista` z dzienników wszystkich maszyn i profilu maszyny
+# generującej NIE ZNA (i nie powinien: to plik wspólny, nie per maszyna). Filtrować trzeba
+# więc TU, przy użyciu, gdzie profil TEJ maszyny jest już znany. Bez tego świeża maszyna
+# o profilu `moc` dostałaby przy bootstrapie komplet programów stacji — dokładnie te 56
+# pozycji, które `lustro profil sprzataj` musiałby potem z niej zdejmować.
+#
+# Wzorce (`kanal:identyfikator`, `*` = wszystko) pochodzą z lustra/profile.toml — tego
+# samego pliku, z którego czyta je `lustro.py`. Jedno miejsce prawdy, dwa czytelniki.
+# Dopasowanie robi `case` powłoki: składnia wzorców powłoki i `fnmatch` Pythona jest
+# w tym zakresie (`*`, `?`, `[abc]`) ta sama.
 set -eu
 
-APT="{{ join " " .packages.apt }}"
-SNAP="{{ join " " .packages.snap }}"
-FLATPAK="{{ join " " .packages.flatpak }}"
+{{ $profil := includeTemplate "profil" . | trim -}}
+{{ $profile := include "lustra/profile.toml" | fromToml -}}
+{{ $wzorce := list "*" -}}
+{{ if hasKey $profile.profil $profil -}}
+{{   $def := index $profile.profil $profil -}}
+{{   if hasKey $def "zostaja" -}}{{ $wzorce = $def.zostaja }}{{ end -}}
+{{ end -}}
+PROFIL="{{ $profil }}"
+WZORCE_PROFILU="{{ join " " $wzorce }}"
+
+APT_WSZYSTKO="{{ join " " .packages.apt }}"
+SNAP_WSZYSTKO="{{ join " " .packages.snap }}"
+FLATPAK_WSZYSTKO="{{ join " " .packages.flatpak }}"
+
+w_profilu() {   # $1 = kanal:identyfikator
+    case " $WZORCE_PROFILU " in *" * "*) return 0 ;; esac
+    for _w in $WZORCE_PROFILU; do
+        # shellcheck disable=SC2254  — wzorzec MA być wzorcem, nie napisem
+        case "$1" in $_w) return 0 ;; esac
+    done
+    return 1
+}
+odsiej() {      # $1 = kanał, reszta = pozycje; wypisuje te, które profil przepuszcza
+    _kanal="$1"; shift
+    for _p in "$@"; do w_profilu "$_kanal:$_p" && printf '%s ' "$_p"; done
+    return 0   # ⚠️ bez tego `set -e` wywala skrypt, gdy OSTATNIA pozycja odpadła z profilu
+}
+# shellcheck disable=SC2086
+APT="$(odsiej apt $APT_WSZYSTKO)"
+# shellcheck disable=SC2086
+SNAP="$(odsiej snap $SNAP_WSZYSTKO)"
+# shellcheck disable=SC2086
+FLATPAK="$(odsiej flatpak $FLATPAK_WSZYSTKO)"
+
+_ile() { set -- $1; echo $#; }
+if [ "$(_ile "$APT_WSZYSTKO$SNAP_WSZYSTKO$FLATPAK_WSZYSTKO")" != "0" ]; then
+    _wszystkie=$(( $(_ile "$APT_WSZYSTKO") + $(_ile "$SNAP_WSZYSTKO") + $(_ile "$FLATPAK_WSZYSTKO") ))
+    _zostaje=$(( $(_ile "$APT") + $(_ile "$SNAP") + $(_ile "$FLATPAK") ))
+    if [ "$_zostaje" -lt "$_wszystkie" ]; then
+        echo "lustro: profil „$PROFIL” zawęża listę: $_zostaje z $_wszystkie pozycji."
+    fi
+fi
 
 ZRODLO="{{ .chezmoi.sourceDir }}"
 MASZYNA="$(hostname | tr '[:upper:]' '[:lower:]')"

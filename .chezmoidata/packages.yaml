@@ -1,6 +1,6 @@
 # Lista programów lustra — plik GENEROWANY przez `lustro lista`.
 # Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.
-# Wygenerowane: 2026-08-29 17:11 na maszynie hp.
+# Wygenerowane: 2026-08-30 20:45 na maszynie hp.
 packages:
   apt:
     - brightnessctl
@@ -117,5 +117,6 @@ packages:
     - net.mkiol.SpeechNote
     - net.mkiol.SpeechNote.Addon.nvidia
     - org.ferdium.Ferdium
+    - org.gnome.SoundRecorder
     - org.onlyoffice.desktopeditors
     - org.zotero.Zotero

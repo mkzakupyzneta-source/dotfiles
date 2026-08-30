@@ -269,12 +269,38 @@ def pytaj(tresc, opcje="Tnps", domyslna="n"):
         print(f"    Nie rozumiem. Dozwolone: {podpowiedz}")
 
 
+# Litery i słowa, które są ODPOWIEDZIĄ NA PYTANIE TAK/NIE, a nie opisem. Gdy taka rzecz
+# przychodzi w pytaniu o tekst, znaczy to, że strumień odpowiedzi wypadł z rytmu — jedno
+# pytanie padło rzadziej albo częściej, niż zakładał wołający. Sprawa [293c], 30.08:
+# w dzienniku HP stoi wpis `"notatka": "T"` (org.gnome.SoundRecorder, 29.08) — dokładnie to.
+_ODPOWIEDZI_TAK_NIE = {"t", "n", "y", "tak", "nie", "yes", "no", "h", "p", "s"}
+
+
 def pytaj_tekst(tresc, domyslna=""):
-    try:
-        odp = input(f"    {tresc}: ").strip()
-    except (EOFError, KeyboardInterrupt):
-        return domyslna
-    return odp or domyslna
+    """
+    Pyta o TEKST (notatka do dziennika, powód). Zwraca `domyslna`, gdy nie ma odpowiedzi.
+
+    ⚠️ Odrzuca odpowiedzi, które są zwykłym „t"/„n"/„tak"/„nie" — to nie jest opis, tylko
+    zabłąkana odpowiedź na pytanie tak/nie. Lepszy pusty opis niż dziennik, w którym
+    „po co ten program" brzmi „T". Przy terminalu pytamy jeszcze raz; przy odpowiedziach
+    z potoku (stdin nie jest terminalem) NIE pytamy ponownie — kolejne pytanie zjadłoby
+    odpowiedź przeznaczoną dla następnego kroku i rozjazd tylko by się pogłębił.
+    """
+    while True:
+        try:
+            odp = input(f"    {tresc}: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("    (brak odpowiedzi z terminala — zostawiam puste)")
+            return domyslna
+        if not odp:
+            return domyslna
+        if odp.lower() not in _ODPOWIEDZI_TAK_NIE:
+            return odp
+        print(f"    „{odp}” to odpowiedź na pytanie tak/nie, a tutaj potrzebny jest OPIS.")
+        if not sys.stdin.isatty():
+            print("    (odpowiedzi idą z potoku i wypadły z rytmu — zostawiam puste "
+                  "zamiast wpisywać literę do dziennika)")
+            return domyslna
 
 
 # ---------------------------------------------------------------- inwentaryzacja
@@ -4192,6 +4218,119 @@ def pokaz_szczegoly(poz, dane):
             print(f"      ustawienia w lustrze: {' '.join(mapa[ident])}")
 
 
+def slady_wykonywalne(kanal, ident):
+    """
+    Ścieżki, po których poznamy PROCES tego programu — zbierane PRZED usunięciem,
+    bo po usunięciu nie ma już czego pytać (`dpkg -L` na usuniętym pakiecie milczy).
+    Zwraca listę przedrostków ścieżek. Sprawa [293b], 30.08.
+    """
+    if kanal == "snap":
+        # snap trzyma wszystko pod /snap/<nazwa>/ — jeden przedrostek wystarczy
+        return [f"/snap/{ident}/"]
+    if kanal == "flatpak":
+        # ⚠️ NIE dodajemy tu przedrostka "/app/" (tak wygląda `/proc/PID/exe` procesu
+        # w piaskownicy flatpaka) — pasowałby do KAŻDEGO działającego flatpaka, nie tylko
+        # do tego usuwanego. Program flatpakowy poznajemy po identyfikatorze w wierszu
+        # poleceń (bwrap wypisuje go wprost) — patrz `procesy_po_sladach(..., ident)`.
+        return [f"/var/lib/flatpak/app/{ident}/", str(DOM / ".var/app" / ident)]
+    if kanal == "apt":
+        kod, out = uruchom(["dpkg", "-L", ident])
+        if kod != 0:
+            return []
+        slady = []
+        for linia in out.splitlines():
+            linia = linia.strip()
+            if not linia or linia.endswith("/"):
+                continue
+            if any(linia.startswith(k) for k in
+                   ("/usr/bin/", "/usr/sbin/", "/usr/libexec/", "/usr/lib/", "/opt/")):
+                p = Path(linia)
+                if p.is_file() and os.access(linia, os.X_OK):
+                    slady.append(linia)
+        return slady
+    return []
+
+
+def procesy_po_sladach(slady, ident=""):
+    """
+    Procesy, których program wykonywalny (albo wiersz poleceń) pasuje do `slady`.
+    Zwraca [(pid, opis), ...]. Sam odczyt /proc — nic nie zabija, nie potrzebuje roota
+    (cudzych procesów po prostu nie widzimy dokładnie i wtedy patrzymy na wiersz poleceń).
+    """
+    if not slady and not ident:
+        return []
+    # Własny proces i CAŁA linia rodziców (powłoka, terminal, sesja) mają nazwę programu
+    # w swoim wierszu poleceń — `lustro usun firefox` samo w sobie zawiera „firefox".
+    # Bez tego wyjątku apka meldowałaby samą siebie jako „proces, który został".
+    swoi = set()
+    pid = os.getpid()
+    while pid and pid != 1 and len(swoi) < 40:
+        swoi.add(str(pid))
+        try:
+            tekst = Path(f"/proc/{pid}/status").read_text(encoding="utf-8", errors="replace")
+            pid = int(re.search(r"^PPid:\s*(\d+)", tekst, re.M).group(1))
+        except (OSError, AttributeError, ValueError):
+            break
+    znalezione = []
+    for wpis in Path("/proc").iterdir():
+        if not wpis.name.isdigit() or wpis.name in swoi:
+            continue
+        exe = ""
+        try:
+            exe = os.readlink(wpis / "exe")
+        except OSError:
+            pass
+        exe_czysty = exe.replace(" (deleted)", "")
+        try:
+            cmd = (wpis / "cmdline").read_bytes().replace(b"\0", b" ").decode(
+                "utf-8", "replace").strip()
+        except OSError:
+            continue
+        if not cmd:
+            continue
+        trafienie = any(exe_czysty.startswith(sl) or exe_czysty == sl for sl in slady)
+        if not trafienie and ident:
+            # flatpak i snap wypisują identyfikator programu wprost w wierszu poleceń.
+            # ⚠️ Zwykłe „ident in cmd" łapie też CUDZE procesy, które tylko wspominają
+            # tę nazwę (grep, edytor, ta apka) — dlatego dopasowujemy CAŁE SŁOWA
+            # wiersza poleceń, a nie dowolny fragment tekstu.
+            for token in cmd.split():
+                if token == ident or token.endswith("/" + ident) \
+                        or f"/{ident}/" in token:
+                    trafienie = True
+                    break
+        if trafienie:
+            znalezione.append((wpis.name, (exe_czysty or cmd.split()[0])[:90]))
+    return znalezione
+
+
+def zglos_procesy_po_usunieciu(kanal, ident, slady):
+    """
+    Po usunięciu programu sprawdza, czy jego procesy nadal działają, i MÓWI O TYM —
+    nie zabija ich sam ([293b]).
+
+    Skąd ta kontrola: 30.08 snap Bitwardena został po usunięciu pakietu i nadal pisał
+    dziennik — 92 GB na Katanie, zanim ktokolwiek zauważył. „Program usunięty" i „program
+    już nie działa" to dwie różne rzeczy, a mechanizm dotąd sprawdzał tylko pierwszą.
+    """
+    zostaly = procesy_po_sladach(slady, ident if kanal in ("snap", "flatpak") else "")
+    if not zostaly:
+        return
+    print(f"    ⚠ USUNIĘTY, ALE NADAL DZIAŁA ({len(zostaly)} "
+          f"{'proces' if len(zostaly) == 1 else 'procesy/-ów'}):")
+    for pid, opis in zostaly[:10]:
+        print(f"         PID {pid}  {opis}")
+    if len(zostaly) > 10:
+        print(f"         … i jeszcze {len(zostaly) - 10}")
+    print("      Proces po usuniętym programie potrafi dalej pisać po dysku "
+          "(30.08: snap Bitwardena zapisał 92 GB dziennika na Katanie).")
+    print("      NIE zabijam ich sam — decyzja należy do usera. Zakończenie:")
+    print(f"         kill {' '.join(pid for pid, _ in zostaly[:10])}")
+    if kanal == "snap":
+        print(f"      Jeśli to usługa snapa:  sudo systemctl stop 'snap.{ident}.*'")
+    print("      Sprawdzenie, czy zniknęły:  ps -o pid,etime,cmd -p <PID>")
+
+
 def wykonaj_pozycje(poz, args):
     """Wykonuje JEDNĄ zatwierdzoną pozycję. Zwraca 1 przy powodzeniu, 0 przy porażce.
     Kolejność ze spec 9.3: wykonaj → sprawdź inwentaryzacją → dopiero wtedy dziennik."""
@@ -4289,6 +4428,7 @@ def wykonaj_pozycje(poz, args):
 
     if rodzaj == "usun":
         print(f"[{ident}] usuwam ({kanal})…")
+        slady = slady_wykonywalne(kanal, ident)   # PRZED usunięciem — potem już ich nie ma
         kod = _z_tlumikiem_haka(komenda_usuniecia(kanal, ident))
         if sprawdz_jedna_pozycje(kanal, ident) is not None:
             print(f"    ⚠ program nadal jest na maszynie (kod {kod}) — "
@@ -4297,6 +4437,7 @@ def wykonaj_pozycje(poz, args):
         dopisz_zdarzenie("usunieto", kanal=kanal, ident=ident, zrodlo="sync", za=za,
                          notatka=zrodlowe.get("notatka"))
         print("    ✓ usunięte, zapisane w dzienniku")
+        zglos_procesy_po_usunieciu(kanal, ident, slady)
         return 1
 
     if rodzaj == "usun-profil":
@@ -4315,6 +4456,7 @@ def wykonaj_pozycje(poz, args):
                   f"w razie potrzeby: lustro usun {ident}")
             return 0
         print(f"[{ident}] usuwam — poza profilem tej maszyny ({kanal})…")
+        slady = slady_wykonywalne(kanal, ident)   # PRZED usunięciem — potem już ich nie ma
         kod = _z_tlumikiem_haka(komenda_usuniecia(kanal, ident))
         if sprawdz_jedna_pozycje(kanal, ident) is not None:
             print(f"    ⚠ program nadal jest na maszynie (kod {kod}) — dziennika NIE ruszam")
@@ -4322,6 +4464,7 @@ def wykonaj_pozycje(poz, args):
         dopisz_zdarzenie("usunieto-profil", kanal=kanal, ident=ident, zrodlo="profil",
                          notatka=poz.get("powod"))
         print("    ✓ usunięte, zapisane w dzienniku (usunieto-profil — konsensus bez zmian)")
+        zglos_procesy_po_usunieciu(kanal, ident, slady)
         return 1
 
     if rodzaj == "zapisz-dodano":
