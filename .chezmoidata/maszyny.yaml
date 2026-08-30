@@ -10,8 +10,19 @@
 # Tutaj są tylko DEFINICJE profili + domyślny + wymuszenie.
 #
 # Jak to działa: .chezmoitemplates/profil ustala nazwę profilu tej maszyny,
-# .chezmoiignore.tmpl bierze z `profile.<nazwa>.tylko` listę ścieżek i wszystko
-# spoza niej wyklucza. Pusta lista `tylko` = maszyna dostaje WSZYSTKO (lustro).
+# .chezmoiignore.tmpl bierze z `profile.<nazwa>` listę ścieżek. Profil opisuje się
+# JEDNYM z dwóch sposobów — tym, który jest krótszy:
+#   `tylko`  — lista dozwolonych ścieżek; wszystko spoza niej wykluczone.
+#              Pusta lista `tylko` = maszyna dostaje WSZYSTKO (lustro).
+#   `oprocz` — lista ścieżek do wykluczenia; reszta jedzie normalnie. Dla profilu,
+#              który różni się od lustra kilkoma pozycjami, wypisywanie trzydziestu
+#              dozwolonych ścieżek byłoby listą, której nikt nie zaktualizuje.
+# Podanie obu naraz jest błędem (szablon przerywa z komunikatem).
+#
+# ⚠️ To jest tylko JEDNA strona profilu: KTÓRE PLIKI konfiguracyjne maszyna dostaje.
+#    Druga strona — KTÓRE PROGRAMY jej dotyczą — mieszka w lustra/profile.toml
+#    (czyta ją `lustro.py`; chezmoi i lustro to dwa różne programy, stąd dwa pliki).
+#    Nazwy profili w obu plikach muszą być takie same.
 #
 # Nowy rodzaj maszyny (np. laptop dla dziecka, maszyna testowa) = nowy wpis
 # w `profile` + `profil = "..."` przy maszynie w lustra/maszyny.toml. Bez zmian
@@ -71,3 +82,19 @@ maszyny:
       #   bin/* poza sekrety-odswiez — skrypty pulpitu/OneDrive/sesji
       # .config/ccstatusline/settings.json dołączony 25.08 (decyzja usera [174a]):
       #   pasek stanu Claude Code ma być spójny też na serwerze.
+
+    moc:
+      opis: "Moc obliczeniowa na żądanie — maszyna liczy i jest obsługiwana zdalnie; bez pulpitu biurowego."
+      # [284] 2026-08-30. Ta maszyna dostaje PRAWIE wszystko, co stacja — bo pracuje się
+      # na niej przez SSH/tmux/VNC i potrzebuje tych samych dostępów, sekretów, ustawień
+      # gita, paska stanu Claude Code, usług Transkryptora i skryptów `bin/`. Różnica
+      # dotyczy OneDrive'a: na maszynie „moc" nie ma konta OneDrive (patrz pole `onedrive`
+      # w lustra/maszyny.toml), więc jego konfiguracja i skrypty dozoru byłyby tam martwe.
+      # Dlatego `oprocz`, a nie `tylko` — inaczej ta lista musiałaby wyliczać wszystkie
+      # trzydzieści ścieżek stacji i rozjeżdżałaby się przy każdej nowej.
+      oprocz:
+        - .config/onedrive-archiwum
+        - .config/onedrive-archiwum/config
+        - .config/onedrive-archiwum/sync_list
+        - bin/onedrive-archiwum.sh
+        - bin/onedrive-archiwum-dozor.sh

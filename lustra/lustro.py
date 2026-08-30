@@ -43,6 +43,7 @@ PLIK_ROZSZERZEN_GNOME = PULPIT / "rozszerzenia-gnome.txt"
 ZRODLA_APT = KATALOG / "zrodla-apt.toml"           # zewnętrzne repozytoria apt [176]
 STATUSY_POZYCJI = KATALOG / "statusy-pozycji.toml" # wspolne/testowe + override/wylacznie_na [209]
 MASZYNY_TOML = KATALOG / "maszyny.toml"            # czlonek_lustra [209] 2.1
+PROFILE_TOML = KATALOG / "profile.toml"            # co dotyczy maszyny danego profilu [284]
 ZRODLA_GALEZI = PULPIT / "zrodla-galezi.toml"      # źródło per gałąź pulpitu [209] 2.3.2
 PULPIT_STAN = PULPIT / "stan"                      # migawki <maszyna>.ini [209] 2.3.1
 SKRYPTY_TOML = KATALOG / "skrypty.toml"            # pozycje instalowane skryptem [252]
@@ -1285,6 +1286,71 @@ def wczytaj_czlonkow_lustra():
         domyslne = m.get("profil", "stacja") == "stacja"
         wynik[klucz] = bool(m.get("czlonek_lustra", domyslne))
     return wynik
+
+
+def wczytaj_profile():
+    """
+    Czyta lustra/profile.toml → {nazwa_profilu: [wzorce "kanal:id"]} (sprawa [284]).
+
+    Brak pliku, błąd odczytu albo nieznany profil = BRAK OGRANICZEŃ (wzorzec "*").
+    To jest świadomy wybór bezpiecznego domyślnego zachowania: pomyłka w tym pliku
+    ma najwyżej sprawić, że maszyna dostanie ZA DUŻO propozycji (jak przed [284]),
+    a nie że mechanizm po cichu przestanie pilnować połowy programów.
+    """
+    if not PROFILE_TOML.exists():
+        return {}
+    import tomllib
+    try:
+        dane = tomllib.loads(PROFILE_TOML.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError) as e:
+        print(f"⚠ nie umiem odczytać {PROFILE_TOML.name}: {e} — ograniczeń profilu nie stosuję")
+        return {}
+    wynik = {}
+    for nazwa, d in (dane.get("profil") or {}).items():
+        wzorce = d.get("zostaja")
+        wynik[nazwa.lower()] = list(wzorce) if wzorce is not None else ["*"]
+    return wynik
+
+
+def profil_maszyny(maszyna=None):
+    """Nazwa profilu maszyny wg pola `profil` bloku [[maszyna]] w maszyny.toml.
+    Ta sama reguła, po której profil wybiera chezmoi (.chezmoitemplates/profil),
+    tylko dopasowanie idzie po `klucz` lustra, a nie po `nazwa_hosta` — apka zna
+    maszynę pod kluczem (patrz `nazwa_maszyny`). Brak wpisu = "stacja"."""
+    maszyna = (maszyna or nazwa_maszyny()).lower()
+    if not MASZYNY_TOML.exists():
+        return "stacja"
+    import tomllib
+    try:
+        dane = tomllib.loads(MASZYNY_TOML.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError):
+        return "stacja"
+    for m in dane.get("maszyna", []):
+        if (m.get("klucz") or "").lower() == maszyna:
+            return (m.get("profil") or "stacja").lower()
+    return "stacja"
+
+
+def wzorce_profilu(maszyna=None, profile=None):
+    """Wzorce `zostaja` dla profilu TEJ maszyny. `["*"]` = bez ograniczeń."""
+    profile = wczytaj_profile() if profile is None else profile
+    if not profile:
+        return ["*"]
+    nazwa = profil_maszyny(maszyna)
+    if nazwa not in profile:
+        print(f"⚠ {PROFILE_TOML.name}: nie ma definicji profilu „{nazwa}” — "
+              f"nie stosuję żadnych ograniczeń (dopisz blok [profil.{nazwa}])")
+        return ["*"]
+    return profile[nazwa]
+
+
+def pozycja_w_profilu(kanal, ident, wzorce):
+    """Czy pozycja mieści się w profilu maszyny. Wzorce jak w powłoce (fnmatch),
+    porównywane z napisem „kanal:identyfikator”. `"*"` przepuszcza wszystko."""
+    if not wzorce or "*" in wzorce:
+        return True
+    tekst = f"{kanal}:{ident}"
+    return any(fnmatch.fnmatch(tekst, w) for w in wzorce)
 
 
 def czy_czlonek_lustra(maszyna, czlonkowie=None):
@@ -2882,6 +2948,14 @@ def zbierz_pozycje():
          przecięcia z `wylacznie_na`.
       4. Brak override, maszyna NIE jest członkiem lustra → „dowolny": pozycja
          w ogóle nie jest sprawdzana, nie ma szans na rozbieżność.
+
+    Reguła 2a (sprawa [284], 2026-08-30) wchodzi MIĘDZY 2 a 3: pozycja spoza
+    `zostaja` profilu tej maszyny (lustra/profile.toml) nie jest sprawdzana —
+    tak samo jak w regule 4. Kolejność jest istotna: jawny `[[pozycja.override]]`
+    stoi WYŻEJ, więc pojedynczy wyjątek („ta jedna rzecz jednak ma tu być”) nadal
+    robi się jednym wpisem i wygrywa z profilem. Pozycje odsiane profilem wracają
+    w wyniku jako `poza_profilem` — to z nich `lustro profil` buduje listę
+    „stoi tutaj, a do tej maszyny nie należy”.
     """
     maszyna = nazwa_maszyny()
     zdarzenia = wczytaj_dzienniki()
@@ -2911,6 +2985,8 @@ def zbierz_pozycje():
     statusy = wczytaj_statusy_pozycji()
 
     rozbieznosci, niezapisane, usuniete_poza, kwarantanna = [], [], [], []
+    wzorce = wzorce_profilu(maszyna)      # [284] — reguła 2a, patrz docstring
+    poza_profilem = []
 
     # Zbiór pozycji do oceny: konsensus (już przefiltrowany) PLUS pozycje, które
     # mają jawny override dla TEJ maszyny, nawet jeśli w konsensusie w ogóle nie
@@ -2950,6 +3026,15 @@ def zbierz_pozycje():
             # jest_tutaj): też nic do zrobienia.
             continue
 
+        # reguła 2a [284]: pozycja spoza profilu tej maszyny — nie sprawdzamy jej
+        # wcale. Jeśli mimo to fizycznie tu stoi, odkładamy ją do `poza_profilem`
+        # (materiał dla `lustro profil sprzataj`), ale NIGDY nie zgłaszamy jako
+        # rozbieżności i nigdy nie usuwamy z automatu.
+        if not pozycja_w_profilu(klucz[0], klucz[1], wzorce):
+            if klucz in inw:
+                poza_profilem.append((klucz, inw[klucz]))
+            continue
+
         if not ta_maszyna_czlonek:
             continue   # reguła 4: „dowolny" — pozycja w ogóle nie jest sprawdzana
 
@@ -2981,11 +3066,19 @@ def zbierz_pozycje():
             continue
         if klucz not in moje and klucz not in ostatnie:
             niezapisane.append((klucz, wersja))
+        # [284] pozycja stojąca tutaj, a spoza profilu, której konsensus w ogóle
+        # nie zna (nie weszła w pętlę wyżej) — też należy do „nie moja sprawa”
+        if (klucz not in ostatnie
+                and not pozycja_w_profilu(klucz[0], klucz[1], wzorce)
+                and maszyna not in (statusy.get(klucz) or {}).get("override", {})):
+            poza_profilem.append((klucz, wersja))   # override > profil, kontrakt [209] r.2
 
     return {"maszyna": maszyna, "zdarzenia": zdarzenia, "inwentarz": inw,
             "rozbieznosci": rozbieznosci, "niezapisane": niezapisane,
             "usuniete_poza": usuniete_poza, "pomijane": pomijane,
-            "historia": historia, "kwarantanna": kwarantanna}
+            "historia": historia, "kwarantanna": kwarantanna,
+            "profil": profil_maszyny(maszyna), "wzorce_profilu": wzorce,
+            "poza_profilem": sorted(set(poza_profilem))}
 
 
 # ---------------------------------------------------------------- polecenie: status
@@ -3058,6 +3151,17 @@ def polecenie_status(args):
                   f"brak zdarzenia w dzienniku")
             print("    propozycja: dopisać do dziennika jako \"dodano … zrodlo: reczne\"")
             print()
+
+    if dane.get("poza_profilem"):
+        print(f"STOI TUTAJ, A NIE NALEŻY DO PROFILU „{dane['profil']}” "
+              f"({len(dane['poza_profilem'])}) — informacja, nic nie robimy")
+        print()
+        for (kanal, ident), wersja in dane["poza_profilem"]:
+            numer += 1
+            print(f"{numer:2}. {ident} ({kanal}, {wersja})")
+        print("    Ta maszyna nie jest o te pozycje pytana i automat ich nie dociąga.")
+        print("    Żeby je USUNĄĆ (z pytaniem przy każdej): lustro profil sprzataj")
+        print()
 
     if dane["usuniete_poza"]:
         print(f"USUNIĘTE POZA APKĄ, JESZCZE NIEZAPISANE W DZIENNIKU "
@@ -3871,6 +3975,91 @@ def polecenie_sync(args):
     return 0
 
 
+def polecenie_profil(args):
+    """
+    `lustro profil status` — co profil tej maszyny obejmuje i co na niej stoi mimo to.
+    `lustro profil sprzataj` — usuwa (z pytaniem przy KAŻDEJ pozycji) programy, które
+    do profilu tej maszyny nie należą. Sprawa [284].
+
+    Świadomie osobna komenda, a nie tryb `sync --auto`: `sync --auto` chodzi z timera
+    co 60 minut i z zasady NIGDY niczego nie odinstalowuje. Zawężenie profilu to
+    jednorazowa decyzja człowieka o roli maszyny — ma zostać wykonana raz, na oczach
+    usera, a nie „przy okazji” w tle.
+    """
+    dane = zbierz_pozycje()
+    naglowek(dane)
+    profil, wzorce = dane["profil"], dane["wzorce_profilu"]
+    print(f"PROFIL TEJ MASZYNY: {profil}")
+    if "*" in wzorce or not wzorce:
+        print("  Bez ograniczeń — maszyna dostaje wszystko, co ma lustro.")
+    else:
+        print(f"  Wzorców „zostaja”: {len(wzorce)} (definicja: {PROFILE_TOML.name})")
+    print()
+
+    poza = dane.get("poza_profilem") or []
+    if not poza:
+        print("Nic nie stoi na tej maszynie poza profilem — nie ma czego sprzątać.")
+        return 0
+
+    do_usuniecia = [(k, w) for k, w in poza if k[0] in ("apt", "snap", "flatpak")]
+    reszta = [(k, w) for k, w in poza if k[0] not in ("apt", "snap", "flatpak")]
+
+    print(f"STOI TUTAJ, A NIE NALEŻY DO PROFILU „{profil}” ({len(poza)}):")
+    for (kanal, ident), wersja in poza:
+        print(f"   • {ident} ({kanal}, {wersja})")
+    print()
+    if reszta:
+        print(f"  Z tego {len(reszta)} pozycji kanałów spoza apt/snap/flatpak "
+              f"(rozszerzenia GNOME, pozycje kanału `skrypt`) sprzątanie NIE rusza — "
+              f"to pliki w katalogu użytkownika, nie zainstalowane programy.")
+        print()
+
+    if args.co == "status":
+        print("To był tylko podgląd. Usuwanie: lustro profil sprzataj")
+        return 0
+
+    if not do_usuniecia:
+        print("Nic do odinstalowania.")
+        return 0
+
+    git_pull_rebase()
+    zatwierdzone, hurtem = [], bool(args.zatwierdzam_wszystko)
+    for nr, ((kanal, ident), wersja) in enumerate(do_usuniecia, 1):
+        poz = {"rodzaj": "usun-profil", "kanal": kanal, "id": ident,
+               "powod": f"poza profilem „{profil}” tej maszyny [284]"}
+        print(f"{nr:2}. {ident} ({kanal}, {wersja}) — poza profilem „{profil}”")
+        print(f"    propozycja: odinstalować tutaj")
+        if hurtem:
+            zatwierdzone.append(poz)
+            print("    → zatwierdzone hurtem")
+            print()
+            continue
+        odp = pytaj("[T]ak / [n]ie / [h]urtem — T dla wszystkich pozostałych", "Tnh", "n")
+        if odp == "h":
+            hurtem = True
+            zatwierdzone.append(poz)
+        elif odp == "t":
+            zatwierdzone.append(poz)
+        print()
+
+    if not zatwierdzone:
+        print("Nic nie zatwierdzono — nic nie zmieniam.")
+        return 0
+    print(f"DO WYKONANIA ({len(zatwierdzone)}):")
+    for poz in zatwierdzone:
+        print(f"   • usun: {poz['id']} ({poz['kanal']})")
+    if not args.zatwierdzam_wszystko and pytaj("Wykonać?", "Tn", "t") != "t":
+        print("Odwołane — nic nie zmieniam.")
+        return 0
+    print()
+    zrobione = sum(wykonaj_pozycje(poz, args) for poz in zatwierdzone)
+    print()
+    print(f"Wykonane: {zrobione} z {len(zatwierdzone)} pozycji.")
+    git_zapisz(f"lustra: profil {profil} na {nazwa_maszyny()} — "
+               f"{zrobione} pozycji spoza profilu usuniętych")
+    return 0
+
+
 def pokaz_szczegoly(poz, dane):
     kanal, ident = poz["kanal"], poz["id"]
     print(f"    --- szczegóły: {ident} ({kanal}) ---")
@@ -3992,6 +4181,31 @@ def wykonaj_pozycje(poz, args):
         dopisz_zdarzenie("usunieto", kanal=kanal, ident=ident, zrodlo="sync", za=za,
                          notatka=zrodlowe.get("notatka"))
         print("    ✓ usunięte, zapisane w dzienniku")
+        return 1
+
+    if rodzaj == "usun-profil":
+        # [284] usunięcie DLATEGO, że pozycja nie należy do profilu tej maszyny.
+        # Zdarzenie ma WŁASNĄ nazwę i to jest rdzeń bezpieczeństwa całej operacji:
+        # `stan_oczekiwany()` liczy konsensus wyłącznie ze zdarzeń "dodano"/"usunieto",
+        # więc "usunieto-profil" NIE zmienia oczekiwań pozostałych maszyn. Gdyby zapisać
+        # zwykłe "usunieto", sprzątanie Katany wyglądałoby dla Vostro i HP jak rozkaz
+        # „usuńcie u siebie LibreOffice’a” — a nikt takiej decyzji nie podjął.
+        if kanal not in ("apt", "snap", "flatpak"):
+            # Świadome ograniczenie: rozszerzenia GNOME i pozycje kanału `skrypt`
+            # to pliki i rejestracje w katalogu użytkownika, nie zainstalowane
+            # programy — nic nie ważą i nic nie uruchamiają w tle. Sprzątanie
+            # profilu ich nie rusza; kto chce, usuwa je `lustro usun`.
+            print(f"[{ident}] kanał {kanal} — sprzątanie profilu tego nie rusza; "
+                  f"w razie potrzeby: lustro usun {ident}")
+            return 0
+        print(f"[{ident}] usuwam — poza profilem tej maszyny ({kanal})…")
+        kod = _z_tlumikiem_haka(komenda_usuniecia(kanal, ident))
+        if sprawdz_jedna_pozycje(kanal, ident) is not None:
+            print(f"    ⚠ program nadal jest na maszynie (kod {kod}) — dziennika NIE ruszam")
+            return 0
+        dopisz_zdarzenie("usunieto-profil", kanal=kanal, ident=ident, zrodlo="profil",
+                         notatka=poz.get("powod"))
+        print("    ✓ usunięte, zapisane w dzienniku (usunieto-profil — konsensus bez zmian)")
         return 1
 
     if rodzaj == "zapisz-dodano":
@@ -4572,6 +4786,10 @@ def main():
                                     "sprawdz", "rozszerzenia", "skladaj"])
     wspolne(pu)
 
+    pf = pod.add_parser("profil", help="czym jest profil TEJ maszyny i co stoi poza nim [284]")
+    pf.add_argument("co", choices=["status", "sprzataj"], nargs="?", default="status")
+    wspolne(pf, notatka=False)
+
     nm = pod.add_parser("nowa-maszyna", help="bootstrap (E3 — niedostępne)")
     nm.add_argument("reszta", nargs="*")
 
@@ -4607,6 +4825,8 @@ def main():
         return polecenie_lista(args)
     if args.polecenie == "hak-apt":
         return polecenie_hak_apt_instaluj(args) if args.zainstaluj else polecenie_hak_apt(args)
+    if args.polecenie == "profil":
+        return polecenie_profil(args)
     if args.polecenie == "inwentarz":
         return polecenie_inwentarz_eksportuj(args)
     if args.polecenie == "pulpit":

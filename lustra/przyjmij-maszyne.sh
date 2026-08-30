@@ -71,7 +71,14 @@ echo "P3 ✓ authorized_keys serwera"
 STACJE=""
 while read -r klucz user host profil; do
     [ "$klucz" = "$NAZWA" ] || [ "$klucz" = "serwer" ] && continue
-    if [ "$profil" = "stacja" ]; then STACJE="$STACJE $klucz:$user@$host"; echo "P3 ○ $klucz — stacja: authorized_keys składa chezmoi po pushu (timer ≤60 min$([ $ODSWIEZ = 1 ] && echo ', tu: --odswiez-stacje'))"; continue; fi
+    # Pytanie brzmi „czy tej maszynie authorized_keys składa chezmoi", a NIE „czy to jest
+    # stacja". Profile z pełną warstwą plików to dziś `stacja` i `moc` ([284] 30.08 — Katana);
+    # `serwer` ma wąską listę `tylko` i klucz trzeba mu dopisać wprost. Nowy profil z pełną
+    # warstwą = dopisanie go do tego `case` (i tylko tu). Wcześniej stało tu `= "stacja"`,
+    # przez co Katana po zmianie profilu trafiłaby niepotrzebnie do dopisywania po SSH.
+    case "$profil" in
+      stacja|moc) STACJE="$STACJE $klucz:$user@$host"; echo "P3 ○ $klucz — profil $profil: authorized_keys składa chezmoi po pushu (timer ≤60 min$([ $ODSWIEZ = 1 ] && echo ', tu: --odswiez-stacje'))"; continue;;
+    esac
     [ $TYLKO_SERWER = 1 ] && { echo "P3 ○ $klucz pominięta (--tylko-serwer)"; continue; }
     if dopisz_klucz "$user" "$host" 22 "$KLUCZ_DOM"; then echo "P3 ✓ $klucz ($user@$host) — wpisane wprost"; else echo "P3 ✗ $klucz ($user@$host) — nieosiągalna, powtórz skrypt później"; fi
 done < <($PY "$LUSTRA/stacja-dane.py" cele)

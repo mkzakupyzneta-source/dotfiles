@@ -1,0 +1,62 @@
+#!/bin/sh
+# OneDrive na TEJ maszynie — zachowanie wynika z DANYCH, nie z tego, co pakiet zrobił
+# sam sobie przy instalacji. Sprawa [279a]/[284], 2026-08-30, obszar 5_Wspolna_konfiguracja.
+#
+# Problem: pakiet apt `onedrive` w `postinst` zakłada symlink
+# /etc/systemd/user/default.target.wants/onedrive.service, czyli WŁĄCZA usługę wszystkim
+# użytkownikom każdej maszyny, na której go zainstalowano. Na maszynie bez zalogowanego
+# konta OneDrive klient przy każdym starcie sesji otwiera przeglądarkę na stronie logowania
+# Microsoftu (na Katanie wywracało to przy okazji Chrome — [277]).
+#
+# Dana: pole `onedrive` bloku [[maszyna]] w lustra/maszyny.toml.
+#   "brak"  → usługa ZAMASKOWANA (systemctl --user mask; NIE wymaga roota — powstaje
+#             symlink ~/.config/systemd/user/onedrive.service → /dev/null)
+#   inna wartość ("konto-osobiste", …) → maska ZDEJMOWANA, jeśli wcześniej stała
+#   brak pola → nie ruszamy niczego (nie wiemy, więc nie zgadujemy)
+# Nowy sposób używania OneDrive'a = nowa WARTOŚĆ pola, bez zmian w tym skrypcie.
+#
+# run_onchange: skrypt odpala się, gdy zmieni się jego treść — a wartość poniżej jest
+# w niej wpisana, więc zmiana danej w maszyny.toml sama wywołuje ponowne wykonanie.
+{{- $host := lower .chezmoi.hostname -}}
+{{- $stan := "" -}}
+{{- if stat (joinPath .chezmoi.sourceDir "lustra" "maszyny.toml") -}}
+{{-   $flota := include "lustra/maszyny.toml" | fromToml -}}
+{{-   range $flota.maszyna -}}
+{{-     if and (hasKey . "onedrive") (hasKey . "nazwa_hosta") -}}
+{{-       if and .nazwa_hosta (eq (lower .nazwa_hosta) $host) -}}
+{{-         $stan = .onedrive -}}
+{{-       end -}}
+{{-     end -}}
+{{-   end -}}
+{{- end }}
+set -u
+STAN="{{ $stan }}"
+
+if [ -z "$STAN" ]; then
+    echo "[onedrive] ta maszyna nie ma pola \`onedrive\` w maszyny.toml — nic nie zmieniam"
+    exit 0
+fi
+if ! systemctl --user show-environment >/dev/null 2>&1; then
+    echo "[onedrive] brak menedzera systemd usera w tej sesji — zrobi to nastepny apply"
+    exit 0
+fi
+
+MASKA="$HOME/.config/systemd/user/onedrive.service"
+
+if [ "$STAN" = "brak" ]; then
+    if [ -L "$MASKA" ] && [ "$(readlink "$MASKA")" = "/dev/null" ]; then
+        echo "[onedrive] juz zamaskowana (onedrive = brak) — bez zmian"
+        exit 0
+    fi
+    systemctl --user stop onedrive.service 2>/dev/null || true
+    systemctl --user mask onedrive.service
+    echo "[onedrive] onedrive = brak -> usluga ZAMASKOWANA ($(systemctl --user is-enabled onedrive.service 2>&1))"
+    exit 0
+fi
+
+if [ -L "$MASKA" ] && [ "$(readlink "$MASKA")" = "/dev/null" ]; then
+    systemctl --user unmask onedrive.service
+    echo "[onedrive] onedrive = $STAN -> maska ZDJETA ($(systemctl --user is-enabled onedrive.service 2>&1))"
+else
+    echo "[onedrive] onedrive = $STAN -> maski nie ma, nic nie zmieniam"
+fi

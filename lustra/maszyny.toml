@@ -26,12 +26,30 @@
 #   dostepna_jako_cel  — czy wolno na niej URUCHAMIAĆ (false = maszyna tylko „skąd")
 #   aktywna            — false = wpis-szkielet, launcher go nie pokazuje
 #   uwagi              — dla człowieka
-#   profil             — jak chezmoi traktuje tę maszynę (sprawa [174], 2026-08-24):
-#                        "stacja" = pełne lustro, "serwer" = tylko warstwa wspólna
-#                        (sekrety, dostępy, git). Definicje profili i lista, co który
-#                        dostaje: .chezmoidata/maszyny.yaml. Brak pola = profil domyślny
-#                        (stacja). Dopasowanie po `nazwa_hosta`, bez rozróżniania
-#                        wielkości liter. Launcher tego pola nie czyta.
+#   profil             — ROLA maszyny w mechanizmie, jedna dana o dwóch skutkach
+#                        (sprawa [174] 2026-08-24, rozszerzona [284] 2026-08-30):
+#                          "stacja" = pełne lustro (pulpit, programy, ustawienia),
+#                          "serwer" = tylko warstwa wspólna (sekrety, dostępy, git),
+#                          "moc"    = moc obliczeniowa na żądanie: maszyna liczy i jest
+#                                     obsługiwana zdalnie, bez pulpitu biurowego.
+#                        Nowa rola = nowa wartość + po jednym bloku w dwóch plikach
+#                        definicji; kodu nikt nie rusza:
+#                          • KTÓRE PLIKI konfiguracyjne dostaje → .chezmoidata/maszyny.yaml,
+#                          • KTÓRE PROGRAMY jej dotyczą        → lustra/profile.toml.
+#                        Brak pola = "stacja". Dopasowanie po `nazwa_hosta` (chezmoi)
+#                        albo po `klucz` (lustro), bez rozróżniania wielkości liter.
+#                        Launcher tego pola nie czyta.
+#   onedrive           — jak ta maszyna używa OneDrive'a ([279a], 2026-08-30). DANA, bo
+#                        pakiet apt `onedrive` włącza swoją usługę WSZYSTKIM użytkownikom
+#                        maszyny, na której go zainstalowano — także takiej, na której
+#                        nikt się do OneDrive'a nie loguje (wtedy klient przy każdym starcie
+#                        sesji otwiera przeglądarkę na stronie logowania Microsoftu).
+#                          "brak"           — nie ma tu konta OneDrive → usługa `onedrive.service`
+#                                             ma być ZAMASKOWANA (robi to
+#                                             run_onchange_after_onedrive-wg-danych.sh.tmpl,
+#                                             `systemctl --user mask`, bez roota),
+#                          "konto-osobiste" — maszyna korzysta z OneDrive'a → maska zdejmowana.
+#                        Brak pola = nie wiemy, nic nie ruszamy. Nowy sposób = nowa wartość.
 #   mac_lan            — adres MAC karty sieciowej kablowej, do budzenia przez sieć (WOL),
 #                        sprawa [212]/E3a panelu menadżera sieci (obszar 1_Serwer, 2026-08-26).
 #                        Puste = panel pokaże przycisk „obudź" wyszarzony. WOL działa TYLKO
@@ -107,6 +125,36 @@
 #                        Pole ma PIERWSZEŃSTWO przed sondą SSH panelu — brak pola = panel sonduje
 #                        port 5900 na żywo.
 #
+# Bloki [[maszyna.karta]] — KARTY SIECIOWE tej maszyny ([285], 2026-08-30).
+# Maszyna z jedną kartą to szczególny przypadek, nie reguła: HP i Katana mają po dwie
+# wbudowane (kabel + Wi-Fi), a do tego przejściówki USB i porty w doku. Dopóki dana
+# „adres maszyny" była POJEDYNCZA, ktoś musiał wybierać, którą kartę opisuje `host_lan`
+# i `mac_lan` — i 30.08 wyszło, że przy HP wybrano źle (w `mac_lan` siedział MAC Wi-Fi,
+# a budzenie przez sieć działa WYŁĄCZNIE po kablu). Karty są więc listą, a nie polem.
+#   nazwa    — nazwa interfejsu w systemie (`ip -br link`), np. "enp2s0f0", "wlp4s0"
+#   rodzaj   — DANA, nie kolumna; nowy rodzaj sprzętu = nowa wartość, bez zmian w kodzie:
+#              "kabel"   — wbudowana karta ethernet,
+#              "wifi"    — karta bezprzewodowa,
+#              "usb-eth" — przejściówka USB→Ethernet,
+#              "dok"     — port ethernet w stacji dokującej (znika razem z dokiem),
+#              "nieznany"— wiemy, że karta jest (mamy MAC), nie wiemy jaka.
+#   mac      — adres sprzętowy karty. Pusty = niezmierzony (np. dok odpięty).
+#   adres    — adres IPv4 w domowej sieci. Pusty = karta nigdy nie dostała dzierżawy.
+#   budzenie — czy TĄ kartą wolno budzić maszynę przez sieć (WOL). Prawdziwe najwyżej dla
+#              JEDNEJ karty maszyny i praktycznie tylko dla rodzaju "kabel" — Wi-Fi
+#              magic packetu nie odbierze. Brak pola = false.
+# Rezerwacje adresów w routerze dla tych kart: 6_Dostep_zdalny/rezerwacje-dhcp-2026-08-30.md.
+#
+# ⚠️ `host_lan` i `mac_lan` ZOSTAJĄ — to SKRÓT „karta główna" dla czytelników, którzy
+# pytają o jeden adres i jeden MAC (panel menadżera sieci obszaru 1 czyta dokładnie te
+# trzy pola: `host_lan`, `mac_lan`, `ip_tailscale`). Kontrakt skrótu:
+#   `mac_lan`  = `mac` karty z `budzenie = true` (czym budzić),
+#   `host_lan` = `adres` karty, pod którą maszyna normalnie odpowiada na SSH — NIE musi
+#                to być ta sama karta (HP: budzimy kablem .17, ale `ssh hp` chodzi po
+#                Wi-Fi na .65).
+# Docelowo panel ma pingować WSZYSTKIE adresy z listy kart i budzić kartę z `budzenie`
+# — zgłoszone obszarowi 1 przez „DO ARCHITEKTA".
+#
 # Bloki [[maszyna.konto]] — konta Claude Code NA TEJ maszynie (etykieta + katalog ustawień;
 # pusty katalog = domyślny ~/.claude). Przypisanie „etykieta → adres e-mail" bywa na każdej
 # maszynie INNE, dlatego siedzi przy maszynie, a nie w programie. Maszyna lokalna kont tu
@@ -141,6 +189,9 @@ katalog_roboczy = "/home/mk/AI-katalog-roboczy"
 dostepna_jako_cel = true
 aktywna = true
 profil = "stacja"
+onedrive = "konto-osobiste"   # [279a] — stan zastany; NIEZWERYFIKOWANY pomiarem (Vostro było
+                              # wyłączone 30.08). Ta wartość NIC nie zmienia (maskę zakłada
+                              # tylko "brak"), więc jest bezpieczna do czasu sprawdzenia.
 mac_lan = "54:bf:64:31:4d:b7"
 zdalny_pulpit = ["vnc"]  # usluga `zdalny-pulpit` (x11vnc 127.0.0.1:5900) — [258c] 2026-08-29
 klapa_zamkniecie = "ignoruj"  # [279] 30.08 — Vostro pracuje ZAWSZE z zamkniętą klapą. Decyzja
@@ -159,6 +210,14 @@ po SSH z serwera (`ip -4 -o addr show`, `ip -o link show`, interfejs kablowy `en
 UP+LOWER_UP w chwili pomiaru). BIOS/system: obsługa Wake-on-LAN w BIOS-ie NIEZWERYFIKOWANA
 (`ethtool` na Vostro nie ma reguły sudoers NOPASSWD, nie wymuszałem hasła) — do sprawdzenia
 przy okazji fizycznej wizyty."""
+
+  [[maszyna.karta]]
+  # Jedyna karta. BIOS `WakeOnLan = LanOnly` włączony (obszar 6, 30.08).
+  nazwa    = "enp59s0"
+  rodzaj   = "kabel"
+  mac      = "54:bf:64:31:4d:b7"
+  adres    = "192.168.1.60"
+  budzenie = true
 
 # ── OptiPlex 7050 — serwer domowy 24/7 (Linux Mint 22.3) ───────────────────────
 [[maszyna]]
@@ -199,6 +258,15 @@ To koryguje starą notatkę „serwer nie jest jeszcze objęty mechanizmem luste
 instalacji nie ma w dzienniku" — instalacje SĄ w dzienniku (dla wglądu w panelu
 [202]), po prostu serwer formalnie nie jest lustrem."""
 
+  [[maszyna.karta]]
+  # Jedyna karta. `ethtool` potwierdza `Wake-on: g`. Serwer chodzi 24/7 — budzenie
+  # tylko dla kompletu danych.
+  nazwa    = "enp0s31f6"
+  rodzaj   = "kabel"
+  mac      = "d8:9e:f3:95:f1:13"
+  adres    = "192.168.1.49"
+  budzenie = true
+
   [[maszyna.konto]]
   nazwa = "Konto 1 — michal.kowalik@pw.edu.pl"
   katalog_konfiguracji = ""
@@ -214,7 +282,6 @@ nazwa = "HP"
 rola = "Stacja robocza (laptop PW, jeździ z userem)"
 system = "Ubuntu 24.04"  # poziom łatki doprecyzuje K5 przy następnym biegu automatu na HP
 nazwa_hosta = "hp"
-host_lan = "192.168.1.65"
 host_tailscale = "hp"
 ip_tailscale = "100.125.21.112"
 user = "mk"
@@ -222,7 +289,13 @@ katalog_roboczy = "/home/mk/AI-katalog-roboczy"
 dostepna_jako_cel = true
 aktywna = true
 profil = "stacja"
-mac_lan = "28:2e:89:ac:db:48"
+onedrive = "konto-osobiste"   # [279a] — HP ma ~/.config/onedrive i ~/.config/onedrive-archiwum
+host_lan = "192.168.1.65"
+mac_lan = "6c:0b:5e:82:dc:80"  # 🔴 POPRAWKA [285] 30.08: było "28:2e:89:ac:db:48", czyli MAC
+                              # karty Wi-Fi `wlp4s0` — a `mac_lan` służy WYŁĄCZNIE do budzenia
+                              # przez sieć, które po Wi-Fi nie działa. Tu ma stać karta KABLOWA
+                              # `enp2s0f0` (patrz [[maszyna.karta]] niżej). Panel z dawnym
+                              # wpisem wysyłałby magic packet na kartę, która go nie odbierze.
 zdalny_pulpit = ["vnc"]  # usluga `zdalny-pulpit` (x11vnc 127.0.0.1:5900) — [258c] 2026-08-29
 czlonek_lustra = true
 klapa_zamkniecie = "ekran-gasnie"  # [279] 30.08 decyzja usera: HP jeździ zamknięty między
@@ -236,6 +309,33 @@ uwagi = """
 Ubuntu 24.04 od 2026-08-29 (automat nowa-stacja.sh; dysk LUKS). Wcześniej Windows 11
 (`lapekhp`, Tailscale 100.112.73.10 — węzeł do usunięcia). Wi-Fi 6E MediaTek MT7922,
 NVIDIA RTX 2000 Ada 8 GB, dok USB4."""
+
+  [[maszyna.karta]]
+  # KARTA DO BUDZENIA (to jej MAC stoi w `mac_lan`). Realtek RTL8111, wbudowana.
+  # Kabel bywa odpięty — ostatnia dzierżawa .17 z 29.08 22:19.
+  nazwa    = "enp2s0f0"
+  rodzaj   = "kabel"
+  mac      = "6c:0b:5e:82:dc:80"
+  adres    = "192.168.1.17"
+  budzenie = true
+
+  [[maszyna.karta]]
+  # KARTA CODZIENNA — to pod jej adres wchodzi `ssh hp` (`host_lan` = .65).
+  # MediaTek MT7922. Budzić przez nią NIE MOŻNA (Wi-Fi nie odbiera magic packetu).
+  nazwa    = "wlp4s0"
+  rodzaj   = "wifi"
+  mac      = "28:2e:89:ac:db:48"
+  adres    = "192.168.1.65"
+  budzenie = false
+
+  [[maszyna.karta]]
+  # Port ethernet w doku USB4 — pojawia się i znika razem z dokiem, nigdy nie dostał
+  # dzierżawy. MAC niezmierzony (dok odpięty od 29.08 23:05); rezerwacji nie robimy.
+  nazwa    = "enp101s0"
+  rodzaj   = "dok"
+  mac      = ""
+  adres    = ""
+  budzenie = false
 
 # ── Katana — stacja robocza, poligon E3 mechanizmu luster ──────────────────────
 # Dodana 2026-08-26 przez obszar 1_Serwer (panel menadżera sieci [202]) — maszyna
@@ -261,7 +361,16 @@ user = "mk"
 katalog_roboczy = "/home/mk/AI-katalog-roboczy"
 dostepna_jako_cel = true
 aktywna = true
-profil = "stacja"
+profil = "moc"   # [284] 30.08, decyzja usera: Katana przestaje być pełnym lustrem i staje się
+                 # „mocą obliczeniową na żądanie". Co to znaczy w praktyce — lista `zostaja`
+                 # profilu `moc` w lustra/profile.toml (programy) i blok `moc`
+                 # w .chezmoidata/maszyny.yaml (pliki konfiguracyjne). Do 30.08: "stacja".
+                 # UWAGA: `czlonek_lustra` zostaje domyślnie TRUE — Katana dalej prowadzi
+                 # dziennik, dalej odpowiada na `lustro status`/`sync` i dalej dokłada się
+                 # do konsensusu; zawężony jest ZAKRES tego, co jej dotyczy, nie udział.
+onedrive = "brak"   # [279a] — na Katanie nikt nie jest zalogowany do OneDrive'a, a włączona
+                    # przez pakiet usługa otwierała przy każdym starcie sesji stronę logowania
+                    # Microsoftu (i wywracała przy tym Chrome, [277]).
 mac_lan = "04:7c:16:33:f2:90"  # karta KABLOWA enp4s0, zmierzone 29.08 ([267c]); WOL zadziała
                               # dopiero po wpięciu Katany kablem — dziś chodzi po Wi-Fi
 nie_usypiac = true
@@ -286,6 +395,32 @@ Do 26.08 był pusty (zakaz dotykania Katany zdalnie w sesji E3a). WOL zadziała 
 przepięciu Katany na kabel do podsieci 192.168.1.x — po Wi-Fi budzenie przez sieć nie działa.
 [267c] 29.08 — rola „zapasowa moc": user włącza Katanę na czas cięższego zadania i wyłącza po nim,
 dlatego `wolno_wylaczac = true` (usypianie nadal zablokowane — patrz `nie_usypiac`/[189])."""
+
+  [[maszyna.karta]]
+  # KARTA DO BUDZENIA (`mac_lan`) i jedyna droga do WOL-a Katany. Wbudowana.
+  # Kabel bywa odpięty — adres .43 zmierzony 29.08 22:25.
+  nazwa    = "enp4s0"
+  rodzaj   = "kabel"
+  mac      = "04:7c:16:33:f2:90"
+  adres    = "192.168.1.43"
+  budzenie = true
+
+  [[maszyna.karta]]
+  # Karta, po której Katana chodzi na co dzień (Intel). Budzenie przez nią nie działa.
+  nazwa    = "wlo1"
+  rodzaj   = "wifi"
+  mac      = "00:d4:9e:6b:00:94"
+  adres    = "192.168.1.37"
+  budzenie = false
+
+  [[maszyna.karta]]
+  # Przejściówka USB→Ethernet, dziś niewpięta. Rezerwacja adresu tylko jeśli user
+  # naprawdę jej używa (poz. 8 tabeli rezerwacji, obszar 6).
+  nazwa    = "enx5c288684169e"
+  rodzaj   = "usb-eth"
+  mac      = "5c:28:86:84:16:9e"
+  adres    = "192.168.1.39"
+  budzenie = false
 
 # ── Wyse 5070 — Home Assistant OS (produkcja) ───────────────────────────────────
 # Dodana 2026-08-26 przez obszar 1_Serwer (panel menadżera sieci [202]) TYLKO żeby
@@ -319,6 +454,15 @@ uwagi = """
 Home Assistant OS, 24/7, bez wentylatora. Treść i utrzymanie → `11_Home-Assistant/`,
 tu tylko rola sieciowa dla panelu [202]. Brak konta SSH ogólnego przeznaczenia (HAOS,
 nie zwykły Linux) — pole `user` celowo puste, panel nie pokaże gotowej komendy SSH."""
+
+  [[maszyna.karta]]
+  # Nazwa interfejsu niezmierzona — HAOS, nie logowaliśmy się do środka.
+  # Chodzi 24/7, więc budzenie przez sieć jest niepotrzebne.
+  nazwa    = ""
+  rodzaj   = "kabel"
+  mac      = "34:73:5a:b0:e5:51"
+  adres    = "192.168.1.48"
+  budzenie = false
 
 # ── Asus (ExpertBook) — panel treningowy przy bieżni ────────────────────────────
 # Dodana 2026-08-26 przez obszar 1_Serwer (panel menadżera sieci [202]/[209],
@@ -372,6 +516,16 @@ wpisie z serwera: ping i ARP na 192.168.1.36 nie odpowiadają (ARP
 uśpiona), mimo wcześniejszego zwiadu tego samego dnia, który złapał ją online.
 Panel pokazuje żywy pomiar (ping), nie ten zapis — stan w interfejsie może się
 różnić od powyższego w zależności od tego, czy user właśnie ją obudził."""
+
+  [[maszyna.karta]]
+  # MAC przepisany z dawnego `mac_lan`; 30.08 maszyna była offline, więc ani nazwy
+  # interfejsu, ani rodzaju karty nikt nie zmierzył. Adres user już zarezerwował ([223]).
+  # Budzenie: technicznie ten sam LAN co serwer, ale akcje panelu i tak są zablokowane.
+  nazwa    = ""
+  rodzaj   = "nieznany"
+  mac      = "f8:b5:4d:9d:d6:1d"
+  adres    = "192.168.1.36"
+  budzenie = false
 
 # ── Poligon — maszyna do eksperymentów (jeszcze nie istnieje) ──────────────────
 [[maszyna]]

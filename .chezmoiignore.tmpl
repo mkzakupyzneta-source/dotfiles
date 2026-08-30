@@ -7,6 +7,10 @@
 {{-   fail (printf "chezmoi: nieznany profil maszyny %q — dopisz go do .chezmoidata/maszyny.yaml" $profil) -}}
 {{- end -}}
 {{- $def := index .maszyny.profile $profil -}}
+{{- /* Profil opisuje się listą `tylko` ALBO `oprocz`; brakującego klucza nie ma w mapie,
+       więc pytamy o niego `hasKey`, a nie wprost (`missingkey=error` jest domyślne). */ -}}
+{{- $tylko := ternary (index $def "tylko") (list) (hasKey $def "tylko") -}}
+{{- $oprocz := ternary (index $def "oprocz") (list) (hasKey $def "oprocz") -}}
 # Profil tej maszyny: {{ $profil }} — {{ $def.opis }}
 
 # Katalog danych mechanizmu luster — ma zostać w repozytorium,
@@ -15,13 +19,22 @@
 # `lustra`, `lustra/dziennik` … czyli chezmoi utworzyłby ~/lustra przy `apply`.
 # ⛔ Obowiązuje KAŻDY profil.
 lustra
-{{ if $def.tylko }}
+{{ if and $tylko $oprocz }}
+{{-   fail (printf "chezmoi: profil %q ma naraz `tylko` i `oprocz` — wybierz jeden sposób opisu" $profil) -}}
+{{ end }}
+{{ if $oprocz }}
+# Profil z listą `oprocz`: maszyna dostaje wszystko poza wymienionymi ścieżkami.
+{{- range $oprocz }}
+{{ . }}
+{{- end }}
+{{ end }}
+{{ if $tylko }}
 # Profil z listą `tylko`: wykluczamy WSZYSTKO, a potem odkluczamy (`!`) wyłącznie
 # wymienione ścieżki wraz z ich katalogami nadrzędnymi (bez odkluczenia katalogu
 # chezmoi nie zagląda do środka). Wg dokumentacji chezmoi wykluczenia `!` mają
 # pierwszeństwo przed wszystkimi wzorcami ignorowania, niezależnie od kolejności.
 **
-{{- range $def.tylko }}
+{{- range $tylko }}
 {{-   $sciezka := "" }}
 {{-   range (splitList "/" .) }}
 {{-     $sciezka = ternary . (printf "%s/%s" $sciezka .) (eq $sciezka "") }}

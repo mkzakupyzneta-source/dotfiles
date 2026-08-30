@@ -255,3 +255,59 @@ po `klapa_usyp_po_min` minutach; otwarcie klapy albo podłączenie monitora zewn
 odliczanie. Włącza go i wyłącza `run_onchange_after_wlacz-klapa-straznik.sh.tmpl` — też z danych.
 Dziennik: `journalctl --user -t klapa-straznik`. Testowanie na sucho (atrapy zamiast `xset`
 i `systemctl suspend`) — opis w nagłówku samego skryptu.
+
+## Profile maszyn — `profile.toml`: co w ogóle DOTYCZY tej maszyny ([284], 30.08)
+
+Nie każda maszyna ma być pełnym lustrem. Katana od 30.08 jest **„mocą obliczeniową na
+żądanie"**: user włącza ją na czas cięższego zadania, pracuje na niej przez sieć
+(SSH, tmux, podgląd pulpitu przez VNC) i wyłącza po zadaniu. Nie ma tam OneDrive'a,
+przeglądarki z zalogowanymi kontami, pakietu biurowego ani komunikatorów.
+
+Rola maszyny to **jedna dana** — pole `profil` w `maszyny.toml` — o dwóch skutkach,
+opisanych w dwóch plikach, bo czytają je dwa różne programy:
+
+| Plik | Kto czyta | Co mówi |
+|---|---|---|
+| `.chezmoidata/maszyny.yaml` | chezmoi (`.chezmoiignore.tmpl`) | **które pliki konfiguracyjne** maszyna dostaje |
+| `lustra/profile.toml` | `lustro.py` | **które programy** jej dotyczą (lista `zostaja`) |
+
+Profil w `maszyny.yaml` opisuje się listą `tylko` (dozwolone ścieżki) **albo** `oprocz`
+(wykluczone) — tym, która jest krótsza. Profil w `profile.toml` mówi, co **zostaje**,
+a nie co wypada: dzięki temu nowy program dołożony gdziekolwiek we flocie domyślnie
+**nie** trafia na maszynę o zawężonym profilu i nikt nie musi o tym pamiętać.
+
+Komendy:
+
+```
+lustro profil status     # jaki profil, ile wzorców, co stoi tu mimo że nie należy
+lustro profil sprzataj   # usuwa te pozycje — z pytaniem przy KAŻDEJ
+```
+
+Trzy rzeczy, o które łatwo się potknąć:
+
+- **`[[pozycja.override]]` wygrywa z profilem** (kontrakt [209], reguła 2). Jednorazowy
+  wyjątek „ta jedna rzecz jednak ma tu być" to nadal jeden wpis w `statusy-pozycji.toml`.
+- **Profil sam z siebie niczego nie usuwa.** Pozycja spoza profilu jest po prostu
+  niesprawdzana; `sync --auto` (timer, co 60 min) nigdy jej nie odinstaluje. Usuwa
+  wyłącznie świadome `lustro profil sprzataj`, uruchomione ręcznie przez człowieka.
+- **Usunięcie zapisuje zdarzenie `usunieto-profil`, nie `usunieto`.** To rdzeń
+  bezpieczeństwa: `stan_oczekiwany()` liczy konsensus tylko ze zdarzeń `dodano`/`usunieto`,
+  więc sprzątanie Katany **nie** wygląda dla Vostro i HP jak rozkaz „usuńcie u siebie
+  LibreOffice'a". Sprzątanie obejmuje kanały `apt`/`snap`/`flatpak`; rozszerzenia GNOME
+  i pozycje kanału `skrypt` zostają (to pliki w katalogu użytkownika, nie programy).
+
+## OneDrive wg danych — `run_onchange_after_onedrive-wg-danych.sh.tmpl` ([279a], 30.08)
+
+Pakiet apt `onedrive` w `postinst` zakłada
+`/etc/systemd/user/default.target.wants/onedrive.service`, czyli **włącza usługę
+wszystkim użytkownikom** maszyny. Na maszynie bez zalogowanego konta klient przy każdym
+starcie sesji otwiera przeglądarkę na stronie logowania Microsoftu (na Katanie wywracało
+to przy okazji Chrome). Zachowanie ma wynikać z **danych maszyny**, nie z tego, co pakiet
+zrobił sam sobie przy instalacji — stąd pole `onedrive` w `maszyny.toml`:
+
+- `"brak"` → skrypt maskuje usługę (`systemctl --user mask`, **bez roota** — to symlink
+  `~/.config/systemd/user/onedrive.service` → `/dev/null`),
+- inna wartość (np. `"konto-osobiste"`) → maska zdejmowana, jeśli wcześniej stała,
+- brak pola → nic nie ruszamy (nie wiemy, więc nie zgadujemy).
+
+Nowy sposób używania OneDrive'a = nowa **wartość** pola, bez zmian w skrypcie.

@@ -28,6 +28,25 @@ import tomllib
 with open('$TU/siec.toml', 'rb') as f:
     print(' '.join(tomllib.load(f)['podsieci_lan']))
 ")"
+# Podsieci wycofane — reguły dla nich mają ze stacji ZNIKNĄĆ (patrz siec.toml).
+PODSIECI_WYCOFANE="$(python3 -c "
+import tomllib
+with open('$TU/siec.toml', 'rb') as f:
+    print(' '.join(tomllib.load(f).get('podsieci_wycofane', [])))
+")"
+
+# Porty, które otwieramy KAŻDEJ podsieci domowej. Jedna lista — używa jej i zakładanie
+# reguł, i sprzątanie po podsieci wycofanej (inaczej sprzątanie zawsze by się rozjeżdżało
+# z tym, co naprawdę zakładamy).
+porty_podsieci() {
+    echo "22 tcp"
+    echo "22000 tcp"
+    echo "22000 udp"
+    echo "21027 udp"
+    echo "5353 udp"
+    echo "1714:1764 tcp"
+    echo "1714:1764 udp"
+}
 
 reguly() {
     echo "ufw default deny incoming"
@@ -35,13 +54,9 @@ reguly() {
     echo "ufw allow in on tailscale0"
     echo "ufw allow 41641/udp"
     for s in $PODSIECI; do
-        echo "ufw allow from $s to any port 22 proto tcp"
-        echo "ufw allow from $s to any port 22000 proto tcp"
-        echo "ufw allow from $s to any port 22000 proto udp"
-        echo "ufw allow from $s to any port 21027 proto udp"
-        echo "ufw allow from $s to any port 5353 proto udp"
-        echo "ufw allow from $s to any port 1714:1764 proto tcp"
-        echo "ufw allow from $s to any port 1714:1764 proto udp"
+        porty_podsieci | while read -r port proto; do
+            echo "ufw allow from $s to any port $port proto $proto"
+        done
     done
     echo "ufw --force enable"
 }
@@ -52,6 +67,14 @@ reguly() {
 reguly_sprzatajace() {
     for s in $PODSIECI; do
         # [258a] 2026-08-29 — zdalny pulpit tylko przez tunel SSH, port 5900 zamknięty
+        echo "ufw delete allow from $s to any port 5900 proto tcp"
+    done
+    # [286] 2026-08-30 — podsieć wycofana z siec.toml: zdejmujemy KOMPLET reguł, które
+    # kiedykolwiek dla niej zakładaliśmy (te same porty co `reguly()` + historyczny 5900).
+    for s in $PODSIECI_WYCOFANE; do
+        porty_podsieci | while read -r port proto; do
+            echo "ufw delete allow from $s to any port $port proto $proto"
+        done
         echo "ufw delete allow from $s to any port 5900 proto tcp"
     done
 }
@@ -71,6 +94,7 @@ if [ "${1:-}" = "--wykonaj" ]; then
     echo "Port 5900 ma NIE występować w 'sudo ufw status' — patrz [258a]."
 else
     echo "# Podsieci LAN z siec.toml: $PODSIECI"
+    echo "# Podsieci WYCOFANE (reguły do zdjęcia): ${PODSIECI_WYCOFANE:-brak}"
     echo "# PODGLĄD — nic nie zmieniam. Wykonanie: $0 --wykonaj"
     echo "# najpierw sprzątanie reguł historycznych (błąd = reguły już nie ma):"
     reguly_sprzatajace | sed 's/^/sudo /'

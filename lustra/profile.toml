@@ -1,0 +1,85 @@
+# Profile maszyn — CZĘŚĆ „LUSTRO": KTÓRE POZYCJE dotyczą maszyny danego profilu.
+# DANE, nie kod. Sprawa [284], 2026-08-30.
+#
+# ⚠️ Profil maszyny ma DWIE strony i mieszkają w dwóch plikach, bo czytają je dwa
+#    różne programy:
+#      • TEN plik  — mechanizm luster (`lustro.py`, Python + tomllib): które PROGRAMY
+#                    (pozycje dziennika) mają być na maszynie tego profilu,
+#      • .chezmoidata/maszyny.yaml — chezmoi (szablony `.chezmoiignore.tmpl`): które
+#                    PLIKI KONFIGURACYJNE maszyna dostaje.
+#    KTÓRA maszyna ma KTÓRY profil — ani tu, ani tam, tylko pole `profil` w bloku
+#    [[maszyna]] pliku lustra/maszyny.toml (jedna lista floty, nie trzy).
+#    Nazwy profili w obu plikach muszą być takie same.
+#
+# Po co to powstało: Katana przestała być pełnym lustrem i została „mocą obliczeniową
+# na żądanie" (decyzja usera 30.08). Mechanizm [209] umiał wyłączyć pojedynczą pozycję
+# na jednej maszynie (`[[pozycja.override]] stan = "nieobecne"`) — ale Katana odpada od
+# około czterdziestu pozycji, a każdy przyszły program biurowy dołożony na Vostro
+# wymagałby DOPISANIA kolejnego override'u, żeby nie pojechał na Katanę. To jest praca,
+# o której nikt nie pamięta, więc lista rosłaby, a Katana i tak by się zapychała.
+#
+# Dlatego profil mówi, co ZOSTAJE (`zostaja`), a nie co wypada:
+#   • lista jest krótsza od listy wykluczeń i — ważniejsze — mówi o roli maszyny
+#     („na czym polega bycie mocą obliczeniową"), a nie o przypadkowej historii instalacji;
+#   • nowa pozycja dołożona gdziekolwiek we flocie domyślnie NIE trafia na maszynę
+#     o zawężonym profilu. Domyślna odpowiedź na „czy to też ma tam być?" brzmi „nie",
+#     i nikt nie musi o niczym pamiętać.
+#
+# Składnia `zostaja`: wzorce `kanal:identyfikator`, dopasowanie jak w powłoce
+# (`*`, `?`, `[abc]` — moduł fnmatch). Sam `"*"` = wszystko (bez ograniczeń).
+# Przykłady:  "apt:python3-*"  "flatpak:net.mkiol.SpeechNote"  "skrypt:*"
+#
+# Jak profil wpływa na `lustro`:
+#   • pozycja spoza `zostaja` NIE jest na tej maszynie sprawdzana — nie pojawia się jako
+#     rozbieżność, `sync --auto` jej nie dociągnie, bootstrap nowej maszyny jej nie postawi;
+#   • jawny `[[pozycja.override]]` z `statusy-pozycji.toml` WYGRYWA z profilem (kontrakt
+#     [209] rozdz. 3, reguła 2) — jednorazowy wyjątek nadal robi się jednym wpisem;
+#   • profil sam z siebie NICZEGO NIE USUWA. To, co już na maszynie stoi, zostaje aż do
+#     świadomej komendy `lustro profil sprzataj` (pyta o każdą pozycję z osobna).
+
+wersja = 1
+
+[profil.stacja]
+opis = "Stacja robocza — pełne lustro, bez ograniczeń."
+zostaja = ["*"]
+
+[profil.serwer]
+opis = "Serwer domowy — poza lustrem (czlonek_lustra = false); ograniczeń profilu nie ma."
+zostaja = ["*"]
+
+[profil.moc]
+opis = "Moc obliczeniowa na żądanie — maszyna liczy i jest obsługiwana zdalnie; bez pulpitu biurowego."
+# Co to znaczy „moc obliczeniowa" (decyzja usera 30.08, [284]): user włącza maszynę na czas
+# cięższego zadania, pracuje na niej PRZEZ SIEĆ (SSH, tmux, podgląd pulpitu przez VNC),
+# a po zadaniu ją wyłącza. Nie czyta na niej poczty, nie pisze dokumentów, nie ma tam konta
+# OneDrive ani przeglądarki z zalogowanymi kontami. Zostaje pięć rodzin:
+zostaja = [
+  # ── 1. System i narzędzia bazowe (wiersz poleceń) ──────────────────────────────
+  "apt:build-essential", "apt:meson", "apt:ninja-build", "apt:lib*-dev",
+  "apt:gstreamer1.0-plugins-bad",
+  "apt:git", "apt:gh", "apt:curl", "apt:wget", "apt:jq", "apt:ripgrep",
+  "apt:unzip", "apt:zip", "apt:htop", "apt:btop", "apt:xclip", "apt:pandoc",
+  "apt:python-is-python3", "apt:python3-*", "apt:pipx", "apt:flatpak",
+  "apt:cryptsetup", "apt:lvm2", "apt:dislocker", "apt:smartmontools", "apt:lm-sensors",
+  # terminal — bez niego podgląd pulpitu przez VNC jest bezużyteczny
+  "apt:kitty", "apt:wezterm",
+
+  # ── 2. Karta graficzna: NVIDIA / CUDA / sprzęt do liczenia ─────────────────────
+  # (sterowniki `nvidia-*` są poza lustrem — wykluczenia/apt.txt, „zależne od sprzętu";
+  #  wzorce niżej są na wypadek, gdyby coś z tej rodziny weszło do dziennika)
+  "apt:nvidia-*", "apt:cuda*", "apt:libcud*", "apt:nvtop", "apt:mesa-utils", "apt:vainfo",
+
+  # ── 3. Transkryptor (usługi użytkownika + venv) ────────────────────────────────
+  # Same usługi i venv wozi chezmoi; tutaj to, co Transkryptor bierze z systemu.
+  "apt:ffmpeg", "apt:espeak-ng", "apt:python3-*",
+
+  # ── 4. Dostęp zdalny ───────────────────────────────────────────────────────────
+  "apt:openssh-server", "apt:tmux", "apt:tailscale", "apt:tailscale-archive-keyring",
+  "apt:syncthing", "apt:x11vnc", "apt:tigervnc-viewer",
+  "skrypt:ssh-handler", "skrypt:vnc-handler",
+
+  # ── 5. Claude Code i uruchamianie sesji ────────────────────────────────────────
+  # (sam Claude Code instaluje się poza apt/snap/flatpak — mechanizm widzi go
+  #  w sekcji „instalacje spoza", nie jako pozycję dziennika)
+  "skrypt:ailauncher",
+]

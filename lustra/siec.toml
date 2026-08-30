@@ -1,20 +1,35 @@
 # Sieć domowa — DANE, nie kod (poprawka 7 planu 25.08, brak 17 z Katany).
 #
-# Dom ma DWIE podsieci LAN: kabel 192.168.1.x i Wi-Fi 192.168.100.x. Maszyna bywa
-# raz w jednej, raz w drugiej (adres Wi-Fi bywa zmienny — 25.08 Katana sama była
-# chwilowo w .1.x), więc reguły zapory stacji muszą wpuszczać OBIE. Dawny wzorzec
-# zakładał jedną zaszytą podsieć (192.168.1.0/24) — przez to maszyny na Wi-Fi
-# nie dogadywały się po LAN z maszynami na kablu.
-#
 # Kto to czyta:
-#   • lustra/ufw-stacja.sh — buduje z tej listy reguły ufw stacji (wzorzec reguł:
+#   • lustra/ufw-stacja.sh — buduje z tych list reguły ufw stacji (wzorzec reguł:
 #     audyt Vostro 24.08, 7_Bezpieczenstwo/zapora-vostro-audyt-2026-08-24.md),
 #   • procedura-nowej-stacji.md (Etap 2) — odsyła tutaj zamiast wpisywać adresy.
 #
-# Nowa podsieć w domu = nowa pozycja TUTAJ (i przelanie reguł ufw-stacja.sh),
-# bez ruszania kodu.
+# DWIE listy, bo podsieć ma w tym mechanizmie DWA stany, a nie jeden:
+#   `podsieci_lan`       — podsieci domowe, do których wpuszczamy ruch (reguły zakładane),
+#   `podsieci_wycofane`  — podsieci, które KIEDYŚ tu były i których reguły mają ze stacji
+#                          ZNIKNĄĆ. Zapora nie sprząta po sobie sama: skasowanie linii
+#                          z `podsieci_lan` zostawiłoby na każdej maszynie komplet starych
+#                          reguł `ufw allow from …` na zawsze.
+# Wycofanie podsieci = PRZENIESIENIE jednej linii z pierwszej listy do drugiej. Kod bez zmian.
+# Wpis z listy wycofanych wolno skasować dopiero wtedy, gdy `ufw-stacja.sh --wykonaj`
+# przebiegł na WSZYSTKICH maszynach (dziś: hp, vostro, katana).
 
-podsieci_lan = ["192.168.1.0/24", "192.168.100.0/24", "192.168.122.0/24"]  # 192.168.122.0/24 = sieć libvirt poligonu (VM na serwerze) — usunąć po testach T7 (27.08)
+podsieci_lan = ["192.168.1.0/24"]
+
+# Podsieci wycofane — patrz wyżej. Data i powód przy każdej pozycji, żeby nikt nie
+# przywrócił ich „bo pewnie po coś były".
+podsieci_wycofane = [
+  # 192.168.100.0/24 — NIE jest podsiecią domową. Zmierzone przez obszar 6_Dostep_zdalny
+  #   30.08: to sieć firmowa ANV, do której HP/Katana wpinały się poza domem. Wpisana tu
+  #   25.08 przy okazji „domu z dwiema podsieciami" (Katana chodziła wtedy po Wi-Fi
+  #   z adresem .100.x) — błędna diagnoza, dom ma JEDNĄ podsieć 192.168.1.0/24 na kablu
+  #   i na Wi-Fi. Decyzja Architekta 30.08 [286]: zdejmujemy z zapory i z panelu.
+  "192.168.100.0/24",
+  # 192.168.122.0/24 — sieć libvirt maszyny wirtualnej poligonu na serwerze. VM skasowana,
+  #   podsieć nie istnieje ([286], 30.08). Miała zniknąć „po testach T7" już 27.08.
+  "192.168.122.0/24",
+]
 
 # ── Panel menadzera sieci — GDZIE stoi i JAK go otworzyc ([262], 2026-08-29) ──
 # Uslugę serwuje `menadzer-sieci.service` na serwerze (/srv/uslugi/menadzer-sieci/app.py,
