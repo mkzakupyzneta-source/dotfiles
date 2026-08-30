@@ -1,6 +1,6 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-08-30T13:32:52+02:00",
+  "ts": "2026-08-30T14:32:51+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -690,6 +690,12 @@
       "kanal": "gnome-extension",
       "id": "gsconnect@andyholmes.github.io",
       "wersja": "72",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "gnome-extension",
+      "id": "tailscale@joaophi.github.com",
+      "wersja": "19",
       "zrodlo": ""
     },
     {
