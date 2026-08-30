@@ -75,6 +75,27 @@
 #                        ręcznie z `--wykonaj` (wymaga hasła sudo).
 #   powod_nie_wylaczac — tekst adnotacji pokazywany zamiast przycisku, gdy pola `wolno_wylaczac`
 #                        nie ma (opcjonalny; bez niego panel pisze zdanie domyślne).
+#   wolno_hibernowac   — true = panel POKAZUJE przycisk „hibernuj" (zapis pamięci na dysk
+#                        i pełne wyłączenie; powrót do dokładnie tych samych okien). Sprawa [290],
+#                        2026-08-30.
+#                        ⚠️ BIEGUNOWOŚĆ TAKA SAMA JAK `wolno_wylaczac`, i tak ma być: BRAK POLA
+#                        = BRAK ZGODY. Hibernacja jest nieodwracalna zdalnie tak samo jak
+#                        wyłączenie (maszyna gaśnie), a na maszynie źle przygotowanej potrafi
+#                        skończyć się utratą sesji zamiast jej zapisaniem. Kontrakt panelu
+#                        (obszar 1_Serwer): `not maszyna.get("wolno_hibernowac")` → przycisk
+#                        wyszarzony z adnotacją.
+#                        Wpisujemy WYŁĄCZNIE tam, gdzie hibernacja została ZMIERZONA — nie tam,
+#                        gdzie „powinna działać". Warunki, które trzeba spełnić (Vostro,
+#                        zmierzone 2026-08-30): Secure Boot wyłączony, `secretmem.enable=0`
+#                        w wierszu poleceń jądra, obszar wymiany (swap) większy od pamięci
+#                        (tam: 34 GB na /data), karta sieciowa z włączonym `power/wakeup`
+#                        (żeby dało się obudzić przez sieć).
+#                        Maszyna z `wolno_hibernowac = true` potrzebuje też reguły sudo bez hasła
+#                        na samo `systemctl hibernate` — zakłada ją `lustra/zasilanie-stacja.sh`
+#                        (ta sama jedna linia w /etc/sudoers.d/91-lustro-zasilanie, co poweroff).
+#   powod_nie_hibernowac — tekst adnotacji pokazywany zamiast przycisku, gdy pola
+#                        `wolno_hibernowac` nie ma (opcjonalny; bez niego panel pisze zdanie
+#                        domyślne).
 #   klapa_zamkniecie   — CO SIĘ DZIEJE PO ZAMKNIĘCIU KLAPY tej maszyny. Sprawa [279], 2026-08-30.
 #                        Trzy wartości — to DANE, nie kolumny; nowe zachowanie = nowa wartość:
 #                          "usyp"         — domyślne zachowanie systemu: zamknięcie klapy usypia
@@ -194,6 +215,12 @@ onedrive = "konto-osobiste"   # [279a] — stan zastany; NIEZWERYFIKOWANY pomiar
                               # tylko "brak"), więc jest bezpieczna do czasu sprawdzenia.
 mac_lan = "54:bf:64:31:4d:b7"
 zdalny_pulpit = ["vnc"]  # usluga `zdalny-pulpit` (x11vnc 127.0.0.1:5900) — [258c] 2026-08-29
+wolno_hibernowac = true  # [290] 30.08 — hibernacja ZMIERZONA na tej maszynie, nie założona:
+                         # `rtcwake -m disk` uśpiło na dysk, wybudzenie przez sieć (WOL) zadziałało,
+                         # powrót do sesji zajął ~3 s. Warunki spełnione: Secure Boot wyłączony,
+                         # `secretmem.enable=0` w wierszu poleceń jądra, obszar wymiany 34 GB
+                         # na /data (większy od pamięci), `power/wakeup` karty sieciowej włączone
+                         # regułą udev. Jedyna maszyna floty z tym polem — patrz nagłówek pliku.
 klapa_zamkniecie = "ignoruj"  # [279] 30.08 — Vostro pracuje ZAWSZE z zamkniętą klapą. Decyzja
                               # usera: „nic nie zmieniamy" — pole zapisuje STAN ZASTANY, żeby
                               # mechanizm go znał; NIKT nie uruchamiał tam `zasilanie-stacja.sh`.
@@ -376,6 +403,11 @@ mac_lan = "04:7c:16:33:f2:90"  # karta KABLOWA enp4s0, zmierzone 29.08 ([267c]);
 nie_usypiac = true
 wolno_wylaczac = true  # [267c] 29.08 — Katana jest „zapasową mocą": user ją włącza na czas
                        # zadania i wyłącza po nim, więc panel ma pokazywać przycisk „wyłącz".
+# wolno_hibernowac — CELOWO BRAK POLA (= brak zgody), [290] 30.08. DO DECYZJI USERA:
+#   Katana ma `nie_usypiac = true` ([189] — zawiesza się po wybudzeniu z uśpienia), a hibernacja
+#   to inna droga (zapis na dysk, pełne wyłączenie) i mogłaby działać tam, gdzie uśpienie nie
+#   działa. Nikt tego nie mierzył. Zanim pole tu stanie: sprawdzić warunki jak na Vostro
+#   (Secure Boot, secretmem, rozmiar swapa) i wykonać próbę przy maszynie.
 klapa_zamkniecie = "ignoruj"  # [279] 30.08 — Katana pracuje z zamkniętą klapą (rola „zapasowa
                               # moc", bez ekranu). Stan zastany: drop-in
                               # /etc/systemd/logind.conf.d/50-moc-obliczeniowa.conf założony 29.08
