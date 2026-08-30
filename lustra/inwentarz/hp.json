@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-08-30T10:52:09+02:00",
+  "ts": "2026-08-30T11:52:55+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -696,6 +696,12 @@
       "kanal": "gnome-extension",
       "id": "gsconnect@andyholmes.github.io",
       "wersja": "72",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "gnome-extension",
+      "id": "tailscale@joaophi.github.com",
+      "wersja": "19",
       "zrodlo": ""
     },
     {
