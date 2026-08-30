@@ -45,6 +45,7 @@ STATUSY_POZYCJI = KATALOG / "statusy-pozycji.toml" # wspolne/testowe + override/
 MASZYNY_TOML = KATALOG / "maszyny.toml"            # czlonek_lustra [209] 2.1
 PROFILE_TOML = KATALOG / "profile.toml"            # co dotyczy maszyny danego profilu [284]
 ZRODLA_GALEZI = PULPIT / "zrodla-galezi.toml"      # źródło per gałąź pulpitu [209] 2.3.2
+ZNACZNIKI_MASZYN = PULPIT / "znaczniki-maszyn.toml"  # znaczniki maszynowe [291]
 PULPIT_STAN = PULPIT / "stan"                      # migawki <maszyna>.ini [209] 2.3.1
 SKRYPTY_TOML = KATALOG / "skrypty.toml"            # pozycje instalowane skryptem [252]
 SOURCES_D = Path("/etc/apt/sources.list.d")
@@ -89,6 +90,7 @@ TRYB_ROOT = os.environ.get("LUSTRO_ROOT", "sudo")
 
 # błędy odczytu dconf zebrane w trakcie jednego przebiegu — patrz _wypisz_pulpit
 _BLEDY_DCONF = []
+_ZNACZNIKI_BEZ_WARTOSCI = []   # znaczniki maszynowe bez wartości dla TEJ maszyny [291]
 
 
 # ---------------------------------------------------------------- narzędzia
@@ -2339,6 +2341,68 @@ def pobierz_i_zainstaluj_rozszerzenie(uuid, wersja_shell):
     return True, f"zainstalowane (wersja {dane.get('version', '?')}, uuid {uuid})"
 
 
+def wczytaj_znaczniki_maszyn():
+    """
+    Czyta pulpit/znaczniki-maszyn.toml → {"NAZWA": {"maszyna": "wartość", ...}} ([291]).
+
+    Znacznik maszynowy to ta sama sztuczka co działający od E1 `{{HOME}}` (spec 8.4): wartość
+    z natury różna na różnych maszynach (bo opisuje SPRZĘT) jest we wzorcu zapisana jako
+    `{{NAZWA}}`, a każda maszyna zwija/rozwija ją do swojej. Dzięki temu różnica maszyn jest
+    DANĄ (jedna linia w pliku), a nie drugą wersją wzorca.
+
+    Brak pliku = pusty słownik = mechanizm nieaktywny (nic się nie zmienia).
+    """
+    if not ZNACZNIKI_MASZYN.exists():
+        return {}
+    import tomllib
+    try:
+        dane = tomllib.loads(ZNACZNIKI_MASZYN.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError) as e:
+        print(f"⚠ nie umiem odczytać {ZNACZNIKI_MASZYN.name}: {e} — znaczniki maszynowe pomijam")
+        return {}
+    wynik = {}
+    for z in dane.get("znacznik", []):
+        nazwa = str(z.get("nazwa", "")).strip()
+        if not nazwa:
+            continue
+        wartosci = {str(k).strip().lower(): str(v)
+                    for k, v in (z.get("wartosci") or {}).items() if str(v)}
+        wynik[nazwa] = wartosci
+    return wynik
+
+
+def znaczniki_tej_maszyny():
+    """{"NAZWA": "wartość na TEJ maszynie"} — tylko znaczniki, dla których dane ją znają."""
+    ja = nazwa_maszyny().strip().lower()
+    return {n: w[ja] for n, w in wczytaj_znaczniki_maszyn().items() if ja in w}
+
+
+def zwin_znaczniki(wartosc, mapa=None):
+    """Wartość TEJ maszyny → `{{NAZWA}}` (kierunek EKSPORTU, jak `{{HOME}}`).
+    Najdłuższe wartości podmieniamy pierwsze, żeby krótsza nie zjadła kawałka dłuższej."""
+    mapa = znaczniki_tej_maszyny() if mapa is None else mapa
+    for nazwa, wart in sorted(mapa.items(), key=lambda p: -len(p[1])):
+        wartosc = wartosc.replace(wart, "{{" + nazwa + "}}")
+    return wartosc
+
+
+def rozwin_znaczniki(tekst, mapa=None):
+    """`{{NAZWA}}` → wartość TEJ maszyny (kierunek WGRYWANIA). Znaczników, których ta maszyna
+    nie zna, NIE rusza — wołający ma je wyłapać przez `nierozwiazane_znaczniki`."""
+    mapa = znaczniki_tej_maszyny() if mapa is None else mapa
+    for nazwa, wart in mapa.items():
+        tekst = tekst.replace("{{" + nazwa + "}}", wart)
+    return tekst
+
+
+def nierozwiazane_znaczniki(tekst, mapa=None):
+    """Nazwy znaczników `{{...}}`, których ta maszyna NIE umie rozwinąć.
+    `{{HOME}}` jest zawsze rozwiązywalny (liczony, nie z danych) — pomijamy go tutaj."""
+    mapa = znaczniki_tej_maszyny() if mapa is None else mapa
+    return {n for n in re.findall(r"\{\{([A-Z0-9_]+)\}\}", tekst)
+            if n != "HOME" and n not in mapa}
+
+
 def eksport_pulpitu():
     """
     Eksportuje wybrane ścieżki dconf (spec 8.3) z podmianą katalogu domowego
@@ -2371,7 +2435,15 @@ def eksport_pulpitu():
     # podmiana katalogu domowego na znacznik — bez tego skrót po cichu przestanie
     # działać na maszynie, na której konto nazywa się inaczej niż `mk` (spec 8.4)
     dom = str(DOM)
-    return {k: v.replace(dom, "{{HOME}}") for k, v in stan.items()}
+    stan = {k: v.replace(dom, "{{HOME}}") for k, v in stan.items()}
+
+    # to samo, ale dla wartości zależnych od SPRZĘTU tej maszyny ([291]) — nazwa czujnika
+    # temperatury procesora itp. Bez tego każda maszyna z innym czujnikiem miałaby trwałą,
+    # nieusuwalną rozbieżność na tym kluczu.
+    mapa = znaczniki_tej_maszyny()
+    if mapa:
+        stan = {k: zwin_znaczniki(v, mapa) for k, v in stan.items()}
+    return stan
 
 
 def zapisz_pulpit(stan, plik, naglowek_linie=None):
@@ -2386,6 +2458,7 @@ def zapisz_pulpit(stan, plik, naglowek_linie=None):
     linie = list(naglowek_linie) if naglowek_linie is not None else [
         "# Ustawienia pulpitu GNOME objęte lustrem — plik GENEROWANY przez lustro.py.",
         "# Ścieżki wybrane w pulpit/dconf-lustro.txt; {{HOME}} = katalog domowy maszyny.",
+        "# Inne {{ZNACZNIKI}} = wartości zależne od sprzętu maszyny — pulpit/znaczniki-maszyn.toml ([291]).",
         "# Klucze przejęte przez rozszerzenia GNOME są POZA lustrem — patrz",
         "# pulpit/dconf-rozszerzenia.txt (naprawa fałszywego alarmu z 23.08).",
         "# Format zgodny z `dconf dump /` — do wczytania: `lustro pulpit wgraj`",
@@ -2462,11 +2535,22 @@ def roznice_pulpitu():
     w_lustrze = wczytaj_pulpit_z_lustra()
     if w_lustrze is None:
         return None
+    mapa = znaczniki_tej_maszyny()
+    del _ZNACZNIKI_BEZ_WARTOSCI[:]
     rozne = []
     for klucz in sorted(set(tutaj) | set(w_lustrze)):
         a, b = tutaj.get(klucz), w_lustrze.get(klucz)
-        if a != b:
-            rozne.append((klucz, a, b))
+        if a == b:
+            continue
+        # Wzorzec ma tu znacznik maszynowy, którego TA maszyna nie zna ([291]) — nie wiemy,
+        # jaka wartość jest dla niej poprawna, więc NIE zgłaszamy rozbieżności (byłby to
+        # alarm nie do usunięcia). Zamiast tego mówimy, czego brakuje w danych.
+        brak = nierozwiazane_znaczniki(b or "", mapa)
+        if brak:
+            for n in sorted(brak):
+                _ZNACZNIKI_BEZ_WARTOSCI.append((n, klucz))
+            continue
+        rozne.append((klucz, a, b))
     return rozne
 
 
@@ -2477,6 +2561,17 @@ def kontrola_pulpitu():
     czy zakładki menedżera plików nie wskazują w próżnię.
     """
     uwagi = []
+
+    # 0. znaczniki maszynowe bez wartości dla TEJ maszyny ([291]) — klucz został pominięty
+    #    w porównaniu, więc user musi się o tym dowiedzieć, inaczej „0 rozbieżności" kłamie.
+    for nazwa, klucz in sorted(set(_ZNACZNIKI_BEZ_WARTOSCI)):
+        uwagi.append(
+            f"wzorzec ma tu znacznik maszynowy „{{{{{nazwa}}}}}”, a "
+            f"{ZNACZNIKI_MASZYN.name} nie zna wartości dla maszyny „{nazwa_maszyny()}”\n"
+            f"      klucz: {klucz}\n"
+            f"      skutek: ten klucz NIE jest ani porównywany, ani wgrywany\n"
+            f"      propozycja: dopisz jedną linię w [znacznik.wartosci] "
+            f"({nazwa_maszyny()} = \"...\")")
 
     # 1. skróty własne → skrypty w ~/bin muszą być wożone przez chezmoi
     wozone = set()
@@ -3630,6 +3725,27 @@ def polecenie_pulpit_wgraj(args):
 
     # podmiana {{HOME}} z powrotem na katalog domowy TEJ maszyny (spec 8.4)
     tresc = PLIK_PULPITU.read_text(encoding="utf-8").replace("{{HOME}}", str(DOM))
+    # to samo dla znaczników maszynowych ([291]) — `{{TEMP_CPU}}` → nazwa czujnika TEJ maszyny
+    mapa_zn = znaczniki_tej_maszyny()
+    tresc = rozwin_znaczniki(tresc, mapa_zn)
+    # Linie, w których znacznik został nierozwinięty (dane nie znają tej maszyny), NIE mogą
+    # pojechać do dconf — wpisałyby tam literalny napis `{{NAZWA}}` i po cichu zepsuły ustawienie.
+    # Wycinamy je i mówimy o tym wprost; reszta wzorca wgrywa się normalnie.
+    zostawione, pominiete_zn = [], []
+    for linia in tresc.splitlines():
+        brak = nierozwiazane_znaczniki(linia, mapa_zn)
+        if brak:
+            pominiete_zn.append((linia.split("=", 1)[0].strip(), sorted(brak)))
+        else:
+            zostawione.append(linia)
+    if pominiete_zn:
+        tresc = "\n".join(zostawione) + "\n"
+        print("⚠ POMIJAM klucze ze znacznikiem maszynowym, którego dane nie znają dla "
+              f"maszyny „{nazwa_maszyny()}” ({ZNACZNIKI_MASZYN.name}):")
+        for klucz, brak in pominiete_zn:
+            print(f"    {klucz}  —  brak wartości dla: {', '.join(brak)}")
+        print("    Te ustawienia zostają na tej maszynie NIETKNIĘTE (lepiej nie ruszyć "
+              "niż wpisać bzdurę).")
     kod, _ = uruchom(["dconf", "load", "/"], wejscie=tresc)
     if kod != 0:
         print("⚠ `dconf load` zakończone błędem — sprawdź kopię wyżej.")

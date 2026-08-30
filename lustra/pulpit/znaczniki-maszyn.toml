@@ -1,0 +1,39 @@
+# ZNACZNIKI MASZYNOWE we wzorcu pulpitu — sprawa [291], 2026-08-30, obszar 5.
+#
+# PO CO TO JEST. Wzorzec `pulpit/pulpit.ini` jest JEDEN dla całej floty, a niektóre wartości
+# w dconf są z natury różne na różnych maszynach — nie dlatego, że ktoś je „rozjechał", tylko
+# dlatego, że opisują SPRZĘT. Przykład, od którego to powstało: pasek Vitals wymienia czujnik
+# temperatury procesora, a ten nazywa się inaczej na AMD (`_temperature_k10temp_tctl_`, HP)
+# i inaczej na Intelu (`_temperature_processor_0_`, Katana). Bez tego pliku `lustro status`
+# na Katanie zgłaszałby TRWAŁĄ rozbieżność, której nie da się usunąć: wyrównanie wartości
+# do wzorca dałoby jej martwą pozycję na pasku (czujnik AMD, którego tam nie ma).
+#
+# JAK TO DZIAŁA — dokładnie tak jak działający od E1 znacznik `{{HOME}}` (spec 8.4):
+#   • przy EKSPORCIE (`pulpit oddaj`, `oddaj-stan`, każde porównanie) wartość TEJ maszyny jest
+#     zwijana do znacznika `{{NAZWA}}` — więc każda maszyna eksportuje ten sam napis;
+#   • przy WGRYWANIU (`pulpit wgraj`) znacznik jest rozwijany z powrotem na wartość TEJ maszyny.
+# Dołożenie kolejnej maszyny = JEDNA LINIA w tabeli `wartosci`, nie druga wersja wzorca.
+#
+# NAZWA MASZYNY to `klucz` z `lustra/maszyny.toml` (`hp`, `vostro`, `katana`, `serwer`…) —
+# ta sama, której apka używa dla dzienników.
+#
+# CZEGO MECHANIZM NIE ROBI (celowo): nie zgaduje. Maszyna, dla której znacznik nie ma wartości,
+# jest traktowana jak „nie wiem": klucz z tym znacznikiem NIE jest porównywany (zamiast tego
+# `status` pokazuje uwagę, czego brakuje) i NIE jest wgrywany (żeby do dconf nie trafił literalny
+# napis `{{TEMP_CPU}}`). Brak danych ma boleć raz i czytelnie, a nie po cichu psuć pasek.
+
+[[znacznik]]
+nazwa = "TEMP_CPU"
+opis  = """Nazwa czujnika temperatury procesora w rozszerzeniu Vitals (klucz `hot-sensors`).
+Wyprowadzana z kodu rozszerzenia, nie zgadywana: etykietą jest treść `temp1_label` z hwmon
+(`k10temp` → „Tctl", `coretemp` → „Package id 0", które Vitals zamienia na „Processor 0"),
+a klucz powstaje jako `_temperature_<etykieta z małych liter, PIERWSZA spacja na _>_`.
+Sprawdzenie na maszynie:  for f in /sys/class/hwmon/*/name; do echo "$f $(cat $f)"; done"""
+
+  [znacznik.wartosci]
+  hp     = "_temperature_k10temp_tctl_"   # AMD, zmierzone 30.08 ([282]) — zgodne z dconf usera
+  katana = "_temperature_processor_0_"    # Intel, wyprowadzone z kodu Vitals + hwmon po SSH ([282])
+  # vostro — CELOWO BRAK. Maszyna była wyłączona przy pomiarze [282]; stara notatka mówiła
+  # o czujniku `_fan_dell_smm_`, ale to przesłanka, nie pomiar. Do uzupełnienia jedną linią,
+  # gdy obszar 2 zmierzy hwmon na Vostro. Do tego czasu klucz `hot-sensors` nie jest tam
+  # ani porównywany, ani wgrywany — i `lustro status` mówi wprost, czego brakuje.
