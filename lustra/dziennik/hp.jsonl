@@ -123,3 +123,4 @@
 {"ts": "2026-08-29T18:25:20+02:00", "maszyna": "hp", "zdarzenie": "dodano", "kanal": "flatpak", "id": "org.gnome.SoundRecorder", "wersja": "42.0", "zrodlo": "apka", "notatka": "T"}
 {"ts": "2026-08-29T18:38:42+02:00", "maszyna": "hp", "zdarzenie": "dodano", "kanal": "apt", "id": "ydotool", "wersja": "0.1.8-3build1", "zrodlo": "apka", "notatka": "T"}
 {"ts": "2026-08-29T18:52:47+02:00", "maszyna": "hp", "zdarzenie": "usunieto", "kanal": "apt", "id": "ydotool", "zrodlo": "apka", "notatka": "[272] zainstalowany 29.08 pod błędnym założeniem: na X11 dyktowanie idzie przez XDO, ydotool tylko dla Wayland"}
+{"ts": "2026-08-30T10:17:07+02:00", "maszyna": "hp", "zdarzenie": "dodano", "kanal": "flatpak", "id": "dev.deedles.Trayscale", "wersja": "v0.18.9", "zrodlo": "apka", "notatka": "T"}

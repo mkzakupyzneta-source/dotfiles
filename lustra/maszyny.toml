@@ -57,6 +57,37 @@
 #                        ręcznie z `--wykonaj` (wymaga hasła sudo).
 #   powod_nie_wylaczac — tekst adnotacji pokazywany zamiast przycisku, gdy pola `wolno_wylaczac`
 #                        nie ma (opcjonalny; bez niego panel pisze zdanie domyślne).
+#   klapa_zamkniecie   — CO SIĘ DZIEJE PO ZAMKNIĘCIU KLAPY tej maszyny. Sprawa [279], 2026-08-30.
+#                        Trzy wartości — to DANE, nie kolumny; nowe zachowanie = nowa wartość:
+#                          "usyp"         — domyślne zachowanie systemu: zamknięcie klapy usypia
+#                                           od ręki. BRAK POLA = to samo (nic nie zmieniamy).
+#                          "ekran-gasnie" — ekran gaśnie natychmiast, ale maszyna PRACUJE DALEJ;
+#                                           usypia dopiero po `klapa_usyp_po_min` minutach, jeśli
+#                                           klapa nadal jest zamknięta. Dla laptopa, który user
+#                                           przenosi zamknięty między pokojami.
+#                          "ignoruj"      — klapa nie robi NIC (maszyna pracuje z zamkniętą klapą
+#                                           bez końca).
+#                        Mechanizm: `lustra/zasilanie-stacja.sh --wykonaj` (root) zakłada albo
+#                        zdejmuje drop-in /etc/systemd/logind.conf.d/50-lustro-klapa.conf
+#                        (trzy klucze `HandleLidSwitch*=ignore`) — dla "ekran-gasnie" i "ignoruj"
+#                        zakłada, dla "usyp" zdejmuje. Resztę pracy przy "ekran-gasnie" wykonuje
+#                        usługa użytkownika `klapa-straznik.service` (wozi ją chezmoi, włącza
+#                        `run_onchange_after_wlacz-klapa-straznik.sh.tmpl`); usługa sama czyta to
+#                        pole i na maszynie z inną wartością kończy się od razu.
+#   klapa_usyp_po_min  — po ilu minutach zamkniętej klapy strażnik usypia maszynę. Ma sens tylko
+#                        przy `klapa_zamkniecie = "ekran-gasnie"`; 0 = nie usypiaj wcale.
+#                        Brak pola = 5. Podłączony monitor zewnętrzny (dok) ODWOŁUJE odliczanie —
+#                        praca na monitorach z zamkniętą klapą nie ma się kończyć uśpieniem.
+#   klapa_otwarcie_budzi — false = otwarcie klapy ma NIE budzić uśpionej maszyny (budzi klawisz
+#                        albo przycisk zasilania). Brak pola = true, czyli „zostaw, jak jest".
+#                        Mechanizm: `zasilanie-stacja.sh` wyłącza źródło wybudzeń o nazwie
+#                        zaczynającej się od `LID` w /proc/acpi/wakeup i utrwala to jednostką
+#                        systemową `lustro-klapa-wakeup.service` (wpis w /proc/acpi/wakeup jest
+#                        PRZEŁĄCZNIKIEM i po restarcie wraca do stanu z BIOS-u).
+#                        ⚠️ Nie każda maszyna taki wpis MA — HP (zmierzone 2026-08-30) nie ma
+#                        w /proc/acpi/wakeup żadnej pozycji LID*, a `PNP0C0D:00` (klapa) nie jest
+#                        tam zarejestrowana jako źródło wybudzeń. Skrypt mówi to wprost i nic nie
+#                        udaje, zamiast zgłaszać sukces.
 #   system             — system operacyjny jako DANA (PRETTY_NAME z /etc/os-release), nie część
 #                        nazwy ([252] uzup. 3, 2026-08-29 — HP po przesiadce nazywał się dalej
 #                        „HP (Windows)"). Na stacjach wpisuje/odświeża K5 automatu
@@ -112,6 +143,12 @@ aktywna = true
 profil = "stacja"
 mac_lan = "54:bf:64:31:4d:b7"
 zdalny_pulpit = ["vnc"]  # usluga `zdalny-pulpit` (x11vnc 127.0.0.1:5900) — [258c] 2026-08-29
+klapa_zamkniecie = "ignoruj"  # [279] 30.08 — Vostro pracuje ZAWSZE z zamkniętą klapą. Decyzja
+                              # usera: „nic nie zmieniamy" — pole zapisuje STAN ZASTANY, żeby
+                              # mechanizm go znał; NIKT nie uruchamiał tam `zasilanie-stacja.sh`.
+                              # ⚠️ NIEZWERYFIKOWANE, czym to zachowanie jest dziś zrobione
+                              # (drop-in logind? monitor zewnętrzny + HandleLidSwitchDocked?) —
+                              # do sprawdzenia przy najbliższej sesji obszaru 2 na Vostro.
 uwagi = """
 Stacja robocza. Konta Claude bierzemy z ~/.config/ailauncher/settings.json.
 Tailscale na Vostro jeszcze NIE zainstalowany (stan 2026-08-23) — pola tailscale puste.
@@ -188,6 +225,13 @@ profil = "stacja"
 mac_lan = "28:2e:89:ac:db:48"
 zdalny_pulpit = ["vnc"]  # usluga `zdalny-pulpit` (x11vnc 127.0.0.1:5900) — [258c] 2026-08-29
 czlonek_lustra = true
+klapa_zamkniecie = "ekran-gasnie"  # [279] 30.08 decyzja usera: HP jeździ zamknięty między
+                                  # pokojami — ekran ma zgasnąć od razu, ale maszyna pracuje dalej
+klapa_usyp_po_min = 5             # …i usypia dopiero po 5 minutach nadal zamkniętej klapy
+klapa_otwarcie_budzi = false      # otwarcie klapy ma NIE budzić (budzi klawisz/przycisk).
+                                  # ⚠️ Na HP nie ma czego wyłączać: /proc/acpi/wakeup nie zawiera
+                                  # pozycji LID* (zmierzone 30.08) — pole zapisuje ZAMIAR usera,
+                                  # skrypt zgłosi „brak źródła wybudzeń klapy", nie udaje sukcesu.
 uwagi = """
 Ubuntu 24.04 od 2026-08-29 (automat nowa-stacja.sh; dysk LUKS). Wcześniej Windows 11
 (`lapekhp`, Tailscale 100.112.73.10 — węzeł do usunięcia). Wi-Fi 6E MediaTek MT7922,
@@ -223,6 +267,13 @@ mac_lan = "04:7c:16:33:f2:90"  # karta KABLOWA enp4s0, zmierzone 29.08 ([267c]);
 nie_usypiac = true
 wolno_wylaczac = true  # [267c] 29.08 — Katana jest „zapasową mocą": user ją włącza na czas
                        # zadania i wyłącza po nim, więc panel ma pokazywać przycisk „wyłącz".
+klapa_zamkniecie = "ignoruj"  # [279] 30.08 — Katana pracuje z zamkniętą klapą (rola „zapasowa
+                              # moc", bez ekranu). Stan zastany: drop-in
+                              # /etc/systemd/logind.conf.d/50-moc-obliczeniowa.conf założony 29.08
+                              # skryptem `Katana/przygotuj-moc-obliczeniowa.sh` POZA mechanizmem
+                              # ([267d]). Wciągnięte tutaj, żeby mechanizm o tym wiedział;
+                              # `zasilanie-stacja.sh --wykonaj` założy własny 50-lustro-klapa.conf
+                              # i wskaże stary plik do skasowania (nie kasuje go sam — cudzy).
 zdalny_pulpit = ["vnc"]  # usluga `zdalny-pulpit` z lustra (x11vnc) — [258c] 2026-08-29
 powod_nie_usypiac = "[189] — budzenie bez ekranu; usypianie dozwolone dopiero po wdrożeniu roli headless"
 uwagi = """

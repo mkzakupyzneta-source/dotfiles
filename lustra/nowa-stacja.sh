@@ -182,24 +182,29 @@ else
     rm -f /tmp/90-lustro-pakiety
 fi
 
-# ------------------------------------------------------------------ K3b sudo na wyłączanie [267c]
-# Tylko dla maszyn, które MAJĄ w danych zgodę na wyłączanie (`wolno_wylaczac = true`
-# w lustra/maszyny.toml). Skrypt sam pyta danych — my tu tylko decydujemy, czy go wołać,
-# żeby maszyna bez zgody nie dostała niepotrzebnego pytania o hasło sudo.
+# ------------------------------------------------------------------ K3b ustawienia zasilania [267c][279]
+# Trzy rzeczy naraz, każda sterowana osobnym polem w lustra/maszyny.toml:
+#   wolno_wylaczac       → reguła sudo /etc/sudoers.d/91-lustro-zasilanie
+#   klapa_zamkniecie     → drop-in /etc/systemd/logind.conf.d/50-lustro-klapa.conf
+#   klapa_otwarcie_budzi → wybudzanie klapą (/proc/acpi/wakeup + lustro-klapa-wakeup.service)
+# Skrypt sam pyta danych — my tu tylko decydujemy, CZY go wołać, żeby maszyna bez żadnego
+# z tych ustawień nie dostała niepotrzebnego pytania o hasło sudo. Pytamy jego własnego
+# podglądu (ostatnia linia: `# jest-co-robic` albo `# nic-do-zrobienia`) — nie zgadujemy
+# tu drugi raz tego, co on już policzył z danych.
 # UWAGA: ten krok idzie PRZED K5, który dopisuje maszynę do maszyny.toml — świeża maszyna
 # nie ma tam jeszcze bloku, więc krok wyjdzie „pominięte". To POPRAWNE: brak danych = brak
-# zgody na wyłączanie. Gdy user później nada maszynie `wolno_wylaczac = true`, regułę zakłada
+# zgody i brak wyjątków. Gdy user później nada maszynie któreś z pól, wszystko zakłada
 # jedno uruchomienie `lustra/zasilanie-stacja.sh --wykonaj` (pyta o hasło sudo).
-krok "K3b Reguła sudo na wyłączanie ([267c] — tylko maszyny z wolno_wylaczac = true)"
+krok "K3b Ustawienia zasilania: wyłączanie i klapa ([267c][279] — z danych maszyny.toml)"
 ZASILANIE="$LUSTRA/zasilanie-stacja.sh"
 if [ ! -f "$ZASILANIE" ]; then
     pomin "zasilanie-stacja.sh" "brak skryptu w repozytorium"
-elif [ "$(LUSTRO_HOSTNAME=$NAZWA sh "$ZASILANIE" 2>/dev/null | grep -c 'wolno_wylaczac: tak')" = "1" ]; then
+elif LUSTRO_HOSTNAME=$NAZWA sh "$ZASILANIE" 2>/dev/null | grep -q '^# jest-co-robic'; then
     if LUSTRO_HOSTNAME=$NAZWA sh "$ZASILANIE" --wykonaj >>"$LOG" 2>&1; then
-        ok "reguła [267c] założona" "/etc/sudoers.d/91-lustro-zasilanie"
+        ok "ustawienia zasilania [267c][279] wgrane" "szczegóły w $LOG"
     else blad "zasilanie-stacja.sh --wykonaj"; fi
 else
-    pomin "reguła [267c]" "$NAZWA nie ma wolno_wylaczac = true w maszyny.toml"
+    pomin "ustawienia zasilania" "$NAZWA nie ma w maszyny.toml ani wolno_wylaczac, ani wyjątku klapy"
 fi
 
 # ------------------------------------------------------------------ K4 klucze SSH
