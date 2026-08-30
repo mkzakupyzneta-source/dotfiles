@@ -1,6 +1,6 @@
 {
   "maszyna": "katana",
-  "ts": "2026-08-29T18:27:13+02:00",
+  "ts": "2026-08-30T10:55:45+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -636,6 +636,12 @@
       "kanal": "flatpak",
       "id": "com.orcaslicer.OrcaSlicer",
       "wersja": "2.4.2",
+      "zrodlo": "flathub"
+    },
+    {
+      "kanal": "flatpak",
+      "id": "dev.deedles.Trayscale",
+      "wersja": "v0.18.9",
       "zrodlo": "flathub"
     },
     {
