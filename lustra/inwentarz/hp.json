@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-08-30T11:52:55+02:00",
+  "ts": "2026-08-30T12:53:04+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -636,12 +636,6 @@
       "kanal": "flatpak",
       "id": "com.orcaslicer.OrcaSlicer",
       "wersja": "2.4.2",
-      "zrodlo": "flathub"
-    },
-    {
-      "kanal": "flatpak",
-      "id": "dev.deedles.Trayscale",
-      "wersja": "v0.18.9",
       "zrodlo": "flathub"
     },
     {
