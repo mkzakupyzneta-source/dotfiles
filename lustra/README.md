@@ -227,3 +227,31 @@ Potwierdzone o 17:45: `gnome-extensions info tiling-assistant@ubuntu.com` →
 Domyślnie nazwa hosta (`hostname`), tutaj `vostro`. Można ją nadpisać plikiem
 `lustra/maszyna.txt` — ale wtedy plik dotyczyłby wszystkich maszyn (repozytorium jest
 wspólne), więc **na razie nie używać**.
+
+## Ustawienia zasilania stacji — `zasilanie-stacja.sh` ([267c] 29.08, [279] 30.08)
+
+Jeden skrypt, trzy ustawienia, każde sterowane **osobnym polem** w `maszyny.toml` — w skrypcie
+nie ma ani jednej nazwy maszyny:
+
+| pole w `maszyny.toml` | co ustawia | gdzie ląduje |
+|---|---|---|
+| `wolno_wylaczac` | zgoda na `sudo systemctl poweroff` bez hasła (przycisk „wyłącz" w panelu) | `/etc/sudoers.d/91-lustro-zasilanie` |
+| `klapa_zamkniecie` | czy zamknięcie klapy usypia (`usyp` / `ekran-gasnie` / `ignoruj`) | `/etc/systemd/logind.conf.d/50-lustro-klapa.conf` |
+| `klapa_otwarcie_budzi` | czy otwarcie klapy budzi uśpioną maszynę | `/proc/acpi/wakeup` + `lustro-klapa-wakeup.service` |
+
+```
+sh lustra/zasilanie-stacja.sh                    # podgląd, bez roota, nic nie zmienia
+sudo sh lustra/zasilanie-stacja.sh --wykonaj     # wykonanie
+sudo sh lustra/zasilanie-stacja.sh --wykonaj --przeladuj-logind   # + bez restartu maszyny
+```
+
+Ostatnia linia podglądu to `# jest-co-robic` albo `# nic-do-zrobienia` — po tym poznaje
+krok **K3b** automatu `nowa-stacja.sh`, czy w ogóle wołać skrypt (żeby maszyna bez żadnego
+z tych ustawień nie dostała niepotrzebnego pytania o hasło sudo).
+
+**Strażnik klapy** (`~/bin/klapa-straznik.sh` + `klapa-straznik.service`, oba wozi chezmoi)
+dokłada zachowanie `ekran-gasnie`: przy zamknięciu klapy gasi ekran od ręki, a usypia dopiero
+po `klapa_usyp_po_min` minutach; otwarcie klapy albo podłączenie monitora zewnętrznego odwołuje
+odliczanie. Włącza go i wyłącza `run_onchange_after_wlacz-klapa-straznik.sh.tmpl` — też z danych.
+Dziennik: `journalctl --user -t klapa-straznik`. Testowanie na sucho (atrapy zamiast `xset`
+i `systemctl suspend`) — opis w nagłówku samego skryptu.
