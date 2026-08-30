@@ -5,4 +5,8 @@
 /org/gnome/shell/last-selected-power-profile
 /org/gnome/desktop/interface/text-scaling-factor    # skalowanie tekstu = sprawa ekranu
 /org/gnome/shell/extensions/tiling-assistant/last-version-installed
-/org/gnome/shell/extensions/vitals/hot-sensors      # nazwy czujników TEJ płyty (_fan_dell_smm_)
+# /org/gnome/shell/extensions/vitals/hot-sensors — ZDJĘTE Z POMIJANYCH 30.08 ([282]):
+#   user chce ten sam zestaw czujników na pasku wszędzie, więc klucz wchodzi do lustra
+#   przez dconf-wyjatki.txt. UWAGA: nazwy czujników temperatury CPU zależą od płyty
+#   (AMD: _temperature_k10temp_tctl_, Intel/coretemp: _temperature_processor_0_) —
+#   na maszynie z innym procesorem ta pozycja paska po prostu nie pokaże wartości.

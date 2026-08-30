@@ -3,3 +3,4 @@
 /org/gnome/shell/favorite-apps        # ulubione programy w docku
 /org/gnome/shell/enabled-extensions   # które rozszerzenia GNOME są włączone
 /org/gnome/shell/disabled-extensions
+/org/gnome/shell/extensions/vitals/hot-sensors   # czujniki Vitals na pasku ([282], 30.08)
