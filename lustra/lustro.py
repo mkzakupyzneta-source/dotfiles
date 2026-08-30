@@ -1808,8 +1808,8 @@ def polecenie_hak_apt(args):
     dpkg NIE MOGĄ się wywalić z naszego powodu (stąd `except Exception: pass` na
     końcu, a w pliku apt.conf.d dodatkowo `timeout` + `|| true` na wszelki wypadek
     po stronie powłoki). Zero sieci, zero gita — tylko lokalny dopisek do pliku;
-    commit+push zrobi najbliższy bieg `lustro sync --auto` z timera (patrz tam:
-    ten bieg commituje WSZYSTKO, co zastanie w repo, nie tylko własne zmiany).
+    commit+push zrobi najbliższy bieg `lustro sync --auto` z timera (od [283]
+    commituje wyłącznie pliki apki — `sciezki_apki()` — a nie całe drzewo).
 
     Porównuje BIEŻĄCY `inwentarz_apt()` (dokładnie ten sam kod co reszta mechanizmu
     — te same wykluczenia/apt.txt) z zapisaną MIGAWKĄ poprzedniego stanu:
@@ -2543,20 +2543,119 @@ def git_pull_rebase():
               "lokalnym; zmiany wyślą się przy najbliższej okazji.")
 
 
+# --- CO WOLNO APCE ZACOMMITOWAĆ (sprawa [283], 30.08) -----------------------
+# Apka commituje WYŁĄCZNIE własne pliki, pathspec-em. Nigdy `git add -A`.
+# Why: 30.08 o 10:17 `lustro dodaj dev.deedles.Trayscale` zrobiło `git add -A`
+# i wciągnęło do commitu „lustra: dodano dev.deedles.Trayscale (flatpak) na hp"
+# siedem plików innego agenta, pisanych w tej samej chwili (sprawa [279]:
+# klapa-straznik.sh, zasilanie-stacja.sh, maszyny.toml, …). Treść przeżyła, ale
+# historia skłamała o zawartości commitu, a commit był już na `origin`, więc
+# przepisanie historii odpadło. Repozytorium jest współdzielone (kilka sesji,
+# timer `lustro-sync` co 60 min, hook dpkg) — cudza, niezacommitowana praca
+# w drzewie jest STANEM NORMALNYM i apka ma ją zostawić w spokoju.
+_SCIEZKI_DODATKOWE = set()   # dołożone w trakcie przebiegu (chezmoi add / forget)
+
+
+def oznacz_sciezki_apki(sciezki):
+    """Dopisuje ścieżki (względne wobec REPO) do puli commitowanej przez `git_zapisz`."""
+    for s in sciezki:
+        s = str(s).strip()
+        if s:
+            _SCIEZKI_DODATKOWE.add(s)
+
+
+def sciezki_apki():
+    """Pliki w repozytorium, które APKA sama zapisuje — jedyne, jakie wolno jej
+    zacommitować. Lista STAŁA (poniżej) + to, co w tym przebiegu wyprodukował
+    `chezmoi add`/`forget` (te sypią plikami po całym repo, więc są rejestrowane
+    dynamicznie — patrz `_zarejestruj_zmiany_repo`)."""
+    maszyna = nazwa_maszyny()
+    stale = [
+        f"lustra/dziennik/{maszyna}.jsonl",       # dziennik zdarzeń TEJ maszyny
+        f"lustra/inwentarz/{maszyna}.json",       # migawka inwentarza TEJ maszyny
+        f"lustra/pomijane-{maszyna}.txt",         # „pomiń na zawsze" TEJ maszyny
+        "lustra/pulpit/pulpit.ini",               # wzorzec pulpitu (`pulpit oddaj`/`skladaj`)
+        f"lustra/pulpit/stan/{maszyna}.ini",      # migawka pulpitu TEJ maszyny (`oddaj-stan`)
+        "lustra/pulpit/dconf-rozszerzenia.txt",   # klucze przejęte przez rozszerzenia GNOME
+        "lustra/ustawienia-map.txt",              # mapa program → pliki ustawień
+        ".chezmoidata/packages.yaml",             # lista wykonawcza dla bootstrapu (`lustro lista`)
+    ]
+    # Świadomie NIE MA tu plików-danych, które pisze CZŁOWIEK (maszyny.toml,
+    # statusy-pozycji.toml, zrodla-apt.toml, skrypty.toml, syncthing.toml,
+    # siec.toml, pulpit/dconf-*.txt poza rozszerzeniami, zrodla-galezi.toml)
+    # ani kodu apki — apka ich nie zapisuje, więc nie ma ich commitować.
+    return list(dict.fromkeys(stale + sorted(_SCIEZKI_DODATKOWE)))
+
+
+def _zmienione_sciezki(sciezki):
+    """Które z podanych ścieżek git widzi jako zmienione (zmodyfikowane, usunięte,
+    nieznane). Pathspec, który nic nie trafia, NIE jest dla `git status` błędem —
+    dlatego wolno tu podawać pliki, których na tej maszynie w ogóle nie ma."""
+    if not sciezki:
+        return []
+    kod, out = uruchom(["git", "-C", str(REPO), "status", "--porcelain", "-z", "--"]
+                       + list(sciezki))
+    if kod != 0:
+        return []
+    wpisy = [w for w in out.split("\0") if w]
+    wynik, i = [], 0
+    while i < len(wpisy):
+        w = wpisy[i]
+        i += 1
+        if len(w) <= 3:
+            continue
+        status, sciezka = w[:2], w[3:]
+        if "R" in status or "C" in status:   # zmiana nazwy: następny wpis to źródło
+            i += 1
+        wynik.append(sciezka)
+    return wynik
+
+
+def _stan_repo():
+    kod, out = uruchom(["git", "-C", str(REPO), "status", "--porcelain"])
+    return out if kod == 0 else None
+
+
+def _zarejestruj_zmiany_repo(przed):
+    """Różnica `git status` sprzed i po operacji `chezmoi add`/`forget` → pula apki.
+    Statycznej listy tu być nie może: chezmoi zapisuje pliki tam, gdzie każe mu
+    ścieżka w katalogu domowym (private_dot_config/…, bin/…, dot_local/…).
+    Plik, który JUŻ przed operacją miał ten sam status (bo zmienił go ktoś inny),
+    zostaje poza pulą — celowo, to cudza praca."""
+    po = _stan_repo()
+    if przed is None or po is None:
+        return
+    byly = set(przed.splitlines())
+    nowe = []
+    for linia in po.splitlines():
+        if linia in byly or len(linia) <= 3:
+            continue
+        nowe.append(linia[3:].strip('"'))
+    oznacz_sciezki_apki(nowe)
+
+
 def git_zapisz(wiadomosc):
     """Jeden commit na koniec przebiegu + push, jeśli repozytorium ma remote (spec 9.3).
     Gdy push odbije się o cudze świeże commity — jedna próba `pull --rebase` + push
-    jeszcze raz; dalej nieudany push zostawia commit lokalnie (wyśle się później)."""
-    kod, out = uruchom(["git", "-C", str(REPO), "status", "--porcelain"])
-    if kod != 0:
-        print("⚠ Nie umiem sprawdzić stanu repozytorium — pomijam commit.")
+    jeszcze raz; dalej nieudany push zostawia commit lokalnie (wyśle się później).
+
+    ⚠ Commituje TYLKO ścieżki z `sciezki_apki()` ([283]) — cudze zmiany zostają
+    w drzewie nietknięte, także niezacommitowane."""
+    moje = _zmienione_sciezki(sciezki_apki())
+    if not moje:
+        stan = _stan_repo()
+        if stan is None:
+            print("⚠ Nie umiem sprawdzić stanu repozytorium — pomijam commit.")
+        elif stan.strip():
+            print("Żaden z MOICH plików się nie zmienił — nie ma czego zapisywać "
+                  "(w drzewie są cudze zmiany, ich nie ruszam).")
+        else:
+            print("Repozytorium bez zmian — nie ma czego zapisywać.")
         return
-    if not out.strip():
-        print("Repozytorium bez zmian — nie ma czego zapisywać.")
-        return
-    uruchom(["git", "-C", str(REPO), "add", "-A"])
-    uruchom(["git", "-C", str(REPO), "commit", "-m", wiadomosc])
+    uruchom(["git", "-C", str(REPO), "add", "--"] + moje)
+    uruchom(["git", "-C", str(REPO), "commit", "-m", wiadomosc, "--"] + moje)
     print(f"Commit w repozytorium konfiguracji: {wiadomosc}")
+    print("   pliki w commicie: " + ", ".join(moje))
     if git_ma_remote():
         kod, _ = uruchom(["git", "-C", str(REPO), "push"], timeout=180)
         if kod != 0:
@@ -2571,7 +2670,11 @@ def git_zapisz(wiadomosc):
 
 
 def chezmoi_dodaj(sciezki):
-    """`chezmoi add` na liście ścieżek. Zwraca listę tych, które weszły."""
+    """`chezmoi add` na liście ścieżek. Zwraca listę tych, które weszły.
+    Pliki, które chezmoi w ten sposób wsypał do repozytorium, trafiają do puli
+    commitowanej przez `git_zapisz` ([283]) — nie zgadujemy ich ścieżek, tylko
+    czytamy różnicę `git status` przed i po."""
+    przed = _stan_repo()
     weszly = []
     for s in sciezki:
         pelna = pelna_sciezka(s)
@@ -2584,10 +2687,12 @@ def chezmoi_dodaj(sciezki):
             print(f"    ✓ do lustra: {skroc_dom(pelna)}")
         else:
             print(f"    ⚠ chezmoi add nie dał rady: {skroc_dom(pelna)}")
+    _zarejestruj_zmiany_repo(przed)
     return weszly
 
 
 def chezmoi_zapomnij(sciezki):
+    przed = _stan_repo()
     zapomniane = []
     for s in sciezki:
         pelna = pelna_sciezka(s)
@@ -2595,6 +2700,7 @@ def chezmoi_zapomnij(sciezki):
         if kod == 0:
             zapomniane.append(str(pelna).replace(str(DOM) + "/", ""))
             print(f"    ✓ zdjęte z lustra: {skroc_dom(pelna)}")
+    _zarejestruj_zmiany_repo(przed)   # usunięte pliki źródłowe też są MOJE ([283])
     return zapomniane
 
 

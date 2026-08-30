@@ -436,8 +436,10 @@ fi
 krok "K16 Migawka inwentarza, commit danych maszyny, próba wysłania na serwer"
 if chezmoi apply --force >>"$LOG" 2>&1; then ok "chezmoi apply (pełny, ze skryptami run_onchange — instalator tylko raportuje, dziennik już jest)"; else blad "chezmoi apply ze skryptami (szczegóły w $LOG; w kontenerze normalne — skrypty wymagają systemd)"; fi
 $LUSTRO inwentarz eksportuj >>"$LOG" 2>&1 && ok "migawka lustra/inwentarz/$NAZWA.json" || blad "lustro inwentarz eksportuj"
-if [ -n "$(git -C "$REPO" status --porcelain)" ]; then
-    git -C "$REPO" add -A && git -C "$REPO" commit -q -m "lustra: nowa stacja $NAZWA — nowa-stacja.sh ($(date -I))" && ok "commit lokalny danych maszyny"
+# [283] tylko dane maszyny w lustra/ (dziennik, inwentarz, maszyny.toml, klucze) —
+# nie `git add -A`, żeby commit nie zabierał cudzej, niezacommitowanej pracy w repo.
+if [ -n "$(git -C "$REPO" status --porcelain -- lustra)" ]; then
+    git -C "$REPO" add -- lustra && git -C "$REPO" commit -q -m "lustra: nowa stacja $NAZWA — nowa-stacja.sh ($(date -I))" -- lustra && ok "commit lokalny danych maszyny"
 fi
 if git -C "$REPO" push -q serwer "$GALAZ" >>"$LOG" 2>&1; then ok "git push na serwer ($GALAZ)"; else
     recznie "git push" "serwer nie wpuścił kluczem (K4b?) — przyjmij-maszyne.sh na serwerze sam dociągnie commity z tej maszyny"

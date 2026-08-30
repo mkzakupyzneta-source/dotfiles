@@ -99,8 +99,10 @@ $S "ssh-keygen -F 192.168.1.49 -f ~/.ssh/known_hosts >/dev/null 2>&1 || ssh-keys
   else
       git pull -q --rebase --autostash origin main 2>/dev/null || echo "P5 ⚠ pull z GitHuba nie przeszedł (offline?) — jadę na stanie lokalnym"
       if git pull -q --rebase --autostash "$URL_GIT" main >/dev/null 2>&1; then echo "P5 ✓ dociągnięte commity z $NAZWA ($(git log --oneline -1))"; else echo "P5 ✗ pull z $NAZWA nie przeszedł (jej commity dojadą, gdy sama zrobi push do serwera)"; fi
-      if [ -n "$(git status --porcelain)" ]; then
-          git add -A && git commit -q -m "lustra: przyjęcie maszyny $NAZWA — klucz domowy w klucze-publiczne/ ($(date -I))" && echo "P5 ✓ commit klucza"
+      # [283] TYLKO własna ścieżka (klucz publiczny) — nie `git add -A`: repo serwera
+      # jest współdzielone z timerami i sesjami, cudze zmiany zostają w drzewie.
+      if [ -n "$(git status --porcelain -- lustra/klucze-publiczne)" ]; then
+          git add -- lustra/klucze-publiczne && git commit -q -m "lustra: przyjęcie maszyny $NAZWA — klucz domowy w klucze-publiczne/ ($(date -I))" -- lustra/klucze-publiczne && echo "P5 ✓ commit klucza"
       fi
       if git push -q origin main 2>/dev/null || { git pull -q --rebase --autostash origin main && git push -q origin main; }; then echo "P5 ✓ push na GitHub"; else echo "P5 ✗ push na GitHub nie przeszedł (commit został lokalnie)"; fi
       if [ $ODSWIEZ = 1 ]; then
@@ -129,7 +131,7 @@ if [ $BEZ_SYNC = 1 ]; then echo "P6 ○ Syncthing pominięty"; else
         fi
         if [ "$GALAZ" = "main" ]; then
         ( flock -w 60 9; cd "$REPO" && $PY "$LUSTRA/stacja-dane.py" syncthing-urzadzenie-wpisz --klucz "$NAZWA" --id "$ID_N" --nazwa "$HOSTNAME_N" --adresy "$ADRESY" \
-          && git add -A && git commit -q -m "lustra: syncthing.toml — urządzenie $NAZWA" && git push -q origin main 2>/dev/null; ) 9>"$LOCK"
+          && git add -- lustra/syncthing.toml && git commit -q -m "lustra: syncthing.toml — urządzenie $NAZWA" -- lustra/syncthing.toml && git push -q origin main 2>/dev/null; ) 9>"$LOCK"   # [283] tylko własny plik
         else echo "P6 ○ syncthing.toml bez zmian (maszyna testowa, gałąź $GALAZ)"; fi
     fi
 fi
