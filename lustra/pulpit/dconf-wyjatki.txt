@@ -4,3 +4,8 @@
 /org/gnome/shell/enabled-extensions   # które rozszerzenia GNOME są włączone
 /org/gnome/shell/disabled-extensions
 /org/gnome/shell/extensions/vitals/hot-sensors   # czujniki Vitals na pasku ([282], 30.08)
+# Które wtyczki GSConnect są WYŁĄCZONE dla telefonu ([299], 31.08). Klucz siedzi o piętro
+# wyżej niż `plugin/` — obok certyfikatu i `paired`, których wozić nie wolno — więc wchodzi
+# do lustra pojedynczo, a nie całą gałęzią. Pusta lista = wszystkie obsługiwane wtyczki
+# włączone.
+/org/gnome/shell/extensions/gsconnect/device/c7746d3650f644c1aca106b623fe8a98/disabled-plugins

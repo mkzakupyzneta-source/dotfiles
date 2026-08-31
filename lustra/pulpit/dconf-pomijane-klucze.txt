@@ -10,3 +10,10 @@
 #   przez dconf-wyjatki.txt. UWAGA: nazwy czujników temperatury CPU zależą od płyty
 #   (AMD: _temperature_k10temp_tctl_, Intel/coretemp: _temperature_processor_0_) —
 #   na maszynie z innym procesorem ta pozycja paska po prostu nie pokaże wartości.
+# GSConnect, lista programów, których powiadomienia lecą na telefon ([299], 31.08).
+# To ŚLAD PRACY TEJ MASZYNY, nie ustawienie: GSConnect dopisuje tu każdy program, który
+# cokolwiek wyświetlił (na hp m.in. Solaar, flameshot, Snapd) — na innej maszynie lista
+# jest z natury inna. Wożenie jej dawałoby wieczną rozbieżność i przenosiło na nowe lustro
+# nazwy programów, których tam nie ma. Sam przełącznik „wysyłaj powiadomienia"
+# (`send-notifications`) JEST w lustrze.
+/org/gnome/shell/extensions/gsconnect/device/c7746d3650f644c1aca106b623fe8a98/plugin/notification/applications

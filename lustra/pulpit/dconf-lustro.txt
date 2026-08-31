@@ -30,3 +30,19 @@
                                                  # poprawka 9 planu automatu), skroty, menu.
                                                  # Wejdzie do wzorca przy najblizszym
                                                  # pulpit-oddaj na Vostro (recznym, [195]).
+
+# --- telefon w komputerze: GSConnect (KDE Connect dla GNOME), sprawa [299] ---
+# WOZIMY WYŁĄCZNIE USTAWIENIA WTYCZEK dla JEDNEGO urządzenia — telefonu. Reszta gałęzi
+# `gsconnect` to TOŻSAMOŚĆ MASZYNY i STAN PAROWANIA (certyfikat drugiej strony, `paired`,
+# `last-connection`, nazwa maszyny, lista `devices`) — tego NIE WOLNO kopiować między
+# lustrami: skopiowany certyfikat rozwala parowanie, skopiowana nazwa robi dwie maszyny
+# o tej samej tożsamości. Dlatego ścieżka celuje w `.../device/<ID TELEFONU>/plugin/`,
+# a nie w całe `/org/gnome/shell/extensions/gsconnect/`.
+#
+# <ID TELEFONU> = identyfikator urządzenia nadany przez apkę KDE Connect NA TELEFONIE.
+# Jest TEN SAM na każdym komputerze, który ten telefon widzi (zmierzone 31.08 na hp i vostro),
+# więc jest zwykłą stałą danych — nie znacznikiem maszynowym. Przeinstalowanie KDE Connect
+# na telefonie = nowy identyfikator = zmiana TEJ JEDNEJ linii (i dwóch niżej: w
+# dconf-wyjatki.txt i dconf-pomijane-klucze.txt).
+#   c7746d3650f644c1aca106b623fe8a98 = POCO X7 Pro
+/org/gnome/shell/extensions/gsconnect/device/c7746d3650f644c1aca106b623fe8a98/plugin/

@@ -9,3 +9,24 @@
                                             #   (na Vostro m.in. org-upscayl-upscayl — programu już nie ma)
 /org/gnome/shell/extensions/ding/           # ikony pulpitu: check-x11wayland = cecha sesji tej maszyny
 /org/gnome/shell/world-clocks/              # zegary miast — własność miejsca, nie warsztatu
+
+# --- GSConnect: co świadomie ZOSTAJE POZA lustrem ([299], 31.08) ---------------
+# ⚠️ UWAGA NA MECHANIZM: wpisy w TYM pliku działają jako PRZEDROSTKI odsiewające klucze
+# z eksportu. Wpisanie tu `/org/gnome/shell/extensions/gsconnect/` odsiałoby także
+# ustawienia wtyczek, które lustro ma wozić (dconf-lustro.txt) — dlatego poniżej są
+# same KOMENTARZE, bez czynnych ścieżek.
+#
+# Poza lustrem zostaje wszystko, co jest TOŻSAMOŚCIĄ MASZYNY albo STANEM PAROWANIA:
+#   /org/gnome/shell/extensions/gsconnect/name          — nazwa tego komputera („hp", „vostro")
+#   /org/gnome/shell/extensions/gsconnect/id            — identyfikator tego komputera
+#   /org/gnome/shell/extensions/gsconnect/devices       — lista urządzeń, które ta maszyna zna
+#   .../device/<id>/certificate-pem                     — certyfikat drugiej strony (parowanie)
+#   .../device/<id>/paired, last-connection, name, type — stan połączenia z tą maszyną
+#   .../device/<id>/incoming-capabilities, outgoing-capabilities, supported-plugins
+#                                                        — wynik uzgodnienia, nie ustawienie usera
+#   /org/gnome/shell/extensions/gsconnect/{preferences,messaging}/window-*  — rozmiary okien
+# Klucze prywatne i certyfikat maszyny leżą w ~/.config/gsconnect/ (private.pem,
+# certificate.pem) — to PLIKI, nie dconf, i chezmoi ich NIE wozi ani wozić nie może
+# (dwie maszyny z tym samym kluczem = jedna tożsamość w sieci). Nowa stacja generuje
+# własną parę przy pierwszym uruchomieniu GSConnecta.
+
