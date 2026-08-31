@@ -1,0 +1,25 @@
+# Gałęzie dconf porównywane WARUNKOWO — sprawa [299], 2026-08-31.
+#
+# Reguła: jeżeli maszyna nie ma pod danym przedrostkiem ANI JEDNEGO wożonego klucza, to
+# NIE jest rozbieżność, tylko NIEOBECNOŚĆ — gałąź zostaje pominięta w porównaniu, a `lustro
+# status` mówi o tym osobną uwagą (nie liczy jej do rozbieżności). Jeżeli maszyna ma tam
+# choć jeden klucz, gałąź porównujemy normalnie, ze wszystkimi kluczami.
+#
+# PO CO: są ustawienia CZEGOŚ, czego dana maszyna może w ogóle nie znać — i to jest jej
+# normalny, poprawny stan, nie dryf. Bez tej reguły taka maszyna miałaby alarm nie do
+# usunięcia: wgranie wzorca nic by nie dało, bo nie ma czego ustawiać.
+#
+# Konkret, na którym reguła powstała: GSConnect sam KASUJE ustawienia urządzenia, które jest
+# niesparowane i rozłączyło się — `dconf reset -f .../device/<id>/` w service/manager.js
+# (`_removeDevice`, wołane z `_reconnect`). Zmierzone na żywo 31.08: 18 kluczy zapisanych na
+# Vostro zniknęło w kilka minut, gdy telefon zmienił adres w sieci i połączenie się urwało.
+# Ustawienia wtyczek przeżywają tylko na maszynie SPAROWANEJ z tym urządzeniem.
+#
+# Ten sam kształt pasuje do każdej gałęzi „ustawienia konkretnego urządzenia" (drukarka,
+# tablet, drugi telefon) — dlatego to lista danych, a nie warunek zaszyty w kodzie pod GSConnecta.
+#
+# Format: jeden przedrostek ścieżki na linię, `#` = komentarz.
+
+# Ustawienia wtyczek GSConnecta dla telefonu POCO X7 Pro. Maszyna niesparowana z nim
+# nie ma tu nic — i tak ma być, dopóki user nie sparuje (lustra/gsconnect-paruj.sh).
+/org/gnome/shell/extensions/gsconnect/device/c7746d3650f644c1aca106b623fe8a98/

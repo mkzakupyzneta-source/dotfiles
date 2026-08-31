@@ -46,6 +46,7 @@ MASZYNY_TOML = KATALOG / "maszyny.toml"            # czlonek_lustra [209] 2.1
 PROFILE_TOML = KATALOG / "profile.toml"            # co dotyczy maszyny danego profilu [284]
 ZRODLA_GALEZI = PULPIT / "zrodla-galezi.toml"      # źródło per gałąź pulpitu [209] 2.3.2
 ZNACZNIKI_MASZYN = PULPIT / "znaczniki-maszyn.toml"  # znaczniki maszynowe [291]
+WARUNKOWE = PULPIT / "dconf-warunkowe.txt"          # gałęzie „porównuj tylko, jeśli są" [299]
 PULPIT_STAN = PULPIT / "stan"                      # migawki <maszyna>.ini [209] 2.3.1
 SKRYPTY_TOML = KATALOG / "skrypty.toml"            # pozycje instalowane skryptem [252]
 SOURCES_D = Path("/etc/apt/sources.list.d")
@@ -91,6 +92,7 @@ TRYB_ROOT = os.environ.get("LUSTRO_ROOT", "sudo")
 # błędy odczytu dconf zebrane w trakcie jednego przebiegu — patrz _wypisz_pulpit
 _BLEDY_DCONF = []
 _ZNACZNIKI_BEZ_WARTOSCI = []   # znaczniki maszynowe bez wartości dla TEJ maszyny [291]
+_GALEZIE_NIEOBECNE = []        # gałęzie warunkowe, których ta maszyna w ogóle nie ma [299]
 
 
 # ---------------------------------------------------------------- narzędzia
@@ -2563,10 +2565,27 @@ def roznice_pulpitu():
         return None
     mapa = znaczniki_tej_maszyny()
     del _ZNACZNIKI_BEZ_WARTOSCI[:]
+    del _GALEZIE_NIEOBECNE[:]
+
+    # Gałęzie WARUNKOWE ([299]): ustawienia czegoś, czego ta maszyna może w ogóle nie znać
+    # (np. konkretnego telefonu w GSConnekcie). Jeżeli maszyna nie ma pod takim przedrostkiem
+    # ANI JEDNEGO klucza, to nie jest rozbieżność, tylko NIEOBECNOŚĆ — porównywanie dałoby
+    # alarm nie do usunięcia (GSConnect sam kasuje `dconf reset -f` ustawienia urządzenia,
+    # które jest niesparowane i rozłączyło się — service/manager.js, `_removeDevice`).
+    # Gdy maszyna ma tam CHOĆ JEDEN klucz, gałąź porównujemy normalnie.
+    nieobecne = []
+    for przedrostek in wczytaj_wzorce(WARUNKOWE):
+        if not any(k.startswith(przedrostek) for k in tutaj):
+            nieobecne.append(przedrostek)
+            if any(k.startswith(przedrostek) for k in w_lustrze):
+                _GALEZIE_NIEOBECNE.append(przedrostek)
+
     rozne = []
     for klucz in sorted(set(tutaj) | set(w_lustrze)):
         a, b = tutaj.get(klucz), w_lustrze.get(klucz)
         if a == b:
+            continue
+        if any(klucz.startswith(p) for p in nieobecne):
             continue
         # Wzorzec ma tu znacznik maszynowy, którego TA maszyna nie zna ([291]) — nie wiemy,
         # jaka wartość jest dla niej poprawna, więc NIE zgłaszamy rozbieżności (byłby to
@@ -2598,6 +2617,15 @@ def kontrola_pulpitu():
             f"      skutek: ten klucz NIE jest ani porównywany, ani wgrywany\n"
             f"      propozycja: dopisz jedną linię w [znacznik.wartosci] "
             f"({nazwa_maszyny()} = \"...\")")
+
+    # 0b. gałęzie warunkowe, których ta maszyna w ogóle nie ma ([299]) — pominięte
+    #     w porównaniu, więc „0 rozbieżności" musi to powiedzieć wprost.
+    for przedrostek in sorted(set(_GALEZIE_NIEOBECNE)):
+        uwagi.append(
+            f"lustro wozi ustawienia dla „{przedrostek}”, a ta maszyna nie ma tam ani jednego klucza\n"
+            f"      skutek: ta gałąź NIE jest porównywana (nieobecność to nie rozbieżność)\n"
+            f"      typowa przyczyna: urządzenie nie jest jeszcze sparowane z tą maszyną\n"
+            f"      dla telefonu (GSConnect): lustra/gsconnect-paruj.sh")
 
     # 1. skróty własne → skrypty w ~/bin muszą być wożone przez chezmoi
     wozone = set()

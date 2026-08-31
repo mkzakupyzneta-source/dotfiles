@@ -12,9 +12,16 @@
 #     lustra/gsconnect-paruj.sh <id-telefonu> [adres] # inny telefon / wymuszony adres LAN
 #
 # CO ROBI: (1) sprawdza, czy demon GSConnecta żyje, (2) jeśli maszyna nie zna telefonu
-# albo stracila polaczenie — laczy sie z nim po LAN, (3) wysyła prośbę o parowanie,
-# (4) przez 30 s co sekundę sprawdza, czy telefon potwierdził. Nic nie rusza na ekranie
-# maszyny (żadnych okien, dźwięków, blokad).
+# albo straciła połączenie — łączy się z nim po LAN, (3) wysyła prośbę o parowanie,
+# (4) przez 30 s co sekundę sprawdza, czy telefon potwierdził, (5) po sparowaniu WGRYWA
+# ustawienia wtyczek z wzorca pulpitu (lustra/pulpit/pulpit.ini). Nic nie rusza na ekranie
+# maszyny (żadnych okien, dźwięków, blokad). Na maszynie już sparowanej robi od razu (5),
+# więc jest idempotentny i nadaje się do ponownego wyrównania ustawień.
+#
+# ⚠️ DLACZEGO USTAWIENIA WGRYWAMY PO PAROWANIU, A NIE PRZED: GSConnect sam kasuje ustawienia
+#    urządzenia, które jest NIESPAROWANE i się rozłączyło — `dconf reset -f .../device/<id>/`
+#    w service/manager.js (`_removeDevice`, wołane cyklicznie z `_reconnect`). Zmierzone na
+#    żywo 31.08: 18 kluczy zapisanych na Vostro zniknęło, gdy telefon zmienił adres w sieci.
 #
 # NA TELEFONIE (Android, apka „KDE Connect"): po uruchomieniu tego skryptu telefon pokazuje
 # prośbę o sparowanie od komputera o tej nazwie, z przyciskami akceptacji i odrzucenia
@@ -47,6 +54,43 @@ GAL="/org/gnome/shell/extensions/gsconnect/device/$ID"
 [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] || DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
 export DBUS_SESSION_BUS_ADDRESS
 
+TU="$(cd "$(dirname "$0")" && pwd)"
+
+# Ustawienia wtyczek dla TEGO urządzenia, wzięte z wzorca pulpitu (lustra/pulpit/pulpit.ini).
+# Robimy to PO sparowaniu, a nie przed, bo GSConnect kasuje (`dconf reset -f`) ustawienia
+# urządzenia niesparowanego, które się rozłączyło (service/manager.js, `_removeDevice`).
+wgraj_ustawienia_z_lustra() {
+    python3 - "$TU" "$ID" <<'PYEOF'
+import importlib.util, subprocess, sys
+tu, ident = sys.argv[1], sys.argv[2]
+spec = importlib.util.spec_from_file_location("lustro", tu + "/lustro.py")
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+wzor = m.wczytaj_pulpit_z_lustra() or {}
+przedrostek = "/org/gnome/shell/extensions/gsconnect/device/%s/" % ident
+mapa = m.znaczniki_tej_maszyny()
+zapisane, pominiete = 0, []
+for klucz, wartosc in sorted(wzor.items()):
+    if not klucz.startswith(przedrostek):
+        continue
+    tresc = m.rozwin_znaczniki(wartosc.replace("{{HOME}}", str(m.DOM)), mapa)
+    if m.nierozwiazane_znaczniki(tresc, mapa):
+        pominiete.append(klucz)
+        continue
+    if subprocess.run(["dconf", "write", klucz, tresc]).returncode == 0:
+        zapisane += 1
+    else:
+        pominiete.append(klucz)
+if not wzor:
+    print("Wzorzec pulpitu jest pusty — nie ma czego wgrać.")
+elif zapisane == 0 and not pominiete:
+    print("Wzorzec nie ma ustawień dla tego urządzenia — nic nie wgrywam.")
+else:
+    print("Ustawienia wtyczek wgrane z lustra: %d kluczy." % zapisane)
+    for k in pominiete:
+        print("   POMINIĘTE:", k)
+PYEOF
+}
+
 czy_paruje() {
     gdbus call --session --dest "$USL" --object-path "$SCIEZKA_URZ" \
         --method org.freedesktop.DBus.Properties.Get \
@@ -62,7 +106,8 @@ if ! gdbus call --session --dest "$USL" --object-path "$SCIEZKA_APKI" \
 fi
 
 if czy_paruje; then
-    echo "Telefon ($ID) jest już sparowany z $(hostname) — nie ma nic do roboty."
+    echo "Telefon ($ID) jest już sparowany z $(hostname)."
+    wgraj_ustawienia_z_lustra
     exit 0
 fi
 
@@ -97,6 +142,7 @@ i=0
 while [ "$i" -lt 30 ]; do
     if czy_paruje; then
         echo "SPAROWANE. Telefon i $(hostname) widzą się nawzajem."
+        wgraj_ustawienia_z_lustra
         exit 0
     fi
     sleep 1
