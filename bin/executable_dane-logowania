@@ -14,21 +14,31 @@ Sprawa [305], 2026-08-31, obszar 5_Wspolna_konfiguracja.
      argumenty!) ani do dziennika. Do `xdotool` idzie WYŁĄCZNIE strumieniem
      (`type --file -`), a w pamięci żyje tyle, ile trwa wpisanie.
   2. Wpisujemy tylko do okna zapamiętanego PRZED pokazaniem listy wyboru i tylko
-     wtedy, gdy przed każdym stuknięciem to okno naprawdę jest aktywne. Nie ma
-     zgodności — nie piszemy nic i mówimy o tym wprost.
+     wtedy, gdy przed każdym stuknięciem to okno wciąż jest aktywne I JEST TYM
+     SAMYM oknem (numer okna w X11 bywa nadawany ponownie — patrz `tozsamosc_okna`).
+     Brak zgodności = nie piszemy nic i mówimy o tym wprost.
   3. Wpisy w pęku kluczy są DANYMI. Nowa usługa = nowy wpis (`dane-logowania dodaj`),
      nie zmiana tego pliku.
 
 Wywołanie:
-  dane-logowania [wpisz]     — lista wpisów, wybór, wystukanie (to robi skrót klawiszowy)
-  dane-logowania dodaj       — okienka: nazwa, login, co wpisywać, hasło (dwa razy)
-  dane-logowania lista       — co jest w pęku (nazwy, loginy, wzory — NIGDY hasła)
-  dane-logowania usun [nazwa]— usuwa wpis z pęku
+  dane-logowania [wpisz]      — lista wpisów, wybór, wystukanie (to robi skrót klawiszowy)
+  dane-logowania dodaj        — okienka: nazwa, login, co wpisywać, hasło (dwa razy)
+  dane-logowania lista        — co jest w pęku (nazwy, loginy, wzory — NIGDY hasła)
+  dane-logowania usun [nazwa] — usuwa wpis z pęku
   dane-logowania --pomoc
 
-Wymaga: X11 + `xdotool` + `zenity` + pęk kluczy GNOME (gnome-keyring, biblioteka
-libsecret przez GObject Introspection). Na Wayland `xdotool` NIE działa — patrz
-komunikat błędu i notatka 5_Wspolna_konfiguracja/_MEMORY/MEMORY.md [305].
+Wymaga: X11 + `xdotool` + pęk kluczy GNOME (gnome-keyring) + GTK 3 i libsecret
+przez GObject Introspection (`python3-gi`, `gir1.2-gtk-3.0`, `gir1.2-secret-1` —
+wszystko jest w Ubuntu 24.04 z pudełka).
+
+Dlaczego okienka rysujemy sami w GTK, a nie `zenity`: 31.08 na HP `zenity 4.0.1`
+przewrócił się (SIGSEGV) na zwykłym `zenity --list`, a system pokazał userowi okno
+„Sorry, the application zenity has stopped unexpectedly". Okienko narysowane
+w tym samym procesie nie ma jak się „wysypać osobno", nie dokłada pakietu i daje
+nam kontrolę nad klawiszami (Enter = wybierz, Esc = anuluj).
+
+Na Wayland `xdotool` NIE działa — przeróbka na `ydotool` opisana w
+5_Wspolna_konfiguracja/dyktowanie-do-aktywnego-okna.md.
 """
 
 import os
@@ -39,16 +49,17 @@ from datetime import datetime
 
 import gi
 
+gi.require_version("Gtk", "3.0")
 gi.require_version("Secret", "1")
-from gi.repository import Secret  # noqa: E402
+from gi.repository import Gtk, Gdk, Secret  # noqa: E402
 
 # ── stałe, które opisują NASZE wpisy w pęku kluczy ────────────────────────────
 # `aplikacja` = znacznik odróżniający nasze wpisy od haseł Wi-Fi, kluczy SSH,
-# ciasteczek Chrome i wszystkiego innego, co też mieszka w pęku.
+# ciasteczek Chrome i wszystkiego innego, co też mieszka w pęku kluczy.
 ZNACZNIK = "dane-logowania"
 ETYKIETA_WZOR = "Dane logowania — {nazwa}"
 
-# Schemat „Generic" = ten sam, którego używa `secret-tool`, więc wpisy są widoczne
+# Schemat „Generic" = ten sam, którego używa `secret-tool`, więc wpisy widać
 # i z wiersza poleceń, i w programie „Hasła i klucze" (seahorse).
 SCHEMAT = Secret.Schema.new(
     "org.freedesktop.Secret.Generic",
@@ -62,9 +73,9 @@ SCHEMAT = Secret.Schema.new(
 )
 
 # ── wzór wpisywania = DANA wpisu, nie kod ─────────────────────────────────────
-# Ciąg tokenów rozdzielonych spacją. Nowy układ pola logowania = inny ciąg
+# Ciąg elementów rozdzielonych spacją. Inny układ pól logowania = inny ciąg
 # w istniejącym wpisie; kodu nikt nie rusza.
-TOKENY_TEKST = {"login", "haslo"}          # wystukiwane jako tekst
+TOKENY_TEKST = {"login", "haslo"}           # wystukiwane jako tekst
 TOKENY_KLAWISZ = {                          # wystukiwane jako klawisz (nazwy X11)
     "TAB": "Tab",
     "ENTER": "Return",
@@ -74,9 +85,9 @@ TOKENY_KLAWISZ = {                          # wystukiwane jako klawisz (nazwy X1
 TOKEN_PAUZA = "PAUZA"                       # 0,3 s przerwy (wolno reagujące pola)
 
 WZORY_GOTOWE = [
-    ("login TAB haslo", "login, Tab, hasło  (typowy formularz logowania)"),
-    ("login TAB haslo ENTER", "login, Tab, hasło, Enter  (od razu zatwierdza)"),
-    ("haslo", "samo hasło  (kursor już stoi w polu hasła)"),
+    ("login TAB haslo", "login, Tab, hasło — typowy formularz logowania"),
+    ("login TAB haslo ENTER", "login, Tab, hasło, Enter — od razu zatwierdza"),
+    ("haslo", "samo hasło — kursor już stoi w polu hasła"),
     ("haslo ENTER", "hasło + Enter"),
     ("login", "sam login"),
 ]
@@ -85,14 +96,16 @@ DZIENNIK = os.path.expanduser("~/.local/state/dane-logowania/dziennik.log")
 DZIENNIK_LINII = 500
 
 
-# ── drobiazgi ─────────────────────────────────────────────────────────────────
+def dozwolone_elementy():
+    return sorted(TOKENY_TEKST | set(TOKENY_KLAWISZ) | {TOKEN_PAUZA})
+
+
+# ── dziennik (nazwy i wyniki, NIGDY wartości) ─────────────────────────────────
 def zapisz_w_dzienniku(co: str) -> None:
-    """Dziennik zdarzeń — WYŁĄCZNIE nazwy wpisów i wyniki, nigdy wartości."""
     try:
         os.makedirs(os.path.dirname(DZIENNIK), exist_ok=True)
-        linia = f"{datetime.now():%Y-%m-%d %H:%M:%S} {co}\n"
         with open(DZIENNIK, "a", encoding="utf-8") as f:
-            f.write(linia)
+            f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} {co}\n")
         with open(DZIENNIK, encoding="utf-8") as f:
             linie = f.readlines()
         if len(linie) > DZIENNIK_LINII:
@@ -102,104 +115,283 @@ def zapisz_w_dzienniku(co: str) -> None:
         pass  # dziennik to wygoda, nie warunek działania
 
 
-def zenity(*args, wejscie=None, limit=300):
-    """Uruchamia zenity; zwraca (kod, tekst_ze_stdout)."""
-    try:
-        p = subprocess.run(
-            ["zenity", *args],
-            input=wejscie,
-            capture_output=True,
-            text=True,
-            timeout=limit,
+# ── okienka (GTK, rysowane w tym samym procesie) ──────────────────────────────
+def _przygotuj(okno, szerokosc=560, wysokosc=None):
+    okno.set_position(Gtk.WindowPosition.CENTER)
+    okno.set_keep_above(True)          # ma być widoczne nad oknem, z którego wołasz
+    if wysokosc:
+        okno.set_default_size(szerokosc, wysokosc)
+    else:
+        okno.set_default_size(szerokosc, -1)
+    okno.set_border_width(10)
+
+
+def _domknij(okno):
+    """Zamyka okno i pozwala GTK naprawdę je usunąć z ekranu, zanim pójdziemy dalej
+    (bez tego okno bywa widoczne jeszcze w chwili wystukiwania)."""
+    okno.destroy()
+    while Gtk.events_pending():
+        Gtk.main_iteration_do(False)
+    Gdk.flush()
+
+
+def okno_listy(tytul, opis, kolumny, wiersze, szerokosc=680, wysokosc=380):
+    """Lista do wyboru. Zwraca pierwszą kolumnę wybranego wiersza albo None.
+    Enter albo dwuklik = wybór, Esc = rezygnacja."""
+    dialog = Gtk.Dialog(title=tytul)
+    dialog.add_button("Anuluj", Gtk.ResponseType.CANCEL)
+    dialog.add_button("Wybierz", Gtk.ResponseType.OK)
+    dialog.set_default_response(Gtk.ResponseType.OK)
+    _przygotuj(dialog, szerokosc, wysokosc)
+    pole = dialog.get_content_area()
+    if opis:
+        etykieta = Gtk.Label(label=opis, xalign=0)
+        etykieta.set_line_wrap(True)
+        pole.pack_start(etykieta, False, False, 6)
+
+    magazyn = Gtk.ListStore(*[str] * len(kolumny))
+    for w in wiersze:
+        magazyn.append(list(w))
+    widok = Gtk.TreeView(model=magazyn)
+    for i, naglowek in enumerate(kolumny):
+        widok.append_column(
+            Gtk.TreeViewColumn(naglowek, Gtk.CellRendererText(), text=i)
         )
-    except FileNotFoundError:
-        print("Brak programu `zenity`.", file=sys.stderr)
-        sys.exit(3)
-    except subprocess.TimeoutExpired:
-        return 1, ""
-    return p.returncode, p.stdout.rstrip("\n")
+    widok.connect("row-activated", lambda *_: dialog.response(Gtk.ResponseType.OK))
+    if len(magazyn):
+        widok.get_selection().select_path(0)     # pierwszy wiersz od razu wybrany
+    przewijak = Gtk.ScrolledWindow()
+    przewijak.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+    przewijak.add(widok)
+    pole.pack_start(przewijak, True, True, 0)
+
+    dialog.show_all()
+    widok.grab_focus()
+    odpowiedz = dialog.run()
+    wybor = None
+    if odpowiedz == Gtk.ResponseType.OK:
+        model, iterator = widok.get_selection().get_selected()
+        if iterator is not None:
+            wybor = model[iterator][0]
+    _domknij(dialog)
+    return wybor
 
 
-def blad(tekst: str, kod: int = 1):
-    zenity("--error", "--title=Dane logowania", f"--text={tekst}", limit=120)
+def okno_pol(tytul, opis, pola):
+    """Formularz. `pola` = [(etykieta, czy_hasło, wartość_startowa)].
+    Zwraca listę wpisanych wartości albo None."""
+    dialog = Gtk.Dialog(title=tytul)
+    dialog.add_button("Anuluj", Gtk.ResponseType.CANCEL)
+    dialog.add_button("OK", Gtk.ResponseType.OK)
+    dialog.set_default_response(Gtk.ResponseType.OK)
+    _przygotuj(dialog)
+    pole = dialog.get_content_area()
+    if opis:
+        etykieta = Gtk.Label(label=opis, xalign=0)
+        etykieta.set_line_wrap(True)
+        pole.pack_start(etykieta, False, False, 6)
+    siatka = Gtk.Grid(column_spacing=10, row_spacing=8)
+    wejscia = []
+    for wiersz, (nazwa, ukryte, start) in enumerate(pola):
+        siatka.attach(Gtk.Label(label=nazwa, xalign=0), 0, wiersz, 1, 1)
+        e = Gtk.Entry()
+        e.set_width_chars(34)
+        e.set_activates_default(True)
+        if ukryte:
+            e.set_visibility(False)
+            e.set_input_purpose(Gtk.InputPurpose.PASSWORD)
+        if start:
+            e.set_text(start)
+        siatka.attach(e, 1, wiersz, 1, 1)
+        wejscia.append(e)
+    pole.pack_start(siatka, True, True, 0)
+    dialog.show_all()
+    if wejscia:
+        wejscia[0].grab_focus()
+    odpowiedz = dialog.run()
+    wynik = [e.get_text() for e in wejscia] if odpowiedz == Gtk.ResponseType.OK else None
+    for e in wejscia:                    # nie zostawiamy hasła w widżecie
+        e.set_text("")
+    _domknij(dialog)
+    return wynik
+
+
+def _komunikat(rodzaj, tekst, tytul="Dane logowania", pytanie=False):
+    dialog = Gtk.MessageDialog(
+        message_type=rodzaj,
+        buttons=Gtk.ButtonsType.YES_NO if pytanie else Gtk.ButtonsType.OK,
+        text=tytul,
+    )
+    dialog.format_secondary_text(tekst)
+    dialog.set_title(tytul)          # bez tego okno komunikatu nie ma tytułu
+    dialog.set_keep_above(True)
+    dialog.set_position(Gtk.WindowPosition.CENTER)
+    odpowiedz = dialog.run()
+    _domknij(dialog)
+    return odpowiedz == Gtk.ResponseType.YES
+
+
+def info(tekst):
+    _komunikat(Gtk.MessageType.INFO, tekst)
+
+
+def pytanie(tekst):
+    return _komunikat(Gtk.MessageType.QUESTION, tekst, pytanie=True)
+
+
+def blad(tekst, kod=1):
+    _komunikat(Gtk.MessageType.ERROR, tekst)
     print(tekst, file=sys.stderr)
     sys.exit(kod)
 
 
-def info(tekst: str):
-    zenity("--info", "--title=Dane logowania", f"--text={tekst}", limit=120)
-
-
+# ── warstwa X11 ───────────────────────────────────────────────────────────────
 def xdotool(*args, wejscie=None, limit=15):
     return subprocess.run(
-        ["xdotool", *args],
-        input=wejscie,
-        capture_output=True,
-        text=True,
-        timeout=limit,
+        ["xdotool", *args], input=wejscie, capture_output=True, text=True, timeout=limit
     )
 
 
 def sprawdz_srodowisko():
-    if os.environ.get("XDG_SESSION_TYPE", "") not in ("x11", ""):
+    """Sprawdzamy STAN FAKTYCZNY (czy da się rozmawiać z serwerem X), a nie zmienną
+    `XDG_SESSION_TYPE` — ta w sesji przez SSH mówi „tty”, choć pulpit X11 działa."""
+    if os.environ.get("XDG_SESSION_TYPE", "") == "wayland":
         blad(
-            "Ta sesja to nie X11 (jest: "
-            f"{os.environ.get('XDG_SESSION_TYPE')}).\n\n"
-            "Wystukiwanie klawiszy działa u nas przez `xdotool`, a ten na Wayland "
-            "nie umie pisać do cudzych okien. Trzeba wrócić na X11 albo przerobić "
-            "narzędzie na `ydotool` (przepis: 5_Wspolna_konfiguracja/"
-            "dyktowanie-do-aktywnego-okna.md).",
+            "Ta sesja to Wayland. Wystukiwanie klawiszy działa u nas przez "
+            "`xdotool`, a ten na Wayland nie umie pisać do cudzych okien. "
+            "Trzeba wrócić na X11 albo przerobić narzędzie na `ydotool` "
+            "(przepis: 5_Wspolna_konfiguracja/dyktowanie-do-aktywnego-okna.md).",
             3,
         )
+    if not os.environ.get("DISPLAY"):
+        blad("Nie widzę pulpitu X11 (pusta zmienna DISPLAY) — nie mam gdzie pisać.", 3)
     try:
-        xdotool("getactivewindow", limit=5)
+        p = xdotool("getactivewindow", limit=5)
     except FileNotFoundError:
         blad("Brak programu `xdotool` — zainstaluj: lustro dodaj xdotool", 3)
+    if p.returncode != 0:
+        blad("Nie mogę zapytać pulpitu, które okno jest aktywne:\n"
+             + (p.stderr.strip() or "?"), 3)
+
+
+def okno_aktywne():
+    p = xdotool("getactivewindow", limit=5)
+    return p.stdout.strip() if p.returncode == 0 and p.stdout.strip() else None
+
+
+def tozsamosc_okna(okno: str):
+    """(numer procesu, tytuł) okna — legitymacja sprawdzana przed pisaniem.
+
+    Po co, skoro mamy numer okna: W X11 NUMERY OKIEN SĄ NADAWANE PONOWNIE.
+    Zmierzone 31.08 na Vostro: okno zamknięte i inne okno otwarte sekundę później
+    dostały ten sam numer (73400324, potem 46137348) — sam numer nie dowodzi więc,
+    że to wciąż to samo okno. Numer procesu dowodzi.
+    """
+    p = xdotool("getwindowpid", okno, limit=5)
+    pid = p.stdout.strip() if p.returncode == 0 else None
+    p = xdotool("getwindowname", okno, limit=5)
+    nazwa = p.stdout.strip() if p.returncode == 0 else None
+    return pid, nazwa
+
+
+def okno_to_wciaz_ono(okno: str, legitymacja) -> bool:
+    if okno_aktywne() != okno:
+        return False
+    pid, nazwa = tozsamosc_okna(okno)
+    pid_wzor, nazwa_wzor = legitymacja
+    if pid_wzor:                 # numer procesu = dowód mocny
+        return pid == pid_wzor
+    return nazwa == nazwa_wzor   # gdy okno nie podaje procesu (rzadkie)
+
+
+def wroc_do_okna(okno: str, legitymacja) -> bool:
+    """Przywraca skupienie zapamiętanemu oknu i POTWIERDZA, że je ma.
+
+    Dlaczego tak, a nie `xdotool type --window`: zmierzone 31.08 na Vostro —
+    `type --window` (XSendEvent) nie dochodzi ani do okien GTK, ani do Chrome
+    (czyli i do Ferdium/Electrona): pola zostają puste. Działa dopiero aktywacja
+    okna + XTEST. Zamiast adresowania okna mamy więc BRAMKĘ: piszemy wyłącznie
+    wtedy, gdy aktywne okno to dokładnie to zapamiętane.
+    """
+    p = xdotool("windowactivate", "--sync", okno, limit=10)
+    if p.returncode != 0:
+        return False
+    for _ in range(20):  # do ~2 s
+        if okno_to_wciaz_ono(okno, legitymacja):
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def wystukaj(okno, legitymacja, wzor, login, haslo):
+    """Wystukuje wzór; przed KAŻDYM elementem sprawdza, czy nadal jesteśmy
+    w zapamiętanym oknie — inaczej przerywa."""
+    for element in wzor.split():
+        if not okno_to_wciaz_ono(okno, legitymacja):
+            raise RuntimeError("okno docelowe przestało być tym aktywnym")
+        if element in TOKENY_TEKST:
+            tekst = login if element == "login" else haslo
+            if tekst is None:
+                raise RuntimeError(f"brak wartości dla „{element}”")
+            if tekst == "":
+                continue
+            # Tekst idzie STRUMIENIEM (`--file -`), nie argumentem — argumenty
+            # widać w `ps`, strumienia nie widać nigdzie.
+            p = xdotool("type", "--clearmodifiers", "--delay", "12", "--file", "-",
+                        wejscie=tekst, limit=60)
+            if p.returncode != 0:
+                raise RuntimeError("xdotool type zwrócił błąd")
+        elif element in TOKENY_KLAWISZ:
+            p = xdotool("key", "--clearmodifiers", TOKENY_KLAWISZ[element], limit=15)
+            if p.returncode != 0:
+                raise RuntimeError(f"xdotool key {element} zwrócił błąd")
+        elif element == TOKEN_PAUZA:
+            time.sleep(0.3)
+        else:
+            raise RuntimeError(
+                f"nieznany element wzoru „{element}”; dozwolone: "
+                + ", ".join(dozwolone_elementy())
+            )
 
 
 # ── pęk kluczy ────────────────────────────────────────────────────────────────
 def wpisy():
-    """Lista naszych wpisów: [{nazwa, login, wzor, etykieta}], posortowana."""
+    """Lista naszych wpisów: [{nazwa, login, wzor, etykieta}]."""
     znalezione = Secret.password_search_sync(
         SCHEMAT,
         {"aplikacja": ZNACZNIK},
-        # ALL = wszystkie pasujące wpisy; UNLOCK = odblokuj pęk, jeśli zamknięty.
-        # LOAD_SECRETS świadomie NIE — listy nie potrzebują haseł, więc ich nie
-        # wyciągamy (hasło pobieramy dopiero dla wybranego wpisu).
+        # ALL = wszystkie pasujące; UNLOCK = odblokuj pęk, gdy zamknięty.
+        # LOAD_SECRETS świadomie NIE — lista nie potrzebuje haseł, więc ich nie
+        # wyciągamy; hasło pobieramy dopiero dla wybranego wpisu.
         Secret.SearchFlags.ALL | Secret.SearchFlags.UNLOCK,
         None,
     )
-    lista = []
-    for r in znalezione:
-        a = r.get_attributes()
-        lista.append(
-            {
-                "nazwa": a.get("wpis", "?"),
-                "login": a.get("login", ""),
-                "wzor": a.get("wzor", "haslo"),
-                "etykieta": r.get_label() or "",
-            }
-        )
+    lista = [
+        {
+            "nazwa": r.get_attributes().get("wpis", "?"),
+            "login": r.get_attributes().get("login", ""),
+            "wzor": r.get_attributes().get("wzor", "haslo"),
+            "etykieta": r.get_label() or "",
+        }
+        for r in znalezione
+    ]
     lista.sort(key=lambda w: w["nazwa"].lower())
     return lista
 
 
-def haslo_wpisu(nazwa: str):
-    """Pobiera hasło JEDNEGO wpisu. Zwraca None, gdy go nie ma."""
-    return Secret.password_lookup_sync(
-        SCHEMAT, {"aplikacja": ZNACZNIK, "wpis": nazwa}, None
-    )
+def haslo_wpisu(nazwa):
+    return Secret.password_lookup_sync(SCHEMAT,
+                                       {"aplikacja": ZNACZNIK, "wpis": nazwa}, None)
 
 
-def usun_wpis(nazwa: str) -> bool:
-    return Secret.password_clear_sync(
-        SCHEMAT, {"aplikacja": ZNACZNIK, "wpis": nazwa}, None
-    )
+def usun_wpis(nazwa):
+    return Secret.password_clear_sync(SCHEMAT,
+                                      {"aplikacja": ZNACZNIK, "wpis": nazwa}, None)
 
 
-def zapisz_wpis(nazwa: str, login: str, wzor: str, haslo: str) -> bool:
-    # Najpierw kasujemy stare wcielenie tego wpisu (mógł mieć inny login/wzór,
-    # a wtedy zostałby w pęku jako drugi, „duch").
+def zapisz_wpis(nazwa, login, wzor, haslo):
+    # Najpierw kasujemy stare wcielenie wpisu (mogło mieć inny login/wzór, czyli
+    # inny zestaw atrybutów — zostałoby w pęku jako drugi, „duch").
     usun_wpis(nazwa)
     return Secret.password_store_sync(
         SCHEMAT,
@@ -211,96 +403,36 @@ def zapisz_wpis(nazwa: str, login: str, wzor: str, haslo: str) -> bool:
     )
 
 
-# ── okno docelowe ─────────────────────────────────────────────────────────────
-def okno_aktywne():
-    p = xdotool("getactivewindow", limit=5)
-    return p.stdout.strip() if p.returncode == 0 and p.stdout.strip() else None
-
-
-def wroc_do_okna(okno: str) -> bool:
-    """Przywraca skupienie zapamiętanemu oknu i POTWIERDZA, że ono je ma.
-
-    Dlaczego tak, a nie `xdotool type --window`: zmierzone 31.08 na Vostro —
-    `type --window` (XSendEvent) NIE dochodzi ani do okien GTK, ani do Chrome
-    (czyli i do Ferdium/Electrona); pola pozostają puste. Działa dopiero
-    aktywacja okna + XTEST. Zamiast adresowania okna mamy więc BRAMKĘ:
-    piszemy wyłącznie wtedy, gdy aktywne okno == zapamiętane.
-    """
-    p = xdotool("windowactivate", "--sync", okno, limit=10)
-    if p.returncode != 0:
-        return False
-    for _ in range(15):  # do ~1,5 s
-        if okno_aktywne() == okno:
-            return True
-        time.sleep(0.1)
-    return False
-
-
-def wystukaj(okno: str, wzor: str, login: str, haslo) -> None:
-    """Wystukuje wzór. Przed KAŻDYM krokiem sprawdza, czy nadal jesteśmy
-    w zapamiętanym oknie — inaczej przerywa w pół drogi."""
-    for token in wzor.split():
-        if okno_aktywne() != okno:
-            raise RuntimeError("okno docelowe przestało być aktywne")
-        if token in TOKENY_TEKST:
-            tekst = login if token == "login" else haslo
-            if tekst is None:
-                raise RuntimeError(f"brak wartości dla „{token}”")
-            if tekst == "":
-                continue
-            # Tekst idzie STRUMIENIEM (`--file -`), nie argumentem — argumenty
-            # widać w `ps`, strumienia nie widać nigdzie.
-            p = xdotool(
-                "type", "--clearmodifiers", "--delay", "12", "--file", "-",
-                wejscie=tekst, limit=60,
-            )
-            if p.returncode != 0:
-                raise RuntimeError("xdotool type zwrócił błąd")
-        elif token in TOKENY_KLAWISZ:
-            p = xdotool("key", "--clearmodifiers", TOKENY_KLAWISZ[token], limit=15)
-            if p.returncode != 0:
-                raise RuntimeError(f"xdotool key {token} zwrócił błąd")
-        elif token == TOKEN_PAUZA:
-            time.sleep(0.3)
-        else:
-            raise RuntimeError(
-                f"nieznany element wzoru „{token}”; dozwolone: "
-                + ", ".join(sorted(TOKENY_TEKST | set(TOKENY_KLAWISZ) | {TOKEN_PAUZA}))
-            )
+def opis_wzoru(wzor):
+    for w, opis in WZORY_GOTOWE:
+        if w == wzor:
+            return opis.split(" — ")[0]
+    return wzor
 
 
 # ── polecenia ─────────────────────────────────────────────────────────────────
 def polecenie_wpisz():
     sprawdz_srodowisko()
-    okno = okno_aktywne()          # ZAPAMIĘTUJEMY PRZED pokazaniem czegokolwiek
+    okno = okno_aktywne()                # ZAPAMIĘTUJEMY PRZED pokazaniem czegokolwiek
     if not okno:
         blad("Nie widzę, które okno jest aktywne — nie mam dokąd pisać.")
+    legitymacja = tozsamosc_okna(okno)   # proces + tytuł, patrz tozsamosc_okna()
 
     lista = wpisy()
     if not lista:
-        info(
-            "Pęk kluczy nie ma jeszcze żadnych danych logowania.\n\n"
-            "Dodaj pierwsze:  <b>dane-logowania dodaj</b>\n"
-            "(terminal albo Alt+F2)."
-        )
+        info("Pęk kluczy nie ma jeszcze żadnych danych logowania.\n\n"
+             "Dodaj pierwsze poleceniem:  dane-logowania dodaj")
         return 0
 
-    wiersze = []
-    for w in lista:
-        wiersze += [w["nazwa"], w["login"] or "—", opis_wzoru(w["wzor"])]
-    kod, wybor = zenity(
-        "--list",
-        "--title=Dane logowania",
-        "--text=Do którego okna mam wpisać? (wpisuję do okna, z którego wywołałeś skrót)",
-        "--column=Wpis", "--column=Login", "--column=Co wpiszę",
-        "--print-column=1",
-        "--width=640", "--height=380",
-        *wiersze,
-        limit=300,
+    nazwa = okno_listy(
+        "Dane logowania",
+        "Wpiszę do okna, z którego nacisnąłeś skrót"
+        + (f" — „{legitymacja[1]}”." if legitymacja[1] else "."),
+        ["Wpis", "Login", "Co wpiszę"],
+        [(w["nazwa"], w["login"] or "—", opis_wzoru(w["wzor"])) for w in lista],
     )
-    if kod != 0 or not wybor:
+    if not nazwa:
         return 0
-    nazwa = wybor.split("|")[0]
     dane = next((w for w in lista if w["nazwa"] == nazwa), None)
     if dane is None:
         blad(f"Wpis „{nazwa}” zniknął z pęku kluczy.")
@@ -311,16 +443,14 @@ def polecenie_wpisz():
         if haslo is None:
             blad(f"Pęk kluczy nie oddał hasła dla wpisu „{nazwa}”.")
 
-    if not wroc_do_okna(okno):
+    if not wroc_do_okna(okno, legitymacja):
         zapisz_w_dzienniku(f"wpisz {nazwa}: PRZERWANE — nie wróciłem do okna {okno}")
-        blad(
-            "Nie udało się wrócić do okna, z którego wywołałeś skrót — "
-            "<b>nic nie zostało wpisane</b>.\n\n"
-            "Kliknij w to okno i naciśnij skrót jeszcze raz."
-        )
+        blad("Nie udało się wrócić do okna, z którego wywołałeś skrót — "
+             "NIC nie zostało wpisane.\n\n"
+             "Kliknij w to okno i naciśnij skrót jeszcze raz.")
     try:
-        wystukaj(okno, dane["wzor"], dane["login"], haslo)
-    except RuntimeError as e:
+        wystukaj(okno, legitymacja, dane["wzor"], dane["login"], haslo)
+    except (RuntimeError, subprocess.TimeoutExpired) as e:
         zapisz_w_dzienniku(f"wpisz {nazwa}: PRZERWANE — {e}")
         blad(f"Przerwane w trakcie wpisywania: {e}")
     finally:
@@ -329,97 +459,61 @@ def polecenie_wpisz():
     return 0
 
 
-def opis_wzoru(wzor: str) -> str:
-    for w, opis in WZORY_GOTOWE:
-        if w == wzor:
-            return opis.split("  (")[0]
-    return wzor
-
-
 def polecenie_dodaj():
-    kod, dane = zenity(
-        "--forms",
-        "--title=Dane logowania — nowy wpis",
-        "--text=Nowe dane logowania w pęku kluczy",
-        "--add-entry=Nazwa (jak ma się nazywać na liście, np. „Poczta h61”)",
-        "--add-entry=Login (może zostać pusty)",
-        "--separator=\x1f",
-        "--width=520",
+    dane = okno_pol(
+        "Dane logowania — nowy wpis",
+        "Hasło zostanie zapisane w pęku kluczy GNOME (otwiera się Twoim hasłem "
+        "logowania). Nie zapisujemy go w żadnym pliku.",
+        [("Nazwa na liście (np. „Poczta h61”)", False, ""),
+         ("Login (może zostać pusty)", False, "")],
     )
-    if kod != 0 or not dane:
+    if dane is None:
         return 0
-    czesci = dane.split("\x1f")
-    nazwa = czesci[0].strip() if czesci else ""
-    login = czesci[1].strip() if len(czesci) > 1 else ""
+    nazwa, login = dane[0].strip(), dane[1].strip()
     if not nazwa:
         blad("Nazwa wpisu nie może być pusta.")
-
-    istnieje = any(w["nazwa"] == nazwa for w in wpisy())
-    if istnieje:
-        kod, _ = zenity(
-            "--question",
-            "--title=Dane logowania",
-            f"--text=Wpis „{nazwa}” już jest w pęku kluczy. Nadpisać go?",
-        )
-        if kod != 0:
+    if any(w["nazwa"] == nazwa for w in wpisy()):
+        if not pytanie(f"Wpis „{nazwa}” już jest w pęku kluczy. Nadpisać go?"):
             return 0
 
-    wiersze = []
-    for w, opis in WZORY_GOTOWE:
-        wiersze += [w, opis]
-    wiersze += ["(własny)", "sam ułożę kolejność (login/haslo/TAB/ENTER/PAUZA)"]
-    kod, wzor = zenity(
-        "--list", "--title=Dane logowania",
-        f"--text=Co skrót ma wpisać dla „{nazwa}”?",
-        "--column=Wzór", "--column=Znaczenie",
-        "--print-column=1", "--width=620", "--height=320",
-        *wiersze,
-    )
-    if kod != 0 or not wzor:
+    wiersze = [(w, opis) for w, opis in WZORY_GOTOWE]
+    wiersze.append(("(własny)", "sam ułożę kolejność: " + ", ".join(dozwolone_elementy())))
+    wzor = okno_listy("Dane logowania", f"Co skrót ma wpisać dla „{nazwa}”?",
+                      ["Wzór", "Znaczenie"], wiersze, 720, 320)
+    if not wzor:
         return 0
-    wzor = wzor.split("|")[0]
     if wzor == "(własny)":
-        kod, wzor = zenity(
-            "--entry", "--title=Dane logowania",
-            "--text=Kolejność, oddzielona spacjami. Elementy: login, haslo, TAB, "
-            "SHIFT_TAB, ENTER, ESC, PAUZA",
-            "--entry-text=login TAB haslo",
-        )
-        if kod != 0 or not wzor.strip():
+        odp = okno_pol("Dane logowania — własny wzór",
+                       "Elementy oddzielone spacjami: " + ", ".join(dozwolone_elementy()),
+                       [("Kolejność", False, "login TAB haslo")])
+        if odp is None or not odp[0].strip():
             return 0
-        wzor = wzor.strip()
-    dozwolone = TOKENY_TEKST | set(TOKENY_KLAWISZ) | {TOKEN_PAUZA}
-    zle = [t for t in wzor.split() if t not in dozwolone]
+        wzor = odp[0].strip()
+    zle = [t for t in wzor.split() if t not in dozwolone_elementy()]
     if zle:
         blad("Nieznane elementy wzoru: " + ", ".join(zle))
 
     haslo = ""
     if "haslo" in wzor.split():
-        kod, haslo = zenity(
-            "--password", f"--title=Hasło dla „{nazwa}”", limit=600
-        )
-        if kod != 0:
+        odp = okno_pol(f"Hasło dla „{nazwa}”",
+                       "Wpisz hasło dwa razy — nie zobaczysz go na ekranie.",
+                       [("Hasło", True, ""), ("Powtórz hasło", True, "")])
+        if odp is None:
             return 0
-        kod, powtorka = zenity(
-            "--password", f"--title=Powtórz hasło dla „{nazwa}”", limit=600
-        )
-        if kod != 0:
-            return 0
+        haslo, powtorka = odp
         if haslo != powtorka:
             blad("Hasła się różnią — nic nie zapisałem. Spróbuj jeszcze raz.")
         if haslo == "":
             blad("Puste hasło — nic nie zapisałem.")
 
     ok = zapisz_wpis(nazwa, login, wzor, haslo)
-    haslo = powtorka = None
+    haslo = None
     if not ok:
         blad("Pęk kluczy odmówił zapisu.")
-    zapisz_w_dzienniku(f"dodaj {nazwa}: ok (wzór „{wzor}”, login {'jest' if login else 'pusty'})")
-    info(
-        f"Zapisane w pęku kluczy: <b>{nazwa}</b>.\n\n"
-        "Użycie: kliknij w pole logowania w programie i naciśnij "
-        "<b>Super+Shift+H</b>."
-    )
+    zapisz_w_dzienniku(
+        f"dodaj {nazwa}: ok (wzór „{wzor}”, login {'jest' if login else 'pusty'})")
+    info(f"Zapisane w pęku kluczy: {nazwa}.\n\n"
+         "Użycie: kliknij w pole logowania w programie i naciśnij Super+Shift+H.")
     return 0
 
 
@@ -434,49 +528,35 @@ def polecenie_lista():
         print(f"{'WPIS'.ljust(szer)}  {'LOGIN'.ljust(22)}  WZÓR")
         for w in lista:
             print(f"{w['nazwa'].ljust(szer)}  {(w['login'] or '—').ljust(22)}  {w['wzor']}")
-        print("\n(hasła nie są tu pokazywane — nigdy)")
+        print("\n(haseł nie pokazujemy — nigdy)")
         return 0
     if not lista:
         info("Pęk kluczy nie ma jeszcze żadnych danych logowania.\n\n"
-             "Dodaj pierwsze:  <b>dane-logowania dodaj</b>")
+             "Dodaj pierwsze poleceniem:  dane-logowania dodaj")
         return 0
-    wiersze = []
-    for w in lista:
-        wiersze += [w["nazwa"], w["login"] or "—", w["wzor"]]
-    zenity(
-        "--list", "--title=Dane logowania — co jest w pęku kluczy",
-        "--text=Hasła nie są pokazywane.",
-        "--column=Wpis", "--column=Login", "--column=Wzór",
-        "--width=620", "--height=380", *wiersze,
-    )
+    okno_listy("Dane logowania — co jest w pęku kluczy", "Haseł nie pokazujemy.",
+               ["Wpis", "Login", "Wzór"],
+               [(w["nazwa"], w["login"] or "—", w["wzor"]) for w in lista])
     return 0
 
 
 def polecenie_usun(argumenty):
     lista = wpisy()
     if not lista:
-        info("Nie ma czego usuwać — pęk kluczy nie ma naszych wpisów.")
+        info("Nie ma czego usuwać — w pęku kluczy nie ma naszych wpisów.")
         return 0
     if argumenty:
         nazwa = " ".join(argumenty)
     else:
-        wiersze = []
-        for w in lista:
-            wiersze += [w["nazwa"], w["login"] or "—"]
-        kod, nazwa = zenity(
-            "--list", "--title=Dane logowania — usuwanie",
-            "--text=Który wpis usunąć z pęku kluczy?",
-            "--column=Wpis", "--column=Login", "--print-column=1",
-            "--width=520", "--height=320", *wiersze,
-        )
-        if kod != 0 or not nazwa:
+        nazwa = okno_listy("Dane logowania — usuwanie",
+                           "Który wpis usunąć z pęku kluczy?",
+                           ["Wpis", "Login"],
+                           [(w["nazwa"], w["login"] or "—") for w in lista], 560, 320)
+        if not nazwa:
             return 0
-        nazwa = nazwa.split("|")[0]
     if not any(w["nazwa"] == nazwa for w in lista):
         blad(f"Nie ma wpisu „{nazwa}”.")
-    kod, _ = zenity("--question", "--title=Dane logowania",
-                    f"--text=Usunąć wpis „{nazwa}” z pęku kluczy? Tego się nie cofnie.")
-    if kod != 0:
+    if not pytanie(f"Usunąć wpis „{nazwa}” z pęku kluczy? Tego się nie cofnie."):
         return 0
     if usun_wpis(nazwa):
         zapisz_w_dzienniku(f"usun {nazwa}: ok")
@@ -488,12 +568,10 @@ def polecenie_usun(argumenty):
 
 def pomoc():
     print(__doc__.strip())
-    print(
-        "\nWzory (DANA każdego wpisu):\n  "
-        + "\n  ".join(f"{w:<24} {o}" for w, o in WZORY_GOTOWE)
-        + "\n  własny                   dowolna kolejność elementów: "
-        + ", ".join(sorted(TOKENY_TEKST | set(TOKENY_KLAWISZ) | {TOKEN_PAUZA}))
-    )
+    print("\nGotowe wzory (wzór to DANA wpisu, nie kod):")
+    for w, opis in WZORY_GOTOWE:
+        print(f"  {w:<24} {opis}")
+    print(f"  {'(własny)':<24} dowolna kolejność: " + ", ".join(dozwolone_elementy()))
     return 0
 
 
