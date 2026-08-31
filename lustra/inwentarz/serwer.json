@@ -1,6 +1,6 @@
 {
   "maszyna": "serwer",
-  "ts": "2026-08-29T18:29:58+02:00",
+  "ts": "2026-08-31T21:45:17+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -120,6 +120,12 @@
       "kanal": "apt",
       "id": "jstest-gtk",
       "wersja": "0.1.1~git20180602-2build2",
+      "zrodlo": "ubuntu"
+    },
+    {
+      "kanal": "apt",
+      "id": "kdeconnect",
+      "wersja": "23.08.5-0ubuntu5",
       "zrodlo": "ubuntu"
     },
     {
