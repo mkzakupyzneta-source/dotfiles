@@ -46,7 +46,7 @@
 # wygaszony, rozszerzenia GNOME w stanie INACTIVE, a agent nie miał zgody na
 # budzenie ekranu usera.
 #
-# [[galaz]]
-# sciezka = "/org/gnome/settings-daemon/plugins/media-keys/"
-# zrodlo  = "hp"
-# uwagi   = "własne skróty klawiszowe; [261] wspólny schowek zrzutów, 2026-08-29"
+[[galaz]]
+sciezka = "/org/gnome/settings-daemon/plugins/media-keys/"
+zrodlo  = "hp"
+uwagi   = "własne skróty klawiszowe; [261] wspólny schowek zrzutów (29.08) + [305] Super+Shift+H — wpisywanie danych logowania z pęku kluczy (31.08). Wpis odkomentowany 31.08, gdy powstała migawka pulpit/stan/hp.ini."
