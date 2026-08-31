@@ -29,6 +29,12 @@
 #    id — poprawić we wszystkich czterech miejscach.
 set -eu
 
+case "${1:-}" in
+    -h|--help|--pomoc)
+        sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
+        exit 0 ;;
+esac
+
 ID="${1:-c7746d3650f644c1aca106b623fe8a98}"   # POCO X7 Pro
 ADRES="${2:-}"
 
@@ -65,7 +71,7 @@ fi
 # a jeśli go nie ma, trzeba podać drugim argumentem.
 if ! gdbus call --session --dest "$USL" --object-path "$SCIEZKA_APKI" \
         --method org.freedesktop.DBus.ObjectManager.GetManagedObjects 2>/dev/null \
-        | grep -q "$ID"; then
+        | grep -qF -- "$ID"; then
     if [ -z "$ADRES" ]; then
         ADRES="$(dconf read "$GAL/last-connection" 2>/dev/null | tr -d "'" || true)"
     fi
