@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-08-30T12:53:04+02:00",
+  "ts": "2026-08-31T18:23:28+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -162,6 +162,12 @@
       "kanal": "apt",
       "id": "kitty",
       "wersja": "0.32.2-1ubuntu0.4",
+      "zrodlo": "ubuntu"
+    },
+    {
+      "kanal": "apt",
+      "id": "libavcodec-extra",
+      "wersja": "7:6.1.1-3ubuntu5",
       "zrodlo": "ubuntu"
     },
     {
@@ -552,6 +558,12 @@
       "kanal": "apt",
       "id": "ttf-mscorefonts-installer",
       "wersja": "3.8.1ubuntu1",
+      "zrodlo": "ubuntu"
+    },
+    {
+      "kanal": "apt",
+      "id": "unrar",
+      "wersja": "1:7.0.7-1build1",
       "zrodlo": "ubuntu"
     },
     {
