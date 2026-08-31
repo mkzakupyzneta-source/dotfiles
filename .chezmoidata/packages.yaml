@@ -1,6 +1,6 @@
 # Lista programów lustra — plik GENEROWANY przez `lustro lista`.
 # Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.
-# Wygenerowane: 2026-08-30 20:45 na maszynie hp.
+# Wygenerowane: 2026-08-31 18:08 na maszynie hp.
 packages:
   apt:
     - brightnessctl
@@ -30,6 +30,7 @@ packages:
     - ibus-table-cangjie5
     - jq
     - kitty
+    - libavcodec-extra
     - libchewing3
     - libchewing3-data
     - libdrm-dev
@@ -95,6 +96,7 @@ packages:
     - tigervnc-viewer
     - tmux
     - ttf-mscorefonts-installer
+    - unrar
     - unzip
     - vainfo
     - vlc
