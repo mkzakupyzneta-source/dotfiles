@@ -16,10 +16,12 @@
 # (4) przez 30 s co sekundę sprawdza, czy telefon potwierdził. Nic nie rusza na ekranie
 # maszyny (żadnych okien, dźwięków, blokad).
 #
-# NA TELEFONIE (Android, apka „KDE Connect"): po uruchomieniu tego skryptu pojawia się
-# powiadomienie „Pair requested by <nazwa komputera>" / „Prośba o sparowanie" z przyciskami
-# Akceptuj / Odrzuć — trzeba dotknąć AKCEPTUJ w ciągu 30 sekund (tyle trwa okno parowania
-# w protokole KDE Connect; po tym czasie po prostu uruchom skrypt jeszcze raz).
+# NA TELEFONIE (Android, apka „KDE Connect"): po uruchomieniu tego skryptu telefon pokazuje
+# prośbę o sparowanie od komputera o tej nazwie, z przyciskami akceptacji i odrzucenia
+# (widać ją i jako powiadomienie, i po wejściu w to urządzenie na liście w apce).
+# Trzeba potwierdzić w ciągu 30 sekund — tyle trwa okno parowania w protokole KDE Connect
+# (service/device.js, `_notifyPairRequest`). Po tym czasie po prostu uruchom skrypt jeszcze raz.
+# Dokładnego brzmienia napisów w apce na Androidzie NIE sprawdzałem — nie zgaduję ich tutaj.
 #
 # ⛔ ID telefonu występuje też w TRZECH plikach danych pulpitu (ścieżki dconf nie umieją
 #    czytać zmiennych): pulpit/dconf-lustro.txt, pulpit/dconf-wyjatki.txt,
@@ -83,7 +85,8 @@ echo "Wysyłam prośbę o sparowanie z $(hostname) do telefonu $ID ..."
 gdbus call --session --dest "$USL" --object-path "$SCIEZKA_URZ" \
     --method org.gtk.Actions.Activate pair "[]" "{}" >/dev/null
 
-echo "TERAZ NA TELEFONIE: powiadomienie „Pair requested by $(hostname)” → dotknij AKCEPTUJ."
+echo "TERAZ NA TELEFONIE: prośba o sparowanie od komputera „$(hostname)” → potwierdź ją."
+echo "Masz na to 30 sekund. Klucz weryfikacyjny tej maszyny widać w apce GSConnect."
 i=0
 while [ "$i" -lt 30 ]; do
     if czy_paruje; then
