@@ -1,6 +1,6 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-08-31T23:10:48+02:00",
+  "ts": "2026-09-01T07:18:34+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -809,7 +809,7 @@
     {
       "kanal": "snap",
       "id": "firefox",
-      "wersja": "154.0-1",
+      "wersja": "154.0.1-1",
       "zrodlo": "latest/stable/ubuntu-24.04"
     },
     {
