@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-08-31T23:19:34+02:00",
+  "ts": "2026-09-01T12:18:23+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -659,7 +659,7 @@
     {
       "kanal": "flatpak",
       "id": "com.jgraph.drawio.desktop",
-      "wersja": "30.0.4",
+      "wersja": "31.3.2",
       "zrodlo": "flathub"
     },
     {
