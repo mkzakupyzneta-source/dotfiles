@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-01T20:44:56+02:00",
+  "ts": "2026-09-02T07:56:01+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -114,7 +114,7 @@
       "kanal": "apt",
       "id": "google-chrome-stable",
       "wersja": "152.0.7977.64-1",
-      "zrodlo": "google-chrome"
+      "zrodlo": ""
     },
     {
       "kanal": "apt",
