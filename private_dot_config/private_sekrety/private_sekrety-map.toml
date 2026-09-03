@@ -29,8 +29,19 @@
 #                              w sejfie; skrypt ją POMIJA i wypisuje uwagę
 #
 # wartosc = "..."  — wartość wpisana wprost (tylko dla rzeczy, które NIE są
-#                    sekretem: numery bibliotek, identyfikatory, adresy).
-#                    Wyklucza się z `pozycja`.
+#                    sekretem: numery bibliotek, identyfikatory, adresy, ścieżki).
+#                    Wyklucza się z `pozycja`. TO JEST JEDYNY sposób na stałą
+#                    w pliku env — skrypt buduje plik OD NOWA z tej mapy i linie
+#                    dopisane ręcznie na maszynie ZNIKAJĄ przy następnym
+#                    uruchomieniu (od [320], 2026-09-03 opisane wprost).
+#
+# wieloliniowa = true — TYLKO dla sekretu, który naprawdę ma kilka linii (klucz
+#                    PEM itp.). Domyślnie (bez tej opcji) skrypt skleja wartość
+#                    w JEDNĄ linię: usuwa CR, złamania linii i białe znaki na
+#                    krańcach — bo notatka wklejona z zawiniętego terminala dawała
+#                    token w dwóch liniach ([320]). Z opcją: zapis w cudzysłowach
+#                    podwójnych ze złamaniami jako `\n` — rozumieją to Docker
+#                    Compose (env_file) i python-dotenv; powłoka (`source`) NIE.
 #
 # sciezka_wg_hosta — gdy JEDNA maszyna trzyma ten plik env w innym miejscu niż
 #                    `sciezka` (np. usługa na serwerze mieszka pod /srv/...).
@@ -54,7 +65,7 @@
 
 [[plik]]
 sciezka = "~/.coach/env"
-opis    = "Coach 2.0 — Telegram + dostep do Wyse (kontrakt §3c)"
+opis    = "Coach 2.0 — Telegram (kontrakt §3c) + token Claude + sciezki (§3a)"
 
   # Na serwerze (OptiPlex) Coach 2.0 mieszka pod /srv/uslugi/coach-dev/, nie
   # w katalogu domowym — nadpisanie ścieżki per hostname (klucz = `hostname`
@@ -62,11 +73,6 @@ opis    = "Coach 2.0 — Telegram + dostep do Wyse (kontrakt §3c)"
   # wiersz — plik mapowania zostaje IDENTYCZNY na wszystkich maszynach.
   [plik.sciezka_wg_hosta]
   "mk-OptiPlex-7050" = "/srv/uslugi/coach-dev/.env"
-
-  [[plik.zmienna]]
-  nazwa   = "COACH_TG_BOT_TOKEN_SHADOW"
-  pozycja = "COACH_TG_BOT_TOKEN_SHADOW"
-  pole    = "notes"
 
   [[plik.zmienna]]
   nazwa   = "COACH_TG_BOT_TOKEN_UX"
@@ -84,33 +90,43 @@ opis    = "Coach 2.0 — Telegram + dostep do Wyse (kontrakt §3c)"
   pole    = "notes"
   # to numer rozmowy, nie sekret — ale w sejfie leży w komplecie z resztą
 
-  # --- Dostep do Wyse (Home Assistant + Samba), sprawa [161], 2026-08-24 ---
-  # Te same nazwy uzywa Coach 1.0 (produkcja na Wyse) i Coach 2.0 — dlatego
-  # jeden plik, nie dwa. Zrodlo wartosci: HP `%USERPROFILE%\.ha_credentials`
-  # (na Vostro i serwerze tego pliku NIE MA) — user wpisuje do sejfu recznie.
-  # Folder w sejfie: "Coach 2.0" (nazwy z kontraktu §3c, sekcja F planu sejfu).
+  # --- mózg Coacha 2.0: Claude Code CLI w kontenerze (2026-09-03, [320]) ---
+  # Sejf: Bezpieczna notatka, folder "Coach 2.0", nazwa = nazwa zmiennej.
+  # Skrypt skleja wartość w jedną linię (notatka bywa wklejona z zawinięciem).
 
   [[plik.zmienna]]
-  nazwa   = "HA_URL"
-  pozycja = "HA_URL"
-  pole    = "notes"
-  # adres panelu HA, nie sekret — idzie w komplecie
-
-  [[plik.zmienna]]
-  nazwa   = "HA_TOKEN"
-  pozycja = "HA_TOKEN"
-  pole    = "notes"
-  # token dlugoterminowy HA; rotacja zalecana (plik z HP mogl byc w OneDrive)
-
-  [[plik.zmienna]]
-  nazwa   = "SAMBA_USER"
-  pozycja = "SAMBA_USER"
+  nazwa   = "CLAUDE_CODE_OAUTH_TOKEN"
+  pozycja = "CLAUDE_CODE_OAUTH_TOKEN"
   pole    = "notes"
 
+  # --- ścieżki Coacha 2.0 (rejestr lokalizacji, kontrakt §3a) — NIE sekrety ---
+  # Wartości wprost, bo skrypt buduje plik od nowa i ręczne dopiski giną.
+  # Przeniesione z jednorazowej mapy Architekta Coacha z 2026-09-03.
+  # COACH_OPTIPLEX_HOST = adres serwera w Tailscale (wartość zdjęta z ~/.coach/env
+  # na HP, gdzie była dopisana ręcznie); na serwerze wskazuje jego własny adres.
+
   [[plik.zmienna]]
-  nazwa   = "SAMBA_PASS"
-  pozycja = "SAMBA_PASS"
-  pole    = "notes"
+  nazwa   = "COACH_SHARED"
+  wartosc = "/home/mk/AI-katalog-roboczy/11_Home-Assistant/Coach_shared"
+
+  [[plik.zmienna]]
+  nazwa   = "COACH_STAN_DIR"
+  wartosc = "/srv/dane/coach-dev/stan"
+
+  [[plik.zmienna]]
+  nazwa   = "COACH_LOGI_DIR"
+  wartosc = "/srv/logi/coach-dev"
+
+  [[plik.zmienna]]
+  nazwa   = "COACH_OPTIPLEX_HOST"
+  wartosc = "100.110.113.13"
+
+  # --- USUNIĘTE 2026-09-03 (decyzja usera [179]) ---
+  # COACH_TG_BOT_TOKEN_SHADOW, HA_URL, HA_TOKEN, SAMBA_USER, SAMBA_PASS — pozycje
+  # Wyse / Coacha 1.0. Coach 2.0 ich nie używa (niezależny od Wyse i HA, spec §1).
+  # Pozycje w sejfie ZOSTAJĄ (nie rotowane, tylko wyjęte z tego pliku). Jeśli sesja
+  # Coacha 1.0 na stacji ich potrzebuje — osobny blok [[plik]] z inną ścieżką,
+  # decyzja Architekta/usera; NIE dopisywać ich z powrotem tutaj.
 
 
 # ============================================================================

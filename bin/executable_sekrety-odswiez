@@ -12,6 +12,15 @@ Co robi:
 ŻELAZNA ZASADA: skrypt nigdy nie wypisuje wartości sekretu — ani na ekran,
 ani do logu. Wartości trafiają wyłącznie do plików docelowych (600).
 
+Sanityzacja (od 2026-09-03, [320]): każda wartość — z sejfu i stała `wartosc` —
+przed zapisem traci znaki CR i złamania linii oraz białe znaki na krańcach (notatka
+w sejfie wklejona z zawiniętego terminala dawała token w dwóch liniach). Sekret
+naprawdę wieloliniowy: `wieloliniowa = true` w mapowaniu → zapis w cudzysłowach
+z `\n` (czytają: Docker Compose env_file, python-dotenv; powłoka `source` NIE).
+Po zbudowaniu treści każda linia musi mieć postać `NAZWA=…` — inaczej plik NIE jest
+zapisywany (stary zostaje), a skrypt kończy się kodem 3 z numerem złej linii.
+Linie spoza mapowania NIE są zachowywane — plik jest budowany od nowa z mapy.
+
 Umie też: `pozycja_wg_hosta` (sekret inny na każdej maszynie — pozycja wybierana
 po `hostname`) i `pole = "notatka:KLUCZ"` (linia `KLUCZ: wartość` w Notatce pozycji).
 Dodane 27.08 dla hasła VNC; od 29.08 ([270]) nikt tego nie używa — mechanizm zostaje,
@@ -26,6 +35,7 @@ import argparse
 import getpass
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -35,6 +45,10 @@ import tomllib
 from pathlib import Path
 
 SERWER_EU = "https://vault.bitwarden.eu"
+
+# Nazwa zmiennej env i kształt poprawnej linii pliku env (walidacja po zbudowaniu).
+WZOR_NAZWY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+WZOR_LINII = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=.*$")
 
 MIEJSCA_MAPY = [
     Path.home() / ".config" / "sekrety" / "sekrety-map.toml",
@@ -248,10 +262,18 @@ def wczytaj_mape(sciezka):
             if "nazwa" not in zmienna:
                 blad(f"{wpis['sciezka']}: pozycja bez pola `nazwa`")
                 return None
+            if not WZOR_NAZWY.match(str(zmienna["nazwa"])):
+                blad(f"{wpis['sciezka']}: „{zmienna['nazwa']}” nie jest poprawną nazwą "
+                     f"zmiennej env (litery, cyfry, podkreślenie; nie zaczyna się cyfrą)")
+                return None
             if ("pozycja" not in zmienna and "wartosc" not in zmienna
                     and "pozycja_wg_hosta" not in zmienna):
                 blad(f"{wpis['sciezka']}: {zmienna['nazwa']} — brak `pozycja`, "
                      f"`pozycja_wg_hosta` i `wartosc`")
+                return None
+            if "wieloliniowa" in zmienna and not isinstance(zmienna["wieloliniowa"], bool):
+                blad(f"{wpis['sciezka']}: {zmienna['nazwa']} — `wieloliniowa` musi być "
+                     f"true albo false")
                 return None
     return pliki
 
@@ -277,6 +299,54 @@ def sciezka_docelowa(wpis):
     if host in nadpisania:
         return Path(nadpisania[host]).expanduser()
     return Path(wpis["sciezka"]).expanduser()
+
+# ------------------------------------------------------------------ czyszczenie wartości
+
+def oczysc(wartosc):
+    """Sprowadza wartość do JEDNEJ linii: usuwa CR, skleja złamane linie (każdy
+    fragment bez białych znaków na krańcach), przycina całość.
+    Zwraca (czysta_wartosc, liczba_sklejonych_linii, czy_byl_cr).
+    Powód ([320], 2026-09-03): notatka w sejfie wklejona z zawiniętego terminala
+    dawała `KLUCZ=<80 znaków>` + osobną linię `<30 znaków>` bez `=` w pliku env."""
+    byl_cr = "\r" in wartosc
+    fragmenty = [f.strip() for f in wartosc.replace("\r", "").split("\n")]
+    fragmenty = [f for f in fragmenty if f]
+    return "".join(fragmenty).strip(), max(len(fragmenty) - 1, 0), byl_cr
+
+def zakoduj_wieloliniowa(wartosc):
+    """Sekret naprawdę wieloliniowy → JEDNA linia pliku env: w cudzysłowach podwójnych,
+    złamania linii jako `\\n`, odwrotny ukośnik i cudzysłów zabezpieczone.
+    Tak czytają: Docker Compose (env_file), python-dotenv. Powłoka (`source`) NIE
+    rozwija `\\n` — dla niej taki sekret trzeba trzymać w osobnym pliku."""
+    tekst = wartosc.replace("\r\n", "\n").replace("\r", "\n").strip("\n")
+    tekst = tekst.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+    return f'"{tekst}"'
+
+def przygotuj_linie(nazwa, wartosc, zmienna):
+    """Buduje linię `NAZWA=wartość` do pliku env. Domyślnie czyści (jedna linia);
+    przy `wieloliniowa = true` koduje z zachowaniem złamań. Zwraca (linia, uwagi)
+    — uwagi to teksty do wypisania (liczby, nigdy wartości)."""
+    uwagi = []
+    if zmienna.get("wieloliniowa", False):
+        return f"{nazwa}={zakoduj_wieloliniowa(str(wartosc))}", uwagi
+    czysta, sklejone, byl_cr = oczysc(str(wartosc))
+    if sklejone:
+        uwagi.append(f"{nazwa} — wartość miała {sklejone + 1} linie, skleiłem w jedną "
+                     f"(popraw pozycję w sejfie, żeby była jednoliniowa)")
+    if byl_cr:
+        uwagi.append(f"{nazwa} — usunąłem znaki CR (\\r) z wartości")
+    return f"{nazwa}={czysta}", uwagi
+
+def sprawdz_tresc(linie):
+    """Numery (od 1) linii, które nie są puste, nie są komentarzem i nie mają
+    postaci `NAZWA=…`. Pusta lista = plik poprawny."""
+    zle = []
+    for numer, linia in enumerate(linie, start=1):
+        if not linia.strip() or linia.lstrip().startswith("#"):
+            continue
+        if not WZOR_LINII.match(linia):
+            zle.append(numer)
+    return zle
 
 # ------------------------------------------------------------------ pliki env
 
@@ -336,6 +406,8 @@ def tylko_pokaz(pliki, sciezka_mapy, sejf):
             stan = zmienna.get("stan", "gotowe")
             pole = zmienna.get("pole", "password")
             znacznik = "" if stan == "gotowe" else f"   [POMIJAM — stan: {stan}]"
+            if zmienna.get("wieloliniowa", False):
+                znacznik += "   [wieloliniowa: cudzysłowy + \\n]"
             pozycja, powod = pozycja_dla_hosta(zmienna)
             if pozycja is None:
                 krok(f"{nazwa:<28} <- sejf: —   [POMIJAM — {powod}]")
@@ -360,6 +432,7 @@ def tylko_pokaz(pliki, sciezka_mapy, sejf):
 def odswiez(pliki, sejf):
     braki_lacznie = []
     zapisane = 0
+    niezapisane = 0
 
     for wpis in pliki:
         cel = sciezka_docelowa(wpis)
@@ -379,7 +452,10 @@ def odswiez(pliki, sejf):
             nazwa = zmienna["nazwa"]
 
             if "wartosc" in zmienna:
-                linie.append(f"{nazwa}={zmienna['wartosc']}")
+                linia, uwagi = przygotuj_linie(nazwa, zmienna["wartosc"], zmienna)
+                for tekst in uwagi:
+                    uwaga(tekst)
+                linie.append(linia)
                 pobrane += 1
                 continue
 
@@ -412,14 +488,27 @@ def odswiez(pliki, sejf):
                     linie.append(f"# {nazwa} — BRAK W SEJFIE (pozycja: {pozycja})")
                 continue
 
-            linie.append(f"{nazwa}={wartosc}")
+            linia, uwagi = przygotuj_linie(nazwa, wartosc, zmienna)
+            for tekst in uwagi:
+                uwaga(tekst)
+            linie.append(linia)
             pobrane += 1
 
         linie.append("")
+        zle = sprawdz_tresc(linie)
+        if zle:
+            # Walidacja PRZED zapisem: plik docelowy zostaje w poprzedniej postaci.
+            blad(f"{cel}: zbudowana treść ma linie bez postaci NAZWA=wartość "
+                 f"(numery linii: {', '.join(map(str, zle))}) — NIE zapisuję, "
+                 f"poprzedni plik zostaje.")
+            niezapisane += 1
+            info()
+            continue
         try:
             zapisz_atomowo(cel, "\n".join(linie))
         except OSError as wyjatek:
             blad(f"nie udało się zapisać {cel}: {wyjatek}")
+            niezapisane += 1
             continue
 
         zapisane += 1
@@ -434,8 +523,13 @@ def odswiez(pliki, sejf):
         info()
 
     info(f"Gotowe. Plików zapisanych: {zapisane}.")
+    if niezapisane:
+        info(f"Plików NIE zapisanych (błąd walidacji albo zapisu): {niezapisane} — patrz wyżej.")
     if braki_lacznie:
         info(f"Do uzupełnienia w sejfie: {len(braki_lacznie)} pozycji (nazwy wyżej).")
+    if niezapisane:
+        return 3
+    if braki_lacznie:
         return 1
     return 0
 
