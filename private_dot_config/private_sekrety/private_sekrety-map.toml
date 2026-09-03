@@ -67,12 +67,12 @@
 sciezka = "~/.coach/env"
 opis    = "Coach 2.0 — Telegram (kontrakt §3c) + token Claude + sciezki (§3a)"
 
-  # Na serwerze (OptiPlex) Coach 2.0 mieszka pod /srv/uslugi/coach-dev/, nie
+  # Na serwerze (OptiPlex) Coach 2.0 mieszka pod /srv/uslugi/coach-20/, nie
   # w katalogu domowym — nadpisanie ścieżki per hostname (klucz = `hostname`
   # tej maszyny). Gdy dojdzie kolejna maszyna z inną ścieżką, dopisz tu kolejny
   # wiersz — plik mapowania zostaje IDENTYCZNY na wszystkich maszynach.
   [plik.sciezka_wg_hosta]
-  "mk-OptiPlex-7050" = "/srv/uslugi/coach-dev/.env"
+  "mk-OptiPlex-7050" = "/srv/uslugi/coach-20/.env"
 
   [[plik.zmienna]]
   nazwa   = "COACH_TG_BOT_TOKEN_UX"
@@ -111,11 +111,11 @@ opis    = "Coach 2.0 — Telegram (kontrakt §3c) + token Claude + sciezki (§3a
 
   [[plik.zmienna]]
   nazwa   = "COACH_STAN_DIR"
-  wartosc = "/srv/dane/coach-dev/stan"
+  wartosc = "/srv/dane/coach-20/stan"
 
   [[plik.zmienna]]
   nazwa   = "COACH_LOGI_DIR"
-  wartosc = "/srv/logi/coach-dev"
+  wartosc = "/srv/logi/coach-20"
 
   [[plik.zmienna]]
   nazwa   = "COACH_OPTIPLEX_HOST"
