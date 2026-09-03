@@ -366,10 +366,29 @@ def stare_wartosci(sciezka):
         pass
     return zapamietane
 
+def katalog_do_zamkniecia(katalog, utworzony):
+    """Czy wolno zamknąć katalog pliku env na 700 (tylko właściciel).
+
+    Tak — gdy skrypt sam go właśnie utworzył albo gdy katalog leży w $HOME
+    (np. ~/.narzedzia-ai, ~/.coach): to prywatne kąty użytkownika.
+    Nie — gdy katalog istniał wcześniej poza $HOME (np. /srv/uslugi/coach-20,
+    współdzielony grupą `coach`, 2775): jego prawa ustala kto inny, a plik env
+    i tak dostaje 600. Incydent [319]-c, 2026-09-03: skrypt zamknął katalog
+    projektu na 700 i odciął grupę."""
+    if utworzony:
+        return True
+    try:
+        katalog.resolve().relative_to(Path.home().resolve())
+        return True
+    except ValueError:
+        return False
+
 def zapisz_atomowo(sciezka, tresc):
     katalog = sciezka.parent
+    utworzony = not katalog.exists()
     katalog.mkdir(parents=True, exist_ok=True)
-    os.chmod(katalog, 0o700)
+    if katalog_do_zamkniecia(katalog, utworzony):
+        os.chmod(katalog, 0o700)
     uchwyt, tymczasowy = tempfile.mkstemp(dir=str(katalog), prefix=".sekrety-", suffix=".tmp")
     try:
         os.fchmod(uchwyt, 0o600)
