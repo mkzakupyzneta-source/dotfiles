@@ -213,14 +213,12 @@ profil = "stacja"
 onedrive = "konto-osobiste"   # [279a] — stan zastany; NIEZWERYFIKOWANY pomiarem (Vostro było
                               # wyłączone 30.08). Ta wartość NIC nie zmienia (maskę zakłada
                               # tylko "brak"), więc jest bezpieczna do czasu sprawdzenia.
-mac_lan = "54:bf:64:31:4d:b7"
+mac_lan = "84:5c:31:13:d9:4c"  # [335] 06.09: karta do BUDZENIA = karta sieciowa MONITORA (patrz karty niżej)
 zdalny_pulpit = ["vnc"]  # usluga `zdalny-pulpit` (x11vnc 127.0.0.1:5900) — [258c] 2026-08-29
-wolno_hibernowac = true  # [290] 30.08 — hibernacja ZMIERZONA na tej maszynie, nie założona:
-                         # `rtcwake -m disk` uśpiło na dysk, wybudzenie przez sieć (WOL) zadziałało,
-                         # powrót do sesji zajął ~3 s. Warunki spełnione: Secure Boot wyłączony,
-                         # `secretmem.enable=0` w wierszu poleceń jądra, obszar wymiany 34 GB
-                         # na /data (większy od pamięci), `power/wakeup` karty sieciowej włączone
-                         # regułą udev. Jedyna maszyna floty z tym polem — patrz nagłówek pliku.
+wolno_hibernowac = false  # [323] 05.09 — hibernacja WYŁĄCZONA decyzją usera (swap 34 GB na /data
+                          # skasowany, `resume=` zdjęte z GRUB i initramfs). Zdalne budzenie jest
+                          # teraz przez WOL z uśpienia (karta monitora) + wake-on-AC z wyłączenia
+                          # (cykl inteligentnego gniazdka, HA) — [335]. Historia hibernacji: [290] 30.08.
 klapa_zamkniecie = "ignoruj"  # [279] 30.08 — Vostro pracuje ZAWSZE z zamkniętą klapą. Decyzja
                               # usera: „nic nie zmieniamy" — pole zapisuje STAN ZASTANY, żeby
                               # mechanizm go znał; NIKT nie uruchamiał tam `zasilanie-stacja.sh`.
@@ -239,10 +237,27 @@ UP+LOWER_UP w chwili pomiaru). BIOS/system: obsługa Wake-on-LAN w BIOS-ie NIEZW
 przy okazji fizycznej wizyty."""
 
   [[maszyna.karta]]
-  # Jedyna karta. BIOS `WakeOnLan = LanOnly` włączony (obszar 6, 30.08).
+  # Wbudowana karta (Killer E2400, sterownik `alx`) — NIE UMIE WOL w ogóle (zmierzone 06.09:
+  # `ethtool` bez pola Wake-on), ani z wyłączenia, ani z uśpienia; wcześniejsze „WOL zadziałało"
+  # [290] dotyczyło hibernacji. Od 06.09 kabel LAN PRZEPIĘTY do monitora — ta karta bez kabla.
   nazwa    = "enp59s0"
   rodzaj   = "kabel"
   mac      = "54:bf:64:31:4d:b7"
+  adres    = ""
+  budzenie = false
+
+  [[maszyna.karta]]
+  # KARTA DO BUDZENIA [335] (06.09): karta sieciowa wbudowana w monitor Dell U3225QE
+  # (Realtek RTL8156, 2,5 Gbit, sterownik `r8152`), podłączona do laptopa przez USB 3.0 (USB-A).
+  # WOL magic packet budzi Vostro Z UŚPIENIA (zmierzone: pakiet 00:06:14 → wstało 00:06:21);
+  # z pełnego wyłączenia NIE (USB martwe w S5) — tam wake-on-AC przez gniazdko HA.
+  # Wymaga: reguła udev `/etc/udev/rules.d/92-budzenie-vostro.rules` (uzbraja tylko szynę USB3,
+  # huby monitora po ID, tę kartę i odbiornik Logitech; szyna USB2 monitora terkocze — rozbrojona)
+  # + NetworkManager `802-3-ethernet.wake-on-lan magic` na „Wired connection 1". Zależność: LAN
+  # Vostro istnieje tylko, gdy monitor ma prąd i USB wpięte. Rezerwacja DHCP .60 → ten MAC: [336].
+  nazwa    = "enx845c3113d94c"
+  rodzaj   = "kabel"
+  mac      = "84:5c:31:13:d9:4c"
   adres    = "192.168.1.60"
   budzenie = true
 
