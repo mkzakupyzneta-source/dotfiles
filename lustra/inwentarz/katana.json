@@ -1,6 +1,6 @@
 {
   "maszyna": "katana",
-  "ts": "2026-08-30T13:46:31+02:00",
+  "ts": "2026-09-05T12:46:55+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -144,7 +144,7 @@
       "kanal": "apt",
       "id": "openssh-server",
       "wersja": "1:9.6p1-3ubuntu13.18",
-      "zrodlo": "ubuntu"
+      "zrodlo": ""
     },
     {
       "kanal": "apt",
