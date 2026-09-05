@@ -1,6 +1,6 @@
 # Lista programów lustra — plik GENEROWANY przez `lustro lista`.
 # Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.
-# Wygenerowane: 2026-08-31 18:08 na maszynie hp.
+# Wygenerowane: 2026-09-05 13:36 na maszynie vostro.
 packages:
   apt:
     - brightnessctl
@@ -57,6 +57,7 @@ packages:
     - nvtop
     - okular
     - onedrive
+    - openbox
     - openssh-server
     - pandoc
     - pipx
@@ -105,7 +106,9 @@ packages:
     - wget
     - x11vnc
     - xclip
+    - xdotool
     - xournalpp
+    - xvfb
     - zip
   snap:
     - bitwarden

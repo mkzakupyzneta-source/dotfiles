@@ -138,3 +138,4 @@
 {"ts": "2026-08-31T22:52:57+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "xdotool", "wersja": "1:3.20160805.1-5build1", "zrodlo": "apka", "notatka": "[305] wystukiwanie danych logowania do aktywnego okna (X11)"}
 {"ts": "2026-08-31T23:10:40+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "openbox", "wersja": "3.6.1-12build5", "zrodlo": "sync", "za": {"maszyna": "hp", "ts": "2026-08-31T23:06:31+02:00"}}
 {"ts": "2026-08-31T23:10:44+02:00", "maszyna": "vostro", "zdarzenie": "dodano", "kanal": "apt", "id": "xvfb", "wersja": "2:21.1.12-1ubuntu1.6", "zrodlo": "sync", "za": {"maszyna": "hp", "ts": "2026-08-31T23:05:48+02:00"}}
+{"ts": "2026-09-05T13:36:36+02:00", "maszyna": "vostro", "zdarzenie": "usunieto", "kanal": "flatpak", "id": "net.mkiol.SpeechNote", "zrodlo": "apka", "notatka": "user 2026-09-05: nie korzysta na razie; zwalnia SSD Vostro [330]"}
