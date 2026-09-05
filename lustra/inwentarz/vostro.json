@@ -1,6 +1,6 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-09-05T13:56:29+02:00",
+  "ts": "2026-09-05T16:36:05+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -815,7 +815,7 @@
     {
       "kanal": "snap",
       "id": "teams-for-linux",
-      "wersja": "2.18.1",
+      "wersja": "2.20.0",
       "zrodlo": "latest/stable"
     }
   ]
