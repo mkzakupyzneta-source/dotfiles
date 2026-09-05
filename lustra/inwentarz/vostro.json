@@ -1,7 +1,13 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-09-05T16:36:05+02:00",
+  "ts": "2026-09-06T01:45:15+02:00",
   "pozycje": [
+    {
+      "kanal": "apt",
+      "id": "autorandr",
+      "wersja": "1.14-2",
+      "zrodlo": "ubuntu"
+    },
     {
       "kanal": "apt",
       "id": "brightnessctl",
