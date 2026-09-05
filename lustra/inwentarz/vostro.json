@@ -1,6 +1,6 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-09-05T12:56:22+02:00",
+  "ts": "2026-09-05T13:56:29+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -670,18 +670,6 @@
     },
     {
       "kanal": "flatpak",
-      "id": "net.mkiol.SpeechNote",
-      "wersja": "4.8.4",
-      "zrodlo": "flathub"
-    },
-    {
-      "kanal": "flatpak",
-      "id": "net.mkiol.SpeechNote.Addon.nvidia",
-      "wersja": "1.4.0",
-      "zrodlo": "flathub"
-    },
-    {
-      "kanal": "flatpak",
       "id": "org.ferdium.Ferdium",
       "wersja": "7.2.1",
       "zrodlo": "flathub"
@@ -766,6 +754,12 @@
     },
     {
       "kanal": "poza",
+      "id": "site-packages",
+      "wersja": "?",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "poza",
       "id": "ssh-otworz",
       "wersja": "?",
       "zrodlo": ""
@@ -773,6 +767,12 @@
     {
       "kanal": "poza",
       "id": "vnc-otworz",
+      "wersja": "?",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "poza",
+      "id": "websockets",
       "wersja": "?",
       "zrodlo": ""
     },
