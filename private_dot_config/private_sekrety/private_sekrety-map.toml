@@ -227,6 +227,34 @@ opis    = "Klucze API narzędzi AI (bazy publikacji, LLM, patenty)"
 
 
 # ============================================================================
+# 3. Home Assistant (Wyse)  →  ~/.ha_credentials
+# ============================================================================
+# Dopisane 2026-09-05 (decyzja usera przez sesję HA na Vostro; Architekt Sieci).
+# To jest ten „osobny blok [[plik]] z inną ścieżką", który przewidziała
+# adnotacja [179] przy usuwaniu HA_* z bloku Coacha 2.0 — sesje projektu
+# 11_Home-Assistant na stacjach czytają ~/.ha_credentials (narzędzia _TOOLS).
+# Pozycje w sejfie: stare, z konwencji Wyse/Coacha 1.0 (folder "Coach 2.0").
+# Uwaga historyczna: token był kiedyś w pliku na HP, który mógł jechać
+# OneDrive'em — rotacja nadal zalecana (nowa wartość → tylko sejf).
+
+[[plik]]
+sciezka = "~/.ha_credentials"
+opis    = "Home Assistant na Wyse — adres panelu + token API (sesje projektu 11_Home-Assistant)"
+
+  [[plik.zmienna]]
+  nazwa   = "HA_URL"
+  pozycja = "HA_URL"
+  pole    = "notes"
+  # adres panelu HA, nie sekret — idzie w komplecie
+
+  [[plik.zmienna]]
+  nazwa   = "HA_TOKEN"
+  pozycja = "HA_TOKEN"
+  pole    = "notes"
+  # token dlugoterminowy HA
+
+
+# ============================================================================
 # CO STĄD USUNIĘTO 2026-08-29 (sprawa [270], obszar 7_Bezpieczenstwo)
 # ============================================================================
 # Decyzje usera przy porządkowaniu sejfu:
