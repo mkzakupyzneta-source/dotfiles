@@ -24,10 +24,14 @@
 #      nowe pole (`wolno_restartowac`…) dokładałoby kolejny plik. Tutaj dokłada JEDNĄ LINIĘ
 #      w tabeli niżej.
 #
-#      ⚠️ CUDZE REGUŁY SUDO: prawo do tych poleceń może już dawać plik, którego mechanizm luster
-#      NIE ZAKŁADAŁ — na Vostro robi to /etc/sudoers.d/ha-power (Home Assistant: poweroff,
-#      reboot, suspend). Takiego pliku NIE RUSZAMY i nie powtarzamy jego uprawnień. Wykrywamy je
-#      BEZ ZAGLĄDANIA DO ŚRODKA CUDZEGO PLIKU — z `sudo -n -l`, które wypisuje reguły
+#      ⚠️ INNE REGUŁY SUDO NA TE SAME POLECENIA: prawo do `poweroff`/`hibernate` może już dawać
+#      inny plik sudoers, który ten skrypt NIE ZAKŁADA — np. /etc/sudoers.d/ha-power
+#      (suspend/poweroff/reboot dla przycisków panelu Home Assistant; do 2026-09-06 był to plik
+#      obcego projektu, od decyzji usera [348] jest NASZ, ale zakłada go osobny statyczny krok
+#      K3c w `nowa-stacja.sh` — treść identyczna wszędzie, bez pola w `maszyny.toml` — patrz
+#      `mechanizm-luster-spec.md` rozdz. 7.8). Ten skrypt go NIE RUSZA i nie powtarza jego
+#      uprawnień, obojętnie kto go założył. Wykrywamy je BEZ ZAGLĄDANIA DO ŚRODKA TAMTEGO
+#      PLIKU — z `sudo -n -l`, które wypisuje reguły
 #      obowiązujące użytkownika. ⚠️ `sudo -n -l <polecenie>` do tego NIE SŁUŻY: zmierzone na HP
 #      30.08 — dla użytkownika z `(ALL : ALL) ALL` zwraca sukces także dla polecenia, które
 #      zapytałoby o hasło. Liczy się WYŁĄCZNIE to, co stoi w liniach z `NOPASSWD:`.

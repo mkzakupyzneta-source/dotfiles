@@ -207,6 +207,30 @@ else
     pomin "ustawienia zasilania" "$NAZWA nie ma w maszyny.toml ani wolno_wylaczac, ani wyjątku klapy"
 fi
 
+# ------------------------------------------------------------------ K3c sudoers ha-power [348]
+# Reguła dla przycisków Uśpij/Wyłącz/Restart w panelu Home Assistant: HA łączy się przez SSH jako
+# ten sam użytkownik i woła `sudo -n systemctl <akcja>` — bez NOPASSWD odbije się o hasło (ten sam
+# problem, który K3b rozwiązuje dla panelu menadżera sieci obszaru 1_Serwer).
+# W ODRÓŻNIENIU od K3b ta reguła NIE jest daną z maszyny.toml — treść jest IDENTYCZNA na każdej
+# stacji roboczej (jak K3 dla apt/dpkg), więc nie ma tu nic do złożenia z pól, tylko stała treść.
+# Do 2026-09-06 ten plik uchodził za CUDZY (założony ręcznie na prośbę projektu Home Assistant,
+# `_SKRZYNKA/2026-08-22_*`) i mechanizm luster celowo go nie ruszał — K3b tylko wykrywał jego
+# istnienie przez `sudo -n -l`, żeby nie dublować uprawnienia do `poweroff`. User zdecydował
+# 2026-09-06 ([348]), że ten plik ma być NASZ, żeby przetrwał reinstalację — stąd ten krok.
+# Idempotentne: jeśli plik już jest (tak jak dziś na Vostro/HP/Katanie, założony ręcznie), krok
+# nic nie zmienia. Nie dotyczy serwera — ten skrypt woła się tylko dla profilu "stacja".
+krok "K3c Reguła sudo dla przycisków power w Home Assistant ([348] — suspend/poweroff/reboot)"
+SUDOERS_HA=/etc/sudoers.d/ha-power
+if sudo test -f $SUDOERS_HA; then
+    ok "reguła ha-power [348] już jest"
+else
+    printf '%s ALL=(root) NOPASSWD: /usr/bin/systemctl suspend, /usr/bin/systemctl poweroff, /usr/bin/systemctl reboot\n' "$UZYTKOWNIK" >/tmp/ha-power
+    if sudo visudo -cf /tmp/ha-power >/dev/null && sudo install -m 440 -o root -g root /tmp/ha-power $SUDOERS_HA; then
+        ok "reguła ha-power [348] założona" "$SUDOERS_HA"
+    else blad "sudoers ha-power [348]"; fi
+    rm -f /tmp/ha-power
+fi
+
 # ------------------------------------------------------------------ K4 klucze SSH
 krok "K4 Trzy klucze SSH (wzorzec obszaru 7, etap S1) + known_hosts maszyn domowych"
 mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
