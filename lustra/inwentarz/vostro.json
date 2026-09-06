@@ -1,6 +1,6 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-09-06T07:35:16+02:00",
+  "ts": "2026-09-06T08:39:15+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -737,7 +737,7 @@
     {
       "kanal": "poza",
       "id": "claude",
-      "wersja": "2.1.261",
+      "wersja": "2.1.263",
       "zrodlo": ""
     },
     {
