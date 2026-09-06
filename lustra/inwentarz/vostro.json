@@ -1,6 +1,6 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-09-06T01:45:15+02:00",
+  "ts": "2026-09-06T07:35:16+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -701,7 +701,7 @@
     {
       "kanal": "gnome-extension",
       "id": "Vitals@CoreCoding.com",
-      "wersja": "82",
+      "wersja": "85",
       "zrodlo": ""
     },
     {
