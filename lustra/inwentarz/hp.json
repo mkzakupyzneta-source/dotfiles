@@ -1,7 +1,13 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-04T11:01:44+02:00",
+  "ts": "2026-09-06T13:45:11+02:00",
   "pozycje": [
+    {
+      "kanal": "apt",
+      "id": "autorandr",
+      "wersja": "1.14-2",
+      "zrodlo": "ubuntu"
+    },
     {
       "kanal": "apt",
       "id": "brightnessctl",
