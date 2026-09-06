@@ -187,3 +187,4 @@
 {"ts": "2026-08-30T12:54:14+02:00", "maszyna": "katana", "zdarzenie": "usunieto-profil", "kanal": "snap", "id": "bitwarden", "zrodlo": "profil", "notatka": "poza profilem „moc” tej maszyny [284]"}
 {"ts": "2026-08-30T12:54:38+02:00", "maszyna": "katana", "zdarzenie": "usunieto-profil", "kanal": "snap", "id": "firefox", "zrodlo": "profil", "notatka": "poza profilem „moc” tej maszyny [284]"}
 {"ts": "2026-08-30T12:54:45+02:00", "maszyna": "katana", "zdarzenie": "usunieto-profil", "kanal": "snap", "id": "teams-for-linux", "zrodlo": "profil", "notatka": "poza profilem „moc” tej maszyny [284]"}
+{"ts": "2026-09-06T09:13:01+02:00", "maszyna": "katana", "zdarzenie": "dodano", "kanal": "apt", "id": "dkms", "wersja": "3.0.11-1ubuntu13", "zrodlo": "wykryte", "notatka": "wykryte automatycznie hookiem dpkg — zainstalowane poza `lustro dodaj` [213]"}

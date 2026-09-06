@@ -1,6 +1,6 @@
 {
   "maszyna": "katana",
-  "ts": "2026-09-05T13:47:55+02:00",
+  "ts": "2026-09-06T09:32:37+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -30,6 +30,12 @@
       "kanal": "apt",
       "id": "dislocker",
       "wersja": "0.7.3-3.1build2",
+      "zrodlo": "ubuntu"
+    },
+    {
+      "kanal": "apt",
+      "id": "dkms",
+      "wersja": "3.0.11-1ubuntu13",
       "zrodlo": "ubuntu"
     },
     {
