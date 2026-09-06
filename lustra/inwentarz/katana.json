@@ -1,6 +1,6 @@
 {
   "maszyna": "katana",
-  "ts": "2026-09-06T09:32:37+02:00",
+  "ts": "2026-09-06T14:38:41+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -413,6 +413,12 @@
     {
       "kanal": "poza",
       "id": "claude-code-url-handler",
+      "wersja": "?",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "poza",
+      "id": "inhibitor-liczenia.sh",
       "wersja": "?",
       "zrodlo": ""
     },
