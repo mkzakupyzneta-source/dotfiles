@@ -254,7 +254,10 @@ przy okazji fizycznej wizyty."""
   # Wymaga: reguła udev `/etc/udev/rules.d/92-budzenie-vostro.rules` (uzbraja tylko szynę USB3,
   # huby monitora po ID, tę kartę i odbiornik Logitech; szyna USB2 monitora terkocze — rozbrojona)
   # + NetworkManager `802-3-ethernet.wake-on-lan magic` na „Wired connection 1". Zależność: LAN
-  # Vostro istnieje tylko, gdy monitor ma prąd i USB wpięte. Rezerwacja DHCP .60 → ten MAC: [336].
+  # Vostro istnieje tylko, gdy monitor ma prąd i USB wpięte. Rezerwacja DHCP .60 → ten MAC: [336] (zrobione
+  # 06.09, router zna ją jako „vostro-1"). ⚠️ Kabel USB monitora MUSI być w gnieździe USB-A, w którym hub
+  # widać jako `2-3` — w drugim gnieździe Vostro budzi się samo po 15 s (zmierzone 06.09, 8 prób). KVM Della
+  # przełącza hub RAZEM z tą kartą → przy KVM na Katanie Vostro ma tylko Wi-Fi (Pakamera_5G, zapas).
   nazwa    = "enx845c3113d94c"
   rodzaj   = "kabel"
   mac      = "84:5c:31:13:d9:4c"
