@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-06T13:45:11+02:00",
+  "ts": "2026-09-06T16:47:42+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -713,7 +713,7 @@
     {
       "kanal": "gnome-extension",
       "id": "Vitals@CoreCoding.com",
-      "wersja": "82",
+      "wersja": "85",
       "zrodlo": ""
     },
     {
@@ -809,7 +809,7 @@
     {
       "kanal": "snap",
       "id": "teams-for-linux",
-      "wersja": "2.17.0",
+      "wersja": "2.20.0",
       "zrodlo": "latest/stable"
     }
   ]
