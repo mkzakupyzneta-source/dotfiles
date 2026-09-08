@@ -225,6 +225,18 @@ opis    = "Klucze API narzędzi AI (bazy publikacji, LLM, patenty)"
   pozycja = "HF_TOKEN"
   pole    = "notes"
 
+  # --- Panel menadżera sieci (:8100, OptiPlex) woła skrypty HA przez REST API,
+  # zadanie 2026-09-08 (0_Architekt/_SKRZYNKA/2026-09-08_ZADANIE_od-ha_do-siec_
+  # panel-8100-wola-skrypty-ha-przez-api.md). Konto HA "panel-sieci" (bez admina),
+  # token długoterminowy — inny niż HA_TOKEN w bloku 3 niżej (ten tam jest do
+  # narzędzi projektu 11_Home-Assistant na Wyse, ten tutaj tylko do panelu na
+  # serwerze). Panel czyta go z ~/.narzedzia-ai/env (ten sam plik).
+
+  [[plik.zmienna]]
+  nazwa   = "HA_TOKEN_PANEL_SIECI"
+  pozycja = "HA_TOKEN_PANEL_SIECI"
+  pole    = "notes"
+
 
 # ============================================================================
 # 3. Home Assistant (Wyse)  →  ~/.ha_credentials
