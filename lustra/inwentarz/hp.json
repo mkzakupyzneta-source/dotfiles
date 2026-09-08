@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-07T10:31:01+02:00",
+  "ts": "2026-09-08T09:56:00+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -689,7 +689,7 @@
     {
       "kanal": "flatpak",
       "id": "org.ferdium.Ferdium",
-      "wersja": "7.2.1",
+      "wersja": "7.2.2",
       "zrodlo": "flathub"
     },
     {
