@@ -1,6 +1,6 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-09-07T22:26:22+02:00",
+  "ts": "2026-09-08T20:46:26+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -677,7 +677,7 @@
     {
       "kanal": "flatpak",
       "id": "org.ferdium.Ferdium",
-      "wersja": "7.2.1",
+      "wersja": "7.2.3",
       "zrodlo": "flathub"
     },
     {
@@ -726,6 +726,18 @@
       "kanal": "poza",
       "id": "academic-refchecker",
       "wersja": "?",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "poza",
+      "id": "chezmoi",
+      "wersja": "2.72.0",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "poza",
+      "id": "claude",
+      "wersja": "2.1.263",
       "zrodlo": ""
     },
     {
