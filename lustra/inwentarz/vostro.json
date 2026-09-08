@@ -1,6 +1,6 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-09-08T20:46:26+02:00",
+  "ts": "2026-09-08T21:46:48+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -665,7 +665,7 @@
     {
       "kanal": "flatpak",
       "id": "com.jgraph.drawio.desktop",
-      "wersja": "31.4.2",
+      "wersja": "31.4.4",
       "zrodlo": "flathub"
     },
     {
