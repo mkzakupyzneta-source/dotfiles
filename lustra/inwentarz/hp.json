@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-09T11:47:46+02:00",
+  "ts": "2026-09-09T19:56:54+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -127,6 +127,12 @@
       "id": "gstreamer1.0-plugins-bad",
       "wersja": "1.24.2-1ubuntu4",
       "zrodlo": "ubuntu"
+    },
+    {
+      "kanal": "apt",
+      "id": "hp-pilnuj-snu-po-klapie",
+      "wersja": "1.0",
+      "zrodlo": ""
     },
     {
       "kanal": "apt",
