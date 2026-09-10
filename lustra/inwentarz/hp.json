@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-10T10:46:20+02:00",
+  "ts": "2026-09-10T12:47:09+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -664,6 +664,12 @@
     },
     {
       "kanal": "flatpak",
+      "id": "com.brave.Browser",
+      "wersja": "1.94.121",
+      "zrodlo": "flathub"
+    },
+    {
+      "kanal": "flatpak",
       "id": "com.github.tenderowl.frog",
       "wersja": "1.6.0",
       "zrodlo": "flathub"
@@ -678,6 +684,12 @@
       "kanal": "flatpak",
       "id": "com.orcaslicer.OrcaSlicer",
       "wersja": "2.4.2",
+      "zrodlo": "flathub"
+    },
+    {
+      "kanal": "flatpak",
+      "id": "com.vivaldi.Vivaldi",
+      "wersja": "8.2.4133.47",
       "zrodlo": "flathub"
     },
     {
