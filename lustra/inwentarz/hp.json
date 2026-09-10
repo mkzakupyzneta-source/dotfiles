@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-09T19:56:54+02:00",
+  "ts": "2026-09-10T07:37:23+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -131,7 +131,7 @@
     {
       "kanal": "apt",
       "id": "hp-pilnuj-snu-po-klapie",
-      "wersja": "1.0",
+      "wersja": "1.1",
       "zrodlo": ""
     },
     {
@@ -749,7 +749,7 @@
     {
       "kanal": "poza",
       "id": "claude",
-      "wersja": "2.1.266",
+      "wersja": "2.1.267",
       "zrodlo": ""
     },
     {
