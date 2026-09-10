@@ -577,6 +577,36 @@ różnić od powyższego w zależności od tego, czy user właśnie ją obudził
   adres    = "192.168.1.36"
   budzenie = false
 
+# ── Lenovo M30-70 (córki) — laptop domowy, Zorin OS ─────────────────────────────
+# Dodana 2026-09-10 przez obszar 5_Wspolna_konfiguracja (sprawa [375], zlecenie: alias
+# `ssh lenovo` po tym, jak ręczny dopisek do ~/.ssh/config na HP zmiótł `chezmoi apply` —
+# plik jest kanoniczny, generowany z tego pliku, patrz private_dot_ssh/config.tmpl).
+# Maszyna już znana pamięci projektu ([373] modernizacja 09.09: RAM 8 GB, SSD SU650 240 GB;
+# [374] system docelowy Zorin OS Education, instalacja jeszcze nie wykonana — stan dziś:
+# stary system na starym dysku, adres zmierzony na tym, co tam działa teraz).
+# Nie jest stacją lustra (chezmoi nie zainstalowany, nie będzie — laptop dziecka) — wpis
+# tu wyłącznie JAKO DANA dla generatora ~/.ssh/config: wchodzi do bloku aliasu (`Host lenovo`)
+# i automatycznie do bloku zbiorczego klucza domowego (pętla po polu `klucz` w config.tmpl).
+[[maszyna]]
+klucz = "lenovo"
+nazwa = "Lenovo M30-70 (córki)"
+rola = "Laptop domowy córki"
+system = "Zorin OS"  # docelowy ([374]); instalacja jeszcze nie wykonana na 10.09
+nazwa_hosta = ""
+host_lan = "192.168.1.61"  # rezerwacja DHCP — adres STAŁY (zgłoszenie usera 2026-09-10)
+host_tailscale = ""
+ip_tailscale = ""
+user = "mk"
+katalog_roboczy = ""
+dostepna_jako_cel = false
+aktywna = true
+czlonek_lustra = false
+uwagi = """
+Nie-lustro (chezmoi nie zainstalowany). Wpis wyłącznie po to, żeby maszyny.toml — źródło
+danych dla ~/.ssh/config (sprawa [222], private_dot_ssh/config.tmpl) — wygenerowało alias
+SSH `ssh lenovo` (klucz ~/.ssh/id_ed25519_dom przez blok zbiorczy „Maszyny domowe") zamiast
+ręcznego dopisku, który `chezmoi apply` i tak zamiata. Sprawa Architekta [375], 2026-09-10."""
+
 # ── Poligon — maszyna do eksperymentów (jeszcze nie istnieje) ──────────────────
 [[maszyna]]
 klucz = "poligon"
