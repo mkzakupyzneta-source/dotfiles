@@ -1,6 +1,6 @@
 {
   "maszyna": "vostro",
-  "ts": "2026-09-09T20:30:11+02:00",
+  "ts": "2026-09-11T21:28:08+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -658,6 +658,12 @@
     },
     {
       "kanal": "flatpak",
+      "id": "com.brave.Browser",
+      "wersja": "1.95.101",
+      "zrodlo": "flathub"
+    },
+    {
+      "kanal": "flatpak",
       "id": "com.github.tenderowl.frog",
       "wersja": "1.6.0",
       "zrodlo": "flathub"
@@ -672,6 +678,12 @@
       "kanal": "flatpak",
       "id": "com.orcaslicer.OrcaSlicer",
       "wersja": "2.4.2",
+      "zrodlo": "flathub"
+    },
+    {
+      "kanal": "flatpak",
+      "id": "com.vivaldi.Vivaldi",
+      "wersja": "8.2.4133.52",
       "zrodlo": "flathub"
     },
     {
@@ -726,18 +738,6 @@
       "kanal": "poza",
       "id": "academic-refchecker",
       "wersja": "?",
-      "zrodlo": ""
-    },
-    {
-      "kanal": "poza",
-      "id": "chezmoi",
-      "wersja": "2.72.0",
-      "zrodlo": ""
-    },
-    {
-      "kanal": "poza",
-      "id": "claude",
-      "wersja": "2.1.266",
       "zrodlo": ""
     },
     {
