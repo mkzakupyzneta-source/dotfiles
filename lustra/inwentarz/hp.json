@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-11T14:10:13+02:00",
+  "ts": "2026-09-11T20:33:32+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -821,7 +821,7 @@
     {
       "kanal": "snap",
       "id": "firefox",
-      "wersja": "147.0.3-1",
+      "wersja": "155.0.1-1",
       "zrodlo": "latest/stable/ubuntu-24.04"
     },
     {
