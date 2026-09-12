@@ -17,7 +17,6 @@ dopisuje się ręcznie / przez panel HA (stan z 27.08: wszystkie mają komplet).
 | Plik | Rola (7_Bezpieczenstwo, etap S) | Uwagi |
 |---|---|---|
 | `vostro-dom.pub`, `katana-dom.pub` | **domowy** `~/.ssh/id_ed25519_dom` — bez frazy, tylko maszyny domowe | wygenerowane 27.08 lokalnie na każdej stacji |
-| `vostro-osobisty.pub`, `katana-osobisty.pub` | **osobisty** `~/.ssh/id_ed25519` | były już w `authorized_keys` przed 27.08 — zostawione, do decyzji obszaru 7, czy wycofać z maszyn domowych (po wdrożeniu `~/.ssh/config` stacje używają w domu wyłącznie klucza domowego) |
 | `serwer-glowny.pub` | jedyny klucz serwera (RSA, `~/.ssh/id_rsa`, bez frazy) | serwer nie ma profilu stacji — ma jeden klucz do wszystkiego |
 | `hp-windows.pub` | HP pod Windows (`micha@PC-domowy`) | **do usunięcia po formacie HP** i zastąpienia przez `hp-dom.pub` |
 | `wyse-ha.pub` | Home Assistant na Wyse (`root@core-ssh`) | dom (automatyzacje) wchodzi na stacje |
@@ -27,6 +26,11 @@ dopisuje się ręcznie / przez panel HA (stan z 27.08: wszystkie mają komplet).
 2. skopiować `~/.ssh/id_ed25519_dom.pub` tutaj jako `<maszyna>-dom.pub`, commit + push
 3. dopisać ten sam klucz ręcznie na maszynach spoza lustra: serwer, Asus (`kiosk`), Wyse (dodatek SSH w HA)
 4. **test wykonany, nie odczytany:** `ssh -o BatchMode=yes <cel> hostname` z nowej stacji na każdą maszynę.
+
+## Historia
+- 2026-09-12 (sprawa [389e]): usunięte `vostro-osobisty.pub` i `katana-osobisty.pub` —
+  klucze osobiste nieużywane w domu (pomiary), konwencja [222] mówi osobiste ≠ dom;
+  stacje w domu wchodzą wyłącznie kluczem domowym (`*-dom.pub`).
 
 ## Wycofanie maszyny (kradzież, sprzedaż)
 Skasować jej plik tutaj → następny `chezmoi apply` na stacjach usuwa ją z `authorized_keys`;
