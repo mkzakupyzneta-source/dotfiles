@@ -585,10 +585,10 @@ różnić od powyższego w zależności od tego, czy user właśnie ją obudził
 # [374] system docelowy Zorin OS Education, instalacja jeszcze nie wykonana — stan dziś:
 # stary system na starym dysku, adres zmierzony na tym, co tam działa teraz).
 # Nie jest stacją lustra (chezmoi nie zainstalowany, nie będzie — laptop dziecka) — wpis
-# tu wyłącznie JAKO DANA dla generatora ~/.ssh/config: wchodzi do bloku aliasu (`Host lenovo`)
+# tu wyłącznie JAKO DANA dla generatora ~/.ssh/config: wchodzi do bloku aliasu (`Host lenovo-nk`)
 # i automatycznie do bloku zbiorczego klucza domowego (pętla po polu `klucz` w config.tmpl).
 [[maszyna]]
-klucz = "lenovo"
+klucz = "lenovo-nk"  # do 12.09 `lenovo`; zmiana nazwy aliasu — decyzja usera, sprawa [391]
 nazwa = "Lenovo M30-70 (córki)"
 rola = "Laptop domowy córki"
 system = "Zorin OS"  # docelowy ([374]); instalacja jeszcze nie wykonana na 10.09
@@ -604,7 +604,8 @@ czlonek_lustra = false
 uwagi = """
 Nie-lustro (chezmoi nie zainstalowany). Wpis wyłącznie po to, żeby maszyny.toml — źródło
 danych dla ~/.ssh/config (sprawa [222], private_dot_ssh/config.tmpl) — wygenerowało alias
-SSH `ssh lenovo` (klucz ~/.ssh/id_ed25519_dom przez blok zbiorczy „Maszyny domowe") zamiast
+SSH `ssh lenovo-nk` — do 12.09 `ssh lenovo`, zmiana nazwy aliasu [391] — (klucz
+~/.ssh/id_ed25519_dom przez blok zbiorczy „Maszyny domowe") zamiast
 ręcznego dopisku, który `chezmoi apply` i tak zamiata. Sprawa Architekta [375], 2026-09-10."""
 
 # ── Dell Latitude 5300 (żony) — laptop domowy, Zorin 18.1 ──────────────────────
