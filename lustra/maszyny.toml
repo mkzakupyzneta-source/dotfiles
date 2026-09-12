@@ -607,6 +607,34 @@ danych dla ~/.ssh/config (sprawa [222], private_dot_ssh/config.tmpl) — wygener
 SSH `ssh lenovo` (klucz ~/.ssh/id_ed25519_dom przez blok zbiorczy „Maszyny domowe") zamiast
 ręcznego dopisku, który `chezmoi apply` i tak zamiata. Sprawa Architekta [375], 2026-09-10."""
 
+# ── Dell Latitude 5300 (żony) — laptop domowy, Zorin 18.1 ──────────────────────
+# Dodana 2026-09-12 przez obszar 5_Wspolna_konfiguracja (sprawa [391]; wzór: wpis
+# `lenovo` z [375] — alias jako DANA w tym pliku, nie ręczny dopisek do ~/.ssh/config,
+# który `chezmoi apply` zamiata). Klucz publiczny domowy (id_ed25519_dom) wgrany
+# na maszynę 12.09 (ssh-copy-id z HP, konto mk).
+# Nie jest stacją lustra (chezmoi nie zainstalowany — laptop żony) — wpis wyłącznie
+# JAKO DANA dla generatora ~/.ssh/config: blok aliasu (`Host dell-ad`) i automatycznie
+# blok zbiorczy klucza domowego (pętla po polu `klucz` w private_dot_ssh/config.tmpl).
+[[maszyna]]
+klucz = "dell-ad"
+nazwa = "Dell Latitude 5300 (żony)"
+rola = "Laptop domowy żony"
+system = "Zorin OS 18.1"
+nazwa_hosta = ""
+host_lan = "192.168.1.66"
+host_tailscale = ""
+ip_tailscale = ""
+user = "mk"
+katalog_roboczy = ""
+dostepna_jako_cel = false
+aktywna = true
+czlonek_lustra = false
+uwagi = """
+Nie-lustro (chezmoi nie zainstalowany). Wpis wyłącznie po to, żeby maszyny.toml — źródło
+danych dla ~/.ssh/config (sprawa [222], private_dot_ssh/config.tmpl) — wygenerowało alias
+SSH `ssh dell-ad` (klucz ~/.ssh/id_ed25519_dom przez blok zbiorczy „Maszyny domowe") zamiast
+ręcznego dopisku. Sprawa [391], 2026-09-12."""
+
 # ── Poligon — maszyna do eksperymentów (jeszcze nie istnieje) ──────────────────
 [[maszyna]]
 klucz = "poligon"
