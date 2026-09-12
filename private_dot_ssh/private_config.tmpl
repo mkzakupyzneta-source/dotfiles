@@ -67,10 +67,15 @@ Host {{ $m.klucz }}-ts
 {{- end }}
 
 # --- Maszyny domowe: klucz domowy i TYLKO on --------------------------------------------------
+# `UserKnownHostsFile` — kanon PIERWSZY ([389e] KROK 4, MECHANIZM B, 2026-09-12): rejestr
+# kluczy hostów floty, wożony przez chezmoi (private_known_hosts_dom.tmpl,
+# lustra/klucze-hostow/*.pub) — NIE nadpisuje organicznego known_hosts (tam żyją wpisy
+# spoza domu, np. github.com), oba pliki sprawdzane razem.
 {{- if stat (joinPath .chezmoi.homeDir ".ssh" "id_ed25519_dom") }}
 Host {{ join " " $domowe }}
     IdentityFile ~/.ssh/id_ed25519_dom
     IdentitiesOnly yes
+    UserKnownHostsFile ~/.ssh/known_hosts_dom ~/.ssh/known_hosts
 {{- else }}
 # (ta maszyna NIE MA jeszcze ~/.ssh/id_ed25519_dom — blok pominięty z tego samego powodu co wyżej.
 #  Załóż klucz: ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_dom -N "" -C "$USER@$(hostname)-dom",

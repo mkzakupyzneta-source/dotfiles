@@ -1,0 +1,47 @@
+# lustra/klucze-zestawy.toml — zestawy kluczy SSH dla maszyn NIELUSTRZANYCH — DANE, nie kod.
+#
+# Czyta go `lustra/klucze-roznies.sh` (MECHANIZM A, sprawa [389e] KROK 4, 2026-09-12).
+# Maszyny-LUSTRA (hp, vostro, katana) mają `~/.ssh/authorized_keys` wożony przez CHEZMOI
+# (private_dot_ssh/private_authorized_keys.tmpl — glob po `lustra/klucze-publiczne/*.pub`,
+# czyli WSZYSTKIE klucze kanonu na każdej stacji) — tego pliku i tamtych maszyn TEN
+# skrypt NIE dotyczy. Poniżej stoją tylko maszyny, których chezmoi nie stawia
+# (serwer, urządzenie HAOS, kiosk, laptopy domowników) — tam trzeba było dotąd
+# donosić klucze ręcznie, stąd ten mechanizm.
+#
+# Pola bloku [[maszyna]]:
+#   klucz   — identyfikator do wywołania skryptu jako argument (np. `klucze-roznies.sh --pokaz wyse`)
+#   cel     — cel SSH: alias z ~/.ssh/config, gdy istnieje (np. "serwer", "asus", "dell-ad",
+#             "lenovo-nk"), albo `user@host` wprost, gdy alias nie istnieje (Wyse — HAOS,
+#             `dostepna_jako_cel = false` w maszyny.toml, więc generator configu jej pomija)
+#   klucze  — lista NAZW plików (bez `.pub`) z `lustra/klucze-publiczne/`, które MAJĄ leżeć
+#             w `authorized_keys` tej maszyny — dokładnie te i tylko te (`--wyrownaj` nadpisuje)
+#
+# Zestawy zweryfikowane ODCISKAMI (nie komentarzami) na żywo 2026-09-12, po sprzątaniu [389e]
+# KROK 1 — wszystkie pięć maszyn wyszło ZGODNYCH z zapisem niżej (`ssh-keygen -lf` zdalnie
+# kontra `ssh-keygen -lf` lokalnie na plikach kanonu). To był zarazem test `--pokaz` i dowód,
+# że zestawy poniżej opisują stan faktyczny, a nie życzeniowy.
+
+[[maszyna]]
+klucz = "serwer"
+cel = "serwer"
+klucze = ["hp-dom", "vostro-dom", "katana-dom", "wyse-ha", "serwer-glowny"]
+
+[[maszyna]]
+klucz = "wyse"
+cel = "root@192.168.1.48"
+klucze = ["hp-dom", "vostro-dom", "katana-dom", "serwer-glowny"]
+
+[[maszyna]]
+klucz = "asus"
+cel = "asus"
+klucze = ["hp-dom", "vostro-dom", "katana-dom", "serwer-glowny", "wyse-ha"]
+
+[[maszyna]]
+klucz = "dell-ad"
+cel = "dell-ad"
+klucze = ["hp-dom", "vostro-dom", "katana-dom", "serwer-glowny"]
+
+[[maszyna]]
+klucz = "lenovo-nk"
+cel = "lenovo-nk"
+klucze = ["hp-dom", "vostro-dom", "katana-dom", "serwer-glowny"]

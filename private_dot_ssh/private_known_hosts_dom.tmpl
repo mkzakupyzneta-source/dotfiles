@@ -1,0 +1,63 @@
+{{- /* ~/.ssh/known_hosts_dom — REJESTR KLUCZY HOSTÓW floty domowej (MECHANIZM B, sprawa
+       [389e] KROK 4, 2026-09-12, obszar 5). ODDZIELNY plik od organicznego
+       ~/.ssh/known_hosts — tam żyją wpisy SPOZA domu (np. github.com) i tego pliku NIE
+       WOLNO nadpisywać. Ten plik jest w całości WOŻONY przez chezmoi z danych repo:
+       lustra/maszyny.toml (adresy) + lustra/klucze-hostow/<klucz>.pub (klucze hostów,
+       wszystkie typy w jednym pliku per maszyna — zebrane z /etc/ssh/ssh_host_*.pub).
+       Użycie: private_config.tmpl dopisuje `UserKnownHostsFile ~/.ssh/known_hosts_dom
+       ~/.ssh/known_hosts` blokowi maszyn domowych — kanon PIERWSZY, organiczny jako
+       uzupełnienie. */ -}}
+{{- $flota := dict "maszyna" list -}}
+{{- if stat (joinPath .chezmoi.sourceDir "lustra" "maszyny.toml") -}}
+{{-   $flota = include "lustra/maszyny.toml" | fromToml -}}
+{{- end -}}
+# ~/.ssh/known_hosts_dom — WOŻONY PRZEZ LUSTRO (chezmoi: private_dot_ssh/private_known_hosts_dom.tmpl).
+# NIE EDYTUJ RĘCZNIE: zmiana zniknie przy następnym `chezmoi apply`. Klucze hostów:
+# lustra/klucze-hostow/<klucz>.pub; adresy maszyn: lustra/maszyny.toml. Nowa maszyna albo
+# przeinstalowany system (= nowy klucz hosta) — zmiana TAM (README tego katalogu, sekcja
+# „NOWA MASZYNA"), nie tutaj.
+#
+# Ten plik jest DODATKIEM do organicznego ~/.ssh/known_hosts (github.com i inne wpisy spoza
+# domu tam zostają nietknięte) — oba pliki czytane razem, patrz UserKnownHostsFile w
+# private_config.tmpl.
+{{- range $m := $flota.maszyna }}
+{{-   if index $m "aktywna" | default false }}
+{{-     $klucz := $m.klucz }}
+{{-     $adresy := list }}
+{{-     if and (index $m "host_lan" | default "") (ne $m.host_lan "192.168.1.60") }}
+{{-       $adresy = append $adresy $m.host_lan }}
+{{-     end }}
+{{-     if index $m "ip_tailscale" | default "" }}
+{{-       $adresy = append $adresy $m.ip_tailscale }}
+{{-     end }}
+{{-     if $adresy }}
+{{-       $plikKlucza := joinPath $.chezmoi.sourceDir "lustra" "klucze-hostow" (printf "%s.pub" $klucz) }}
+{{-       if stat $plikKlucza }}
+
+# {{ $m.nazwa }} ({{ $klucz }})
+{{-         range $linia := (include (printf "lustra/klucze-hostow/%s.pub" $klucz) | splitList "\n") }}
+{{-           if $linia }}
+{{-             $pola := splitList " " $linia }}
+{{ join "," $adresy }} {{ index $pola 0 }} {{ index $pola 1 }}
+{{-           end }}
+{{-         end }}
+{{-       end }}
+{{-     end }}
+{{-   end }}
+{{- end }}
+
+# --- Dok monitora Dell U3225QE (192.168.1.60) — DWIE maszyny dokowalne, DWA klucze ------------
+# Ten adres zmienia właściciela zależnie od tego, kto jest wpięty w dok (Vostro albo Katana —
+# patrz lustra/maszyny.toml, karta „KARTA DO BUDZENIA" Vostro + notatka [335]/06.09). Bez tego
+# wpisu każde przepięcie dokowanej maszyny wywoływałoby fałszywy alarm zmiany klucza hosta.
+{{- range $klucz := list "vostro" "katana" }}
+{{-   $plikKlucza := joinPath $.chezmoi.sourceDir "lustra" "klucze-hostow" (printf "%s.pub" $klucz) }}
+{{-   if stat $plikKlucza }}
+{{-     range $linia := (include (printf "lustra/klucze-hostow/%s.pub" $klucz) | splitList "\n") }}
+{{-       if $linia }}
+{{-         $pola := splitList " " $linia }}
+192.168.1.60 {{ index $pola 0 }} {{ index $pola 1 }}
+{{-       end }}
+{{-     end }}
+{{-   end }}
+{{- end }}

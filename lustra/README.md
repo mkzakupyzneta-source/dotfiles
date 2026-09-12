@@ -93,6 +93,9 @@ alias lustro='python3 "$HOME/.local/share/chezmoi/lustra/lustro.py"'
 | `ustawienia-map.txt` | program → jego pliki ustawień |
 | `skrypty.toml` | pozycje kanału **`skrypt`** — programy stawiane skryptem, nie menedżerem pakietów (AI Launcher): `sprawdz`/`zainstaluj`/`wymaga` jako **dane** ([252], 29.08 — sekcja niżej) |
 | `zrodla-apt.toml` | zewnętrzne repozytoria apt (Fortinet, Tailscale…): skąd klucz, jaka linia `deb`, które pakiety — **dane**, apka je czyta w `status` i `dodaj` (od 25.08, [176]) |
+| `klucze-zestawy.toml` | **MECHANIZM A** ([389e] KROK 4, 12.09): który zestaw kluczy SSH ma leżeć na której maszynie NIELUSTRZANEJ (serwer, Wyse, Asus, laptopy domowników) i jak się z nią połączyć — **dane**, czyta je `klucze-roznies.sh` |
+| `klucze-roznies.sh` | **MECHANIZM A**: porównuje (`--pokaz`, domyślnie) albo wyrównuje (`--wyrownaj`) `~/.ssh/authorized_keys` maszyn z `klucze-zestawy.toml`, po ODCISKACH kluczy. Maszyny-lustra (hp, vostro, katana) POZA zakresem — ich `authorized_keys` wozi chezmoi (glob po `klucze-publiczne/*.pub`) |
+| `klucze-hostow/<maszyna>.pub` | **MECHANIZM B** ([389e] KROK 4): klucze PUBLICZNE HOSTA każdej maszyny floty (wszystkie typy z `/etc/ssh/ssh_host_*.pub` w jednym pliku) — z nich `private_dot_ssh/private_known_hosts_dom.tmpl` składa `~/.ssh/known_hosts_dom` (rejestr znanych maszyn, oddzielny od organicznego `known_hosts`) |
 
 Poza tym katalogiem, ale należy do mechanizmu:
 `../.chezmoidata/packages.yaml` (generowana lista programów) i
@@ -312,3 +315,45 @@ zrobił sam sobie przy instalacji — stąd pole `onedrive` w `maszyny.toml`:
 - brak pola → nic nie ruszamy (nie wiemy, więc nie zgadujemy).
 
 Nowy sposób używania OneDrive'a = nowa **wartość** pola, bez zmian w skrypcie.
+
+## Klucze SSH — dwa mechanizmy porządku ([389e] KROK 4, 2026-09-12)
+
+Dwa osobne mechanizmy pilnują, żeby dostęp SSH we flocie nie rozjeżdżał się po cichu:
+
+- **MECHANIZM A — kto ma wejść NA maszyny nielustrzane** (serwer, Wyse/HAOS, Asus,
+  laptopy domowników): `klucze-zestawy.toml` (dane: który zestaw kluczy ma być gdzie)
+  + `klucze-roznies.sh` (porównaj `--pokaz` / wyrównaj `--wyrownaj`, po ODCISKACH kluczy).
+  Stacje-lustra (hp, vostro, katana) są POZA zakresem — ich `authorized_keys` i tak
+  wozi chezmoi (glob po `klucze-publiczne/*.pub`, patrz sekcja wyżej).
+- **MECHANIZM B — skąd maszyny domowe WIEDZĄ, z kim rozmawiają** (klucze HOSTÓW, nie
+  kluczy logowania): `klucze-hostow/<maszyna>.pub` (dane: klucz publiczny hosta, wszystkie
+  typy) + `private_dot_ssh/private_known_hosts_dom.tmpl` (generuje `~/.ssh/known_hosts_dom`,
+  osobny plik OBOK organicznego `~/.ssh/known_hosts` — ten drugi zostaje nietknięty, tam
+  żyją wpisy spoza domu, np. `github.com`). `private_config.tmpl` każe SSH czytać oba
+  naraz (`UserKnownHostsFile ~/.ssh/known_hosts_dom ~/.ssh/known_hosts`, kanon pierwszy).
+  Adres `192.168.1.60` (dok monitora Dell) ma w rejestrze DWA klucze na raz (Vostro i
+  Katana) — to jedyny adres, który zmienia właściciela zależnie od tego, kto jest wpięty.
+
+### Procedura „NOWA MASZYNA" — checklista
+
+1. **Rezerwacja DHCP** w routerze wg konwencji nazw (inwentarz Architekta,
+   `10_Siec_domowa/0_Architekt/inwentarz-urzadzen.md`).
+2. **Wpis w `lustra/maszyny.toml`** (blok `[[maszyna]]`): adres, alias SSH, `aktywna = true`.
+3. **Klucze wg roli:**
+   - maszyna **MK** (stacja robocza pod jego kontem): komplet trzech kluczy prywatnych
+     (`id_ed25519` osobisty z frazą, `id_ed25519_github`, `id_ed25519_dom` — patrz nagłówek
+     `private_config.tmpl`) + jej klucz hosta dopisany do `klucze-hostow/<klucz>.pub`
+     (MECHANIZM B).
+   - maszyna **nielustrzana** (serwer, HAOS, kiosk, laptop domownika): zestaw kluczy
+     logowania przez `klucze-roznies.sh --wyrownaj <klucz>` (MECHANIZM A, po dopisaniu
+     bloku w `klucze-zestawy.toml`) + jej klucz hosta do `klucze-hostow/`.
+   - **stacja-lustro**: nic ręcznie — `chezmoi apply` sam złoży `authorized_keys` z
+     `klucze-publiczne/*.pub` (patrz `nowa-stacja.sh`/`przyjmij-maszyne.sh`).
+4. **Klucze prywatne do sejfu** (Bitwarden — zasada 14 kontraktu globalnego, nigdy na dysku
+   w katalogu roboczym).
+5. **Wpis w inwentarzu urządzeń** (Architekt, `0_Architekt/inwentarz-urzadzen.md`) dla
+   maszyn spoza mechanizmu luster.
+6. `git commit` + `push` w repo kanonu, potem na maszynach już podłączonych:
+   `chezmoi update --apply=false` + `chezmoi apply ~/.ssh` (albo pełny `apply`, jeśli nie
+   ma znanego dryfu) — **nigdy sam `chezmoi update`** (patrz przestroga [389e] KROK 1 w
+   `5_Wspolna_konfiguracja/_MEMORY/MEMORY.md`: domyślnie robi pełny `apply`).

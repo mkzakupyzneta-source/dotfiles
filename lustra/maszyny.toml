@@ -202,7 +202,13 @@ nazwa = "Vostro"
 rola = "Stacja robocza"
 system = "Ubuntu 24.04"  # wpisane ręcznie 2026-08-29 (bez pomiaru poziomu łatki); K5 nie biegł na Vostro
 nazwa_hosta = "vostro"
-host_lan = "192.168.1.60"
+host_lan = "192.168.1.62"  # [389e] KROK 4, MECHANIZM B, 2026-09-12: zmienione z .60 — .60 jest
+                           # adresem DOKU monitora (zmienny właściciel: Vostro albo Katana,
+                           # patrz karty niżej i sekcja 192.168.1.60 w known_hosts_dom), .62 to
+                           # STAŁY adres Wi-Fi tej maszyny (interfejs wlp0s20f3, zmierzone `ip -4
+                           # -o addr show` po SSH z HP: `inet 192.168.1.62/24 … wlp0s20f3`,
+                           # `ssh vostro hostname` → `vostro`). `ssh vostro` chodzi teraz PRZEZ
+                           # Wi-Fi zawsze, niezależnie od tego, czy dok jest wpięty.
 host_tailscale = "vostro"
 ip_tailscale = "100.100.178.56"
 user = "mk"
