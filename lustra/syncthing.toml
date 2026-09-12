@@ -56,9 +56,13 @@ stignore = [
 ]
 
 [[folder]]
-id = "duperele"
-etykieta = "Duperele"
-sciezka = "$PULPIT/Duperele"
+id = "duperele"          # NIE ZMIENIAĆ — identyfikator folderu Syncthinga, współdzielony
+                          # przez wszystkie urządzenia (serwer, vostro, katana, hp); zmiana
+                          # tu utworzyłaby na nowej stacji INNY folder niż już istniejący
+                          # (obszar 4, [313 część 1] i [397]: etykieta/ścieżka zmieniane
+                          # wielokrotnie, ID świadomie zostawiane bez zmian).
+etykieta = "Xchange"
+sciezka = "$PULPIT/Xchange/mk-mk"
 wersjonowanie = "trashcan"
 parametry = { cleanoutDays = "7" }
 stignore = []
