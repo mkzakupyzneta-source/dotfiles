@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-11T21:33:37+02:00",
+  "ts": "2026-09-12T09:43:15+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -665,7 +665,7 @@
     {
       "kanal": "flatpak",
       "id": "com.brave.Browser",
-      "wersja": "1.94.121",
+      "wersja": "1.95.101",
       "zrodlo": "flathub"
     },
     {
@@ -689,7 +689,7 @@
     {
       "kanal": "flatpak",
       "id": "com.vivaldi.Vivaldi",
-      "wersja": "8.2.4133.47",
+      "wersja": "8.2.4133.52",
       "zrodlo": "flathub"
     },
     {
