@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-12T23:55:20+02:00",
+  "ts": "2026-09-14T15:42:57+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -736,6 +736,12 @@
     },
     {
       "kanal": "gnome-extension",
+      "id": "dash-to-panel@jderose9.github.com",
+      "wersja": "73",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "gnome-extension",
       "id": "gTile@vibou",
       "wersja": "59",
       "zrodlo": ""
@@ -750,6 +756,12 @@
       "kanal": "gnome-extension",
       "id": "tailscale@joaophi.github.com",
       "wersja": "19",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "gnome-extension",
+      "id": "tilingshell@ferrarodomenico.com",
+      "wersja": "76",
       "zrodlo": ""
     },
     {
