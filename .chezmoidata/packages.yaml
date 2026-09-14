@@ -1,6 +1,6 @@
 # Lista programów lustra — plik GENEROWANY przez `lustro lista`.
 # Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.
-# Wygenerowane: 2026-09-14 21:36 na maszynie hp.
+# Wygenerowane: 2026-09-14 21:39 na maszynie hp.
 packages:
   apt:
     - autorandr
