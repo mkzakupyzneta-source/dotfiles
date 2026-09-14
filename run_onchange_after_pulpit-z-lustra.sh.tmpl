@@ -1,0 +1,65 @@
+#!/bin/sh
+# Pulpit z kanonu NA MASZYNĘ, bez udziału człowieka — gałąź `ubuntu-2604`, sprawa [423]
+# (2026-09-14). Koniec zasady [195] („pulpit tylko ręcznie"): decyzja usera z 14.09 brzmi
+# PEŁNE LUSTRO pulpitu i ustawień GNOME, rozsyłane automatem.
+#
+# JAK TO DZIAŁA. Przedrostek `run_onchange_` każe chezmoi liczyć odcisk TREŚCI tego pliku
+# i uruchamiać go dopiero wtedy, gdy ta treść się zmieni — a w treści (niżej) siedzą odciski
+# obu plików kanonu pulpitu. Czyli: zmienił się wzorzec pulpitu → skrypt rusza; nie zmienił
+# się → chezmoi go nie odpala i nic się nie dzieje. Przyrostek `_after` = uruchomienie
+# PO wgraniu wszystkich plików.
+#
+# KIEDY WIĘC POJEDZIE SAM: timer `lustro-sync.timer` (co 60 min) zaczyna każdy bieg od
+# `chezmoi update --force` (= git pull --rebase + chezmoi apply) — jeżeli pull przyniósł
+# nowy `pulpit.ini`, apply odpali ten skrypt. Nowa maszyna dostaje pulpit wcześniej,
+# w kroku K11 automatu `nowa-stacja.sh` (te same dwie komendy).
+#
+# CO ROBI, W TEJ KOLEJNOŚCI (ta sama, co K11 — i to jest ważne):
+#   1. `lustro pulpit rozszerzenia` — DOINSTALOWUJE brakujące rozszerzenia GNOME Shell
+#      z extensions.gnome.org, w wersji właściwej dla GNOME Shella TEJ maszyny. Rozszerzenie,
+#      dla którego serwis nie ma paczki pod tę wersję Shella (ryzyko: Tailscale QS na GNOME 50),
+#      jest tylko WYPISANE — krok idzie dalej.
+#   2. `lustro pulpit wgraj` — wgrywa ustawienia (dconf): wygląd, skróty, ustawienia rozszerzeń
+#      ORAZ klucze `enabled-extensions` / `disabled-extensions`, czyli WŁĄCZENIE i WYŁĄCZENIE.
+#      Włączenie rozszerzenia, którego nie ma na dysku, GNOME po cichu pomija — stąd kolejność.
+#      Komenda sama robi kopię poprzedniego stanu dconf (spec 8.11) i nic nie robi, gdy nie ma
+#      różnic, więc powtórzone uruchomienie jest bezpieczne (idempotentne).
+#
+# CZEGO NIE ROBI: nie restartuje powłoki GNOME i nie wylogowuje usera — to zostaje CZŁOWIEKOWI
+# (restart powłoki na Wayland wymaga wylogowania). Skrypt mówi o tym na końcu.
+#
+# ⛔ NIGDY NIE PRZERYWA `chezmoi apply`: każdy krok kończy się `|| true`, a skrypt zawsze
+#    wychodzi kodem 0. Nieudane wgranie pulpitu nie może zablokować reszty konfiguracji.
+#
+# odcisk wzorca pulpitu:     {{ include "lustra/pulpit/pulpit.ini" | sha256sum }}
+# odcisk listy rozszerzeń:   {{ include "lustra/pulpit/rozszerzenia-gnome.txt" | sha256sum }}
+set -u
+
+LUSTRO="$HOME/.local/bin/lustro"
+[ -x "$LUSTRO" ] || LUSTRO="python3 $HOME/.local/share/chezmoi/lustra/lustro.py"
+
+# Bez sesji graficznej (SSH, kontener, bootstrap przed pierwszym zalogowaniem) dconf nie ma
+# do czego mówić. Nie udajemy, że się udało — zostawiamy komunikat i wychodzimy zerem;
+# przy najbliższym biegu timera z zalogowanej sesji skrypt i tak nie ruszy (odcisk się nie
+# zmienił), więc podajemy komendę do ręcznego dogrania.
+if ! command -v dconf >/dev/null 2>&1; then
+    echo "[pulpit] brak programu dconf — ta maszyna nie ma GNOME; pomijam"
+    exit 0
+fi
+if [ -z "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ] && [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    echo "[pulpit] brak sesji graficznej w tej powłoce — pulpitu NIE wgrywam."
+    echo "[pulpit] dogranie ręczne, z terminala na pulpicie:"
+    echo "[pulpit]     lustro pulpit rozszerzenia --zatwierdzam-wszystko && lustro pulpit wgraj --zatwierdzam-wszystko"
+    exit 0
+fi
+
+echo "[pulpit] 1/2 rozszerzenia GNOME (instalacja brakujących z extensions.gnome.org)"
+$LUSTRO pulpit rozszerzenia --zatwierdzam-wszystko || \
+    echo "[pulpit] część rozszerzeń się nie zainstalowała (np. brak paczki dla tej wersji GNOME Shell) — idę dalej"
+
+echo "[pulpit] 2/2 ustawienia pulpitu (dconf) z kanonu"
+$LUSTRO pulpit wgraj --zatwierdzam-wszystko || \
+    echo "[pulpit] wgrywanie ustawień pulpitu zgłosiło błąd — patrz komunikaty wyżej; konfiguracja poza pulpitem jest nietknięta"
+
+echo "[pulpit] GOTOWE. Żeby zmiany w rozszerzeniach były widoczne: WYLOGUJ SIĘ I ZALOGUJ PONOWNIE."
+exit 0

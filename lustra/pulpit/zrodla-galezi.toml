@@ -46,7 +46,13 @@
 # wygaszony, rozszerzenia GNOME w stanie INACTIVE, a agent nie miał zgody na
 # budzenie ekranu usera.
 #
-[[galaz]]
-sciezka = "/org/gnome/settings-daemon/plugins/media-keys/"
-zrodlo  = "hp"
-uwagi   = "własne skróty klawiszowe; [261] wspólny schowek zrzutów (29.08) + [305] Super+Shift+H — wpisywanie danych logowania z pęku kluczy (31.08). Wpis odkomentowany 31.08, gdy powstała migawka pulpit/stan/hp.ini."
+# ⛔ WYŁĄCZONE NA GAŁĘZI `ubuntu-2604` ([423], 2026-09-14). Powód: `pulpit.ini` na tej
+# gałęzi jest ŚWIEŻYM zrzutem żywego HP z 14.09, a migawka `pulpit/stan/hp.ini` pochodzi
+# jeszcze z 31.08 — `pulpit skladaj` nadpisałby świeży kanon starą wartością i przywrócił
+# m.in. skrót Super+Shift+H do skryptu, którego na tej gałęzi już nie ma. Żeby wpis wrócił
+# do gry, trzeba najpierw zrobić nową migawkę: `lustro pulpit oddaj-stan` NA HP.
+#
+# [[galaz]]
+# sciezka = "/org/gnome/settings-daemon/plugins/media-keys/"
+# zrodlo  = "hp"
+# uwagi   = "własne skróty klawiszowe; [261] wspólny schowek zrzutów (29.08) + [305] Super+Shift+H (31.08)."

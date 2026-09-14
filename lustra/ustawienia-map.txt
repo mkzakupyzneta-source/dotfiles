@@ -6,8 +6,10 @@
 # Adnotacja `# nie wozimy — decyzja usera <data>` = apka nie pyta drugi raz.
 
 # --- wożone przez chezmoi (sprawdzone `chezmoi managed`, 23.08) ---
-kitty            .config/kitty/kitty.conf
-wezterm          .config/wezterm/wezterm.lua
+# kitty / wezterm — ZDJĘTE Z LUSTRA na gałęzi `ubuntu-2604` (werdykt usera [420], 14.09):
+#   terminalem na nowej maszynie jest GNOME Terminal (jego ustawienia jadą w warstwie
+#   pulpitu, gałąź /org/gnome/terminal/legacy/ w pulpit/pulpit.ini). Pliki
+#   .config/kitty/kitty.conf i .config/wezterm/wezterm.lua nie są już wożone.
 # onedrive (domyślna instancja) — ZDJĘTE Z LUSTRA 2026-08-23 (E2). Obszar 4_Kanaly_danych
 #   ustalił, że ~/.config/onedrive (folder ~/OneDrive-AI) to zaszłość: katalog przemianowany
 #   na ~/.config/onedrive.ZASZLOSC-2026-08-23, usługa onedrive.service zamaskowana.
@@ -17,7 +19,10 @@ onedrive-archiwum .config/onedrive-archiwum/config .config/onedrive-archiwum/syn
 ccstatusline     .config/ccstatusline/settings.json
 git              .gitconfig
 powloka          .bashrc .profile
-gnome-pulpit     .config/zrzuty/gnome-dconf.ini
+# gnome-pulpit .config/zrzuty/gnome-dconf.ini — ZDJĘTE na gałęzi `ubuntu-2604` ([423], 14.09):
+#   to było TRZECIE miejsce prawdy o pulpicie (obok lustra/pulpit/pulpit.ini i ubuntu-profil/).
+#   Jedynym kanonem pulpitu jest teraz lustra/pulpit/pulpit.ini; zrzut z ~/.config/zrzuty
+#   zlikwidowany razem z plikiem.
 
 flameshot        .config/flameshot/flameshot.ini    # skróty w programie: TYPE_ACCEPT=S
 #   ^ dołożone do chezmoi 2026-08-23 w E2 (do tego dnia plik istniał na maszynie,

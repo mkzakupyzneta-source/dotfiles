@@ -270,6 +270,62 @@ przy okazji fizycznej wizyty."""
   adres    = "192.168.1.60"
   budzenie = true
 
+# ── Vostro pod Ubuntu 26.04 — NOWY system na TEJ SAMEJ maszynie fizycznej ──────
+# Sprawa [423], 2026-09-14, gałąź `ubuntu-2604`. TEN BLOK ISTNIEJE TYLKO NA TEJ GAŁĘZI.
+#
+# Dlaczego osobna maszyna, a nie edycja wpisu "vostro": na dysku Vostro stoją OBOK SIEBIE
+# dwa systemy — stare Ubuntu 24.04 (wpis "vostro", nietknięty) i nowe Ubuntu 26.04 (ten wpis).
+# To dwie różne instalacje: własny dziennik lustra, własna tożsamość Syncthinga, własny węzeł
+# Tailscale, własne klucze SSH. Traktowanie ich jako jednej maszyny pomieszałoby historie.
+#
+# ⚠️ NAZWA HOSTA MUSI BYĆ INNA NIŻ "vostro". `nazwa_maszyny()` w lustro.py i szablon
+#    `.chezmoitemplates/profil` dopasowują maszynę PO `nazwa_hosta` — dwie maszyny o tej samej
+#    nazwie hosta to jedna tożsamość w mechanizmie. Przy instalacji Ubuntu 26.04 wpisać nazwę
+#    komputera `vostro-temp` (albo po instalacji: `sudo hostnamectl set-hostname vostro-temp`).
+#    Dodatkowe zabezpieczenie: plik `lustra/maszyna.txt` na tej gałęzi (wymusza nazwę lustra).
+[[maszyna]]
+klucz = "vostro-temp"
+nazwa = "Vostro (Ubuntu 26.04)"
+rola = "Stacja robocza — nowy system na Vostro"
+system = "Ubuntu 26.04"   # do potwierdzenia pomiarem przy bootstrapie (K5 nadpisze z /etc/os-release)
+nazwa_hosta = "vostro-temp"
+host_lan = ""       # uzupełni K5 automatu (`stacja-dane.py maszyna-wpisz`) po pomiarze `ip -4 -o addr show`
+host_tailscale = ""  # uzupełni K13 po zalogowaniu do Tailscale — NOWY węzeł, nie ten sam co "vostro"
+ip_tailscale = ""
+user = "mk"
+katalog_roboczy = "/home/mk/AI-katalog-roboczy"
+dostepna_jako_cel = true
+aktywna = true
+profil = "stacja"
+czlonek_lustra = true
+# ⛔ ONEDRIVE ZAMASKOWANY. Archiwum OneDrive prowadzi STARY system (Ubuntu 24.04, wpis "vostro").
+# Dwa klienty na tym samym koncie i tym samym archiwum = dublowanie i konflikty. Wartość "brak"
+# każe `run_onchange_after_onedrive-wg-danych.sh.tmpl` ZAMASKOWAĆ usługę użytkownika
+# (`systemctl --user mask onedrive.service`, bez roota — symlink do /dev/null). Gdy user
+# zdecyduje, że archiwum przejmuje nowy system, zmienia się TA WARTOŚĆ (np. "konto-osobiste"),
+# a skrypt sam zdejmie maskę.
+onedrive = "brak"
+# Zdalny pulpit: PUSTO. `x11vnc` i usługa `zdalny-pulpit` wypadły z kanonu tej gałęzi
+# (rodzina X11 — nowy system jedzie na Wayland). Kandydat na zamiennik: wbudowane
+# „Udostępnianie ekranu" GNOME (gnome-remote-desktop, RDP) — patrz lustra/lista-brakow-wayland.md.
+zdalny_pulpit = []
+wolno_hibernowac = false      # jak "vostro": hibernacja wyłączona decyzją usera [323]
+klapa_zamkniecie = "ignoruj"  # ta sama maszyna fizyczna: pracuje zawsze z zamkniętą klapą [279]
+# mac_lan CELOWO PUSTY: pole służy WYŁĄCZNIE do budzenia przez sieć (WOL). Karta do budzenia
+# na Vostro to karta w monitorze Dell (enx845c3113d94c) i wymaga reguły udev + ustawienia
+# NetworkManagera, których nowy system jeszcze nie ma. Uzupełnić dopiero po skonfigurowaniu
+# budzenia na 26.04 (obszar 2), żeby panel nie wysyłał magic packetów w próżnię.
+mac_lan = ""
+uwagi = """
+Instalacja Ubuntu 26.04 na Vostro (2026-09-15) — druga instalacja obok Ubuntu 24.04.
+Kanon tej maszyny to gałąź `ubuntu-2604` repozytorium konfiguracji, NIE `main`: wycięta
+rodzina X11 (x11vnc, xdotool, xvfb, xclip, openbox, autorandr), narzędzia monitorowania
+zastąpione rozszerzeniem Vitals, pulpit = pełne lustro stanu HP z 14.09.
+Syncthing dostaje NOWĄ tożsamość przy bootstrapie (nic nie kopiujemy ze starego systemu) —
+po `nowa-stacja.sh` trzeba na serwerze uruchomić `przyjmij-maszyne.sh vostro-temp <adres>`.
+Tailscale: nowy węzeł (logowanie w przeglądarce, krok K13).
+Sprzęt (monitory, budzenie, NVIDIA) należy do obszaru 2_Stacje_lustra — tu tylko wspólna warstwa."""
+
 # ── OptiPlex 7050 — serwer domowy 24/7 (Linux Mint 22.3) ───────────────────────
 [[maszyna]]
 klucz = "serwer"

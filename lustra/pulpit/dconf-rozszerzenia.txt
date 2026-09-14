@@ -9,3 +9,11 @@
 /org/gnome/mutter/edge-tiling
 /org/gnome/mutter/keybindings/toggle-tiled-left
 /org/gnome/mutter/keybindings/toggle-tiled-right
+# --- dopisane RĘCZNIE na gałęzi `ubuntu-2604` ([423], 2026-09-14) ---
+# Tiling Shell (`tilingshell@ferrarodomenico.com`) przejmuje te same klucze co dawny
+# Ubuntu Tiling Assistant, PLUS dwa skróty okien. Automat ich nie wykrył, bo Tiling Shell
+# trzyma `overridden-settings` jako JSON w cudzysłowach podwójnych, a czytnik w lustro.py
+# szuka nazw w apostrofach (format GVariant) — sprawdzone na HP 14.09. Stąd wpis ręczny;
+# semantyka pliku („lista tylko rośnie") jest zachowana.
+/org/gnome/desktop/wm/keybindings/maximize
+/org/gnome/desktop/wm/keybindings/unmaximize

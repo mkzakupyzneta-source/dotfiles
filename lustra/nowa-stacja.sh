@@ -1,5 +1,14 @@
 #!/bin/bash
-# nowa-stacja.sh — jedna komenda na świeżym Ubuntu 24.04: maszyna → stacja-lustro.
+# nowa-stacja.sh — jedna komenda na świeżym Ubuntu: maszyna → stacja-lustro.
+#
+# ⚠️ TO JEST WERSJA Z GAŁĘZI `ubuntu-2604` (sprawa [423], 2026-09-14) — pod czyste
+#    Ubuntu 26.04 na Vostro. Różnice wobec gałęzi `main`:
+#      • przyjmuje 26.04 jako system docelowy (K0),
+#      • NIE wymusza sesji X11 — nowy system jedzie na WAYLANDZIE (dawny krok K12b usunięty),
+#      • K11 najpierw INSTALUJE rozszerzenia GNOME, dopiero potem wgrywa pulpit (dconf),
+#      • `--galaz X` bierze gałąź ze zdalnego repozytorium, jeśli takowa istnieje,
+#      • w kanonie nie ma rodziny X11 (x11vnc, xdotool, xvfb, xclip, openbox, autorandr)
+#        ani terminali kitty/wezterm — patrz lustra/lista-brakow-wayland.md.
 # Obszar 5_Wspolna_konfiguracja, 2026-08-27. Zastępuje ~20 ręcznych kroków Etapu 2
 # z procedura-nowej-stacji.md (bootstrap.sh z Przesiadka_Linux nie istnieje od 22.08).
 #
@@ -86,9 +95,13 @@ echo "nowa-stacja.sh — start $(date '+%F %T'), log: $LOG" | tee -a "$LOG"
 krok "K0 Sprawdzenia wstępne"
 if [ "$(id -u)" = 0 ]; then echo "Uruchom jako zwykły user (ten, który ma być właścicielem stacji), nie root."; exit 1; fi
 . /etc/os-release 2>/dev/null || true
-if [ "${ID:-}" != "ubuntu" ] || [ "${VERSION_ID:-}" != "24.04" ]; then
-    echo "   ⚠ To nie jest Ubuntu 24.04 (${PRETTY_NAME:-?}) — lustra są na 24.04; jadę dalej, ale bez gwarancji."
-fi
+# Gałąź `ubuntu-2604` jest przygotowana pod 26.04; 24.04 też przejdzie (to samo jądro mechanizmu),
+# ale wtedy ostrzegamy, bo kanon tej gałęzi zakłada Wayland i GNOME nowszy niż 46.
+case "${ID:-}:${VERSION_ID:-}" in
+    ubuntu:26.04) : ;;
+    ubuntu:24.04) echo "   ⚠ To Ubuntu 24.04, a ta gałąź (ubuntu-2604) jest robiona pod 26.04 — jadę dalej, ale bez gwarancji." ;;
+    *)            echo "   ⚠ To nie jest Ubuntu 24.04 ani 26.04 (${PRETTY_NAME:-?}) — jadę dalej, ale bez gwarancji." ;;
+esac
 if ! command -v sudo >/dev/null; then echo "brak sudo — zainstaluj: apt-get install sudo"; exit 1; fi
 # `sudo -n true` najpierw: przy regule NOPASSWD (VM/poligon, [194]) `sudo -v` i tak żądałoby hasła
 # (domyślne verifypw=all — wystarczy, że pasuje też `%sudo … ALL`), a bez terminala to koniec.
@@ -156,7 +169,21 @@ git -C "$REPO" remote get-url origin >/dev/null 2>&1 || git -C "$REPO" remote ad
 git -C "$REPO" remote set-url origin "$REPO_GITHUB"
 git -C "$REPO" remote get-url serwer >/dev/null 2>&1 || git -C "$REPO" remote add serwer "$SERWER_SSH:.local/share/chezmoi"
 if [ "$GALAZ" != "main" ] && [ "$(git -C "$REPO" branch --show-current)" != "$GALAZ" ]; then
-    git -C "$REPO" checkout -q -B "$GALAZ" && echo "   gałąź testowa: $GALAZ (nie main — maszyna tymczasowa nie trafi do konsensusu luster)"
+    # POPRAWKA [423] (gałąź ubuntu-2604): samo `checkout -B $GALAZ` tworzy gałąź NA BIEŻĄCYM
+    # HEAD (czyli na main) — czyli cicho GUBI zawartość gałęzi, po którą przyszliśmy. Najpierw
+    # więc szukamy jej w zdalnych (`serwer`, potem `origin`) i dopiero gdy nigdzie jej nie ma,
+    # zakładamy nową lokalną (dawne zachowanie: gałąź testowa poligonu/VM).
+    START=""
+    for R in serwer origin; do
+        git -C "$REPO" remote get-url "$R" >/dev/null 2>&1 || continue
+        git -C "$REPO" fetch -q "$R" "$GALAZ" >>"$LOG" 2>&1 || continue
+        git -C "$REPO" rev-parse --verify -q FETCH_HEAD >/dev/null && { START="FETCH_HEAD"; break; }
+    done
+    if [ -n "$START" ]; then
+        git -C "$REPO" checkout -q -B "$GALAZ" "$START" && echo "   gałąź $GALAZ pobrana ze zdalnego $R"
+    else
+        git -C "$REPO" checkout -q -B "$GALAZ" && echo "   gałąź $GALAZ ZAŁOŻONA LOKALNIE na bieżącym HEAD (zdalne jej nie mają)"
+    fi
 fi
 git -C "$REPO" config "branch.$GALAZ.remote" serwer
 git -C "$REPO" config "branch.$GALAZ.merge" "refs/heads/$GALAZ"
@@ -368,12 +395,20 @@ if [ $KONTENER = 1 ]; then pomin "timer systemd usera lustro-sync" "kontener bez
 fi
 
 # ------------------------------------------------------------------ K11 pulpit GNOME
-krok "K11 Pulpit GNOME z lustra (dconf) + rozszerzenia"
-if [ $BEZ_PULPITU = 1 ]; then pomin "pulpit" "--bez-pulpitu/kontener"; elif ! command -v dconf >/dev/null || [ -z "${DBUS_SESSION_BUS_ADDRESS:-}${DISPLAY:-}" ]; then
-    recznie "lustro pulpit wgraj" "brak sesji graficznej w tej powłoce — uruchom w terminalu na pulpicie"
+# KOLEJNOŚĆ ODWRÓCONA W [423]: najpierw INSTALACJA rozszerzeń (pliki na dysku), potem
+# wgranie ustawień (dconf), bo to dconf włącza rozszerzenia kluczem `enabled-extensions` —
+# włączenie czegoś, czego nie ma na dysku, GNOME po cichu pomija. Brak paczki dla nowej
+# wersji GNOME Shell (ryzyko: Tailscale QS na GNOME 50) jest KOMUNIKATEM, nie awarią:
+# `pulpit rozszerzenia` wypisuje, czego nie znalazł, i idzie dalej — dlatego `|| recznie`,
+# a nie `|| blad`, i dlatego krok NIE przerywa automatu.
+krok "K11 Pulpit GNOME z lustra: rozszerzenia (instalacja) + dconf (ustawienia i włączenie)"
+if [ $BEZ_PULPITU = 1 ]; then pomin "pulpit" "--bez-pulpitu/kontener"; elif ! command -v dconf >/dev/null || [ -z "${DBUS_SESSION_BUS_ADDRESS:-}${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]; then
+    recznie "lustro pulpit rozszerzenia + wgraj" "brak sesji graficznej w tej powłoce — uruchom w terminalu na pulpicie"
 else
-    if $LUSTRO pulpit wgraj --zatwierdzam-wszystko 2>&1 | tee -a "$LOG" | tail -5; then ok "pulpit wgrany z lustra"; else blad "lustro pulpit wgraj"; fi
-    $LUSTRO pulpit rozszerzenia --zatwierdzam-wszystko >>"$LOG" 2>&1 && ok "rozszerzenia GNOME (z ego) zainstalowane — aktywne po ponownym zalogowaniu" || recznie "lustro pulpit rozszerzenia" "część rozszerzeń wymaga sesji GNOME"
+    $LUSTRO pulpit rozszerzenia --zatwierdzam-wszystko 2>&1 | tee -a "$LOG" | tail -12 \
+        && ok "rozszerzenia GNOME (extensions.gnome.org) doinstalowane — aktywne po ponownym zalogowaniu" \
+        || recznie "lustro pulpit rozszerzenia" "część rozszerzeń nie ma paczki dla tej wersji GNOME Shell — patrz $LOG i lustra/lista-brakow-wayland.md"
+    if $LUSTRO pulpit wgraj --zatwierdzam-wszystko 2>&1 | tee -a "$LOG" | tail -5; then ok "pulpit wgrany z lustra (dconf: wygląd, skróty, rozszerzenia włączone/wyłączone)"; else blad "lustro pulpit wgraj"; fi
 fi
 
 # ------------------------------------------------------------------ K12 zapora
@@ -382,17 +417,12 @@ if [ $BEZ_ZAPORY = 1 ]; then pomin "ufw" "--bez-zapory/kontener"; else
     if sh "$LUSTRA/ufw-stacja.sh" --wykonaj >>"$LOG" 2>&1 && grep -q '^ENABLED=yes' /etc/ufw/ufw.conf; then ok "ufw: ENABLED=yes, reguły z siec.toml"; else blad "ufw-stacja.sh --wykonaj"; fi
 fi
 
-# ------------------------------------------------------------------ K12b sesja X11
-krok "K12b Sesja X11 zamiast Wayland (GDM) — jak Vostro/Katana; zdalny pulpit [222] to x11vnc"
-GDM=/etc/gdm3/custom.conf
-if [ $KONTENER = 1 ] || [ ! -f $GDM ]; then pomin "WaylandEnable=false" "brak $GDM (kontener / nie GDM)"; else
-    if grep -qE '^\s*WaylandEnable\s*=\s*false' $GDM; then ok "GDM: WaylandEnable=false już jest"; else
-        if grep -qE '^\s*#?\s*WaylandEnable\s*=' $GDM; then sudo sed -i -E 's/^\s*#?\s*WaylandEnable\s*=.*/WaylandEnable=false/' $GDM
-        else sudo sed -i -E 's/^\[daemon\]/[daemon]
-WaylandEnable=false/' $GDM; fi
-        grep -qE '^WaylandEnable=false' $GDM && ok "GDM: WaylandEnable=false" "obowiązuje od następnego logowania (bieżąca sesja: $(loginctl show-session "$(loginctl list-sessions --no-legend | awk '$3=="'"$UZYTKOWNIK"'"{print $1; exit}')" -p Type --value 2>/dev/null || echo ?))" || blad "edycja $GDM"
-    fi
-fi
+# ------------------------------------------------------------------ (dawne K12b — USUNIĘTE)
+# Krok K12b wymuszał sesję X11 (`WaylandEnable=false` w /etc/gdm3/custom.conf), bo od niego
+# zależała cała rodzina obejść: x11vnc (zdalny pulpit), xdotool (wpisywanie do okna), xvfb,
+# xclip, autorandr. Na gałęzi `ubuntu-2604` ta rodzina wypadła z kanonu (werdykt usera [420]),
+# więc nowy system zostaje na WAYLANDZIE — domyślnej sesji Ubuntu. Czym zastąpić każdą
+# z wyciętych rzeczy: lustra/lista-brakow-wayland.md (nic z tego NIE jest instalowane z automatu).
 
 # ------------------------------------------------------------------ K13 Tailscale
 krok "K13 Tailscale (logowanie w przeglądarce — jedyny krok ręczny w sieci)"
@@ -545,11 +575,18 @@ DO ZROBIENIA RĘCZNIE (automat tu się kończy — spec rozdz. 10.3):
      Konwencja nazw i pól: 10_Siec_domowa/7_Bezpieczenstwo/sejf-konwencja.md.
   4. Logowania: Chrome (synchronizacja + Zotero Connector), Zotero (+Better BibTeX), Teams,
      Claude Code ×2 konta (pierwsze uruchomienie claude w ~/AI-katalog-roboczy: zatwierdzić MCP), Bitwarden.
-  5. Speech Note: modele (polski Whisper + Vosk), „wpisuj do aktywnego okna".
+  5. Transkryptor (dyktowanie): instalator workera z ~/AI-katalog-roboczy/12_Narzedzia-AI/Transkryptor/
+     — usługi user i wskaźnik nagrywania (autostart) wozi już lustro, ale venv zakłada instalator.
   6. Sprzęt tej maszyny (obszar 2): monitory, zasilanie, klawisz zrzutu, szyfrowanie dysku (S2).
-  7. WYLOGUJ SIĘ I ZALOGUJ PONOWNIE: sesja przechodzi na X11 (GDM WaylandEnable=false) i dopiero
-     wtedy rozszerzenia GNOME z lustra są aktywne, a zdalny pulpit (x11vnc, 5900) startuje.
+  7. WYLOGUJ SIĘ I ZALOGUJ PONOWNIE: dopiero wtedy wstają rozszerzenia GNOME wgrane w K11
+     (pasek Dash to Panel na dole, kafelkowanie Tiling Shell, czujniki Vitals, ikony pulpitu).
+     Sesja zostaje na WAYLANDZIE — X11 nie jest już wymuszany (dawny krok K12b).
+     Zdalnego pulpitu NIE MA w kanonie tej gałęzi: pierwszy kandydat to wbudowane
+     „Ustawienia → System → Udostępnianie ekranu" GNOME (lustra/lista-brakow-wayland.md).
      ~/AI-katalog-roboczy pojawi się po synchronizacji (ok. 25 GB z serwera).
+  9. Pasek Dash to Panel: ustawienia zależne od MONITORÓW (położenie i wysokość paska) nie
+     jeżdżą lustrem — jeśli pasek ma inną grubość niż na HP, ustaw ją raz ręcznie:
+     Menedżer rozszerzeń → Dash to Panel → zakładka „Position" → wysokość 32 px.
   8. Pozycje kanału `skrypt` (lustra/skrypty.toml — np. AI Launcher), których źródło leży
      w katalogu roboczym, dociągnie SAM timer lustro-sync (co 60 min) po synchronizacji
      katalogu roboczego — w K8 są „odłożone", to nie błąd. Podgląd: lustro status.

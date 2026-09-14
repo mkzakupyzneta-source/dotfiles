@@ -53,16 +53,16 @@
 #   apka poznaje obecność źródła po `url` w KAŻDYM pliku .list/.sources, więc nie
 #   zdubluje istniejącego; nowa maszyna dostanie `.list` o tej samej treści.
 
-[[zrodlo]]
-nazwa = "fortinet"
-url = "https://repo.fortinet.com/repo/forticlient/7.4/ubuntu22/"
-klucz_url = "https://repo.fortinet.com/repo/forticlient/7.4/ubuntu22/DEB-GPG-KEY"
-klucz_format = "ascii"
-keyring = "/usr/share/keyrings/repo.fortinet.com.gpg"
-plik_listy = "/etc/apt/sources.list.d/repo.fortinet.com.list"
-linia_deb = "deb [arch=amd64 signed-by=/usr/share/keyrings/repo.fortinet.com.gpg] https://repo.fortinet.com/repo/forticlient/7.4/ubuntu22/ stable non-free"
-pakiety = ["forticlient"]
-uwagi = "FortiClient (Linux) 7.4 — klient VPN [176]. Ścieżka `ubuntu22` obowiązuje TEŻ dla Ubuntu 24.04 wg oficjalnych release notes 7.4.7 (czerwiec 2026); sprawdzone 25.08: .../ubuntu22/dists/stable/Release = HTTP 200, .../ubuntu24/... = 404. Pakiet `forticlient` = pełny klient (VPN bez rejestracji w EMS)."
+
+# ── ŹRÓDŁA WYCIĘTE NA GAŁĘZI `ubuntu-2604` ([423], 2026-09-14) ─────────────────
+# • wezterm (apt.fury.io/wez) — terminal WezTerm wypadł z kanonu (werdykt usera [420]:
+#   „user nie używa"). Bez pakietu źródło byłoby tylko martwym repozytorium odpytywanym
+#   przy każdym `apt update`.
+# • fortinet (repo.fortinet.com/repo/forticlient/7.4/ubuntu22) — źródło uznane za MARTWE
+#   (werdykt usera [420]). UWAGA: to NIE dotyczy uczelnianego VPN-a — profil ITLiMS z kroku
+#   K15 automatu stoi na wtyczce `network-manager-fortisslvpn-gnome`, która jest zwykłym
+#   pakietem Ubuntu i w kanonie ZOSTAJE.
+# Pełne bloki są w historii gita (gałąź `main`, ten sam plik).
 
 [[zrodlo]]
 nazwa = "tailscale"
@@ -106,17 +106,6 @@ plik_listy = "/etc/apt/sources.list.d/vscode.list"
 linia_deb = "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main"
 pakiety = ["code"]
 uwagi = "VS Code [126: synchronizacja przez konto Microsoft/GitHub, pliki NIE lustrzone]. Dane spisane 25.08 z /etc/apt/sources.list.d/vscode.sources na Katanie (kopia z Vostro); klucz_url = HTTP 200 (sprawdzone 25.08 z Katany)."
-
-[[zrodlo]]
-nazwa = "wezterm"
-url = "https://apt.fury.io/wez/"
-klucz_url = "https://apt.fury.io/wez/gpg.key"
-klucz_format = "ascii"
-keyring = "/usr/share/keyrings/wezterm-fury.gpg"
-plik_listy = "/etc/apt/sources.list.d/wezterm.list"
-linia_deb = "deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *"
-pakiety = ["wezterm"]
-uwagi = "Terminal WezTerm — OFICJALNE repo apt autora (Gemfury, metoda z dokumentacji wezterm dla Linuksa). Zweryfikowane 25.08 z Katany: gpg.key = HTTP 200, dists/*/Release = HTTP 200 (Codename: *, amd64). Dotąd instalowany RĘCZNIE z .deb 20240203-110809-5046fc22 (GitHub releases) na Vostro i Katanie — bez źródła nie miał aktualizacji; po dodaniu źródła apt aktualizuje. Uwaga: repo zawiera też pakiet wezterm-nightly — lustro wozi tylko `wezterm` (wydania)."
 
 [[zrodlo]]
 nazwa = "onedrive"

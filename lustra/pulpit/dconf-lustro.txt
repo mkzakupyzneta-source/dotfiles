@@ -16,12 +16,23 @@
 /org/gnome/desktop/interface/                    # motyw, ikony, CZCIONKI systemowe
 /org/gnome/desktop/background/                   # tapeta (samo ustawienie; plik osobno → 8.6)
 /org/gnome/desktop/screensaver/                  # wygaszacz: kolor, blokada
-/org/gnome/shell/extensions/dash-to-dock/        # dock: pozycja, kolor, rozmiar ikon
+# /org/gnome/shell/extensions/dash-to-dock/ — ZDJĘTE na gałęzi `ubuntu-2604` ([423], 14.09,
+#   werdykt H1): dock Ubuntu (`ubuntu-dock@ubuntu.com`) jest na tej gałęzi WYŁĄCZONY, jego
+#   miejsce zajmuje Dash to Panel. Wożenie ustawień nieużywanego docka to martwe klucze.
+/org/gnome/shell/extensions/dash-to-panel/       # pasek (przejmuje rolę docka i górnego paska)
+/org/gnome/shell/extensions/tilingshell/         # kafelkowanie okien i własne układy usera
+/org/gnome/shell/extensions/caffeine/            # blokada wygaszacza na żądanie
+/org/gnome/shell/extensions/desktop-cube/        # efekt sześcianu przy zmianie pulpitu
+/org/gnome/shell/extensions/vitals/              # czujniki na pasku (zastępują psensor/htop/btop)
+/org/gnome/shell/extensions/ding/                # ikony na pulpicie (DING — pakiet systemowy Ubuntu)
 /org/gnome/desktop/wm/preferences/               # układ przycisków okna (na Vostro: :minimize,maximize,close)
 
 # --- zachowanie pulpitu ---
 /org/gnome/mutter/                               # np. edge-tiling
-/org/gnome/desktop/session/                      # po ilu minutach bezczynności
+# /org/gnome/desktop/session/ — ZDJĘTE na gałęzi `ubuntu-2604` ([423], 14.09, werdykt H3):
+#   jedyny klucz tej gałęzi to `idle-delay` (po ilu sekundach gaśnie ekran), a to ustawienie
+#   JEST WŁASNOŚCIĄ MASZYNY, nie warsztatu — na HP user przestawił je ręcznie na 120 s,
+#   kanon woził 60 s i wracał do niego przy każdym wgraniu. Patrz dconf-poza-lustrem.txt.
 /org/gnome/nautilus/preferences/                 # menedżer plików: widok, sortowanie
 
 # --- programy z ustawieniami w dconf ---

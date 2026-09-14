@@ -7,7 +7,10 @@
 /org/gnome/desktop/peripherals/             # mysz, touchpad, tablet — sprzęt tej maszyny
 /org/gnome/desktop/notifications/           # lista aplikacji, które coś pokazały = ślad pracy
                                             #   (na Vostro m.in. org-upscayl-upscayl — programu już nie ma)
-/org/gnome/shell/extensions/ding/           # ikony pulpitu: check-x11wayland = cecha sesji tej maszyny
+# /org/gnome/shell/extensions/ding/ — PRZENIESIONE DO LUSTRA na gałęzi `ubuntu-2604`
+#   ([423], 14.09): user chce te same ikony pulpitu wszędzie (`icon-size`, `show-home`).
+#   Jedyny klucz „cecha sesji" — `check-x11wayland` — jest wyciszony pojedynczo
+#   w dconf-pomijane-klucze.txt, więc cała gałąź może już jechać lustrem.
 /org/gnome/shell/world-clocks/              # zegary miast — własność miejsca, nie warsztatu
 
 # --- GSConnect: co świadomie ZOSTAJE POZA lustrem ([299], 31.08) ---------------
@@ -30,3 +33,11 @@
 # (dwie maszyny z tym samym kluczem = jedna tożsamość w sieci). Nowa stacja generuje
 # własną parę przy pierwszym uruchomieniu GSConnecta.
 
+
+# --- dołożone na gałęzi `ubuntu-2604` ([423], 2026-09-14) ---------------------
+/org/gnome/desktop/session/                 # `idle-delay` — po ilu sekundach gaśnie ekran.
+                                            #   Werdykt usera H3 (tabela 14.09): USTAWIENIE MASZYNY,
+                                            #   nie warsztatu (laptop przy biurku kontra w podróży).
+                                            #   Kanon woził 60 s, HP ma 120 s — wieczny spór.
+/org/gnome/shell/extensions/dash-to-dock/   # dock Ubuntu — na tej gałęzi WYŁĄCZONY (zastąpiony
+                                            #   przez Dash to Panel). Werdykt H1 (tabela 14.09).

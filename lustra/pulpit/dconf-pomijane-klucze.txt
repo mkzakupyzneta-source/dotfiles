@@ -17,3 +17,34 @@
 # nazwy programów, których tam nie ma. Sam przełącznik „wysyłaj powiadomienia"
 # (`send-notifications`) JEST w lustrze.
 /org/gnome/shell/extensions/gsconnect/device/c7746d3650f644c1aca106b623fe8a98/plugin/notification/applications
+
+# --- gałąź `ubuntu-2604` ([423], 2026-09-14) ----------------------------------
+# DING: jedyny klucz tej gałęzi, który opisuje SESJĘ tej maszyny (X11 kontra Wayland),
+# a nie wygląd pulpitu. Reszta gałęzi (icon-size, show-home) jedzie lustrem.
+/org/gnome/shell/extensions/ding/check-x11wayland
+
+# Dash to Panel: klucze KLUCZOWANE NAZWAMI MONITORÓW ("LEN-V3089A6K", "AUO-0x00000000" na HP).
+# Rozszerzenie dopisuje do nich wpis dla KAŻDEGO monitora, który zobaczy — więc na maszynie
+# z innymi ekranami wartość zmienia się sama i wożenie jej dawałoby wieczną, nieusuwalną
+# rozbieżność (spec 8.10: ekrany to sprzęt, nie warsztat). Skutek uboczny do wiedzy: na nowej
+# maszynie pasek stanie na DOMYŚLNYCH ustawieniach położenia i wysokości (48 px zamiast 32) —
+# jedno przestawienie ręką w preferencjach Dash to Panel, opisane w liście uwag instalacyjnych.
+/org/gnome/shell/extensions/dash-to-panel/panel-anchors
+/org/gnome/shell/extensions/dash-to-panel/panel-element-positions
+/org/gnome/shell/extensions/dash-to-panel/panel-lengths
+/org/gnome/shell/extensions/dash-to-panel/panel-positions
+/org/gnome/shell/extensions/dash-to-panel/panel-sizes
+# ślady pracy, nie ustawienia:
+/org/gnome/shell/extensions/dash-to-panel/prefs-opened
+/org/gnome/shell/extensions/dash-to-panel/extension-version
+/org/gnome/shell/extensions/tilingshell/last-version-name-installed
+/org/gnome/shell/extensions/caffeine/user-enabled           # bieżąca pozycja przełącznika
+/org/gnome/shell/extensions/caffeine/prefs-default-height   # rozmiar okna preferencji
+/org/gnome/shell/extensions/caffeine/prefs-default-width
+
+# Skrót Super+Shift+H („wpisz dane logowania z pęku kluczy") — wołał ~/bin/dane-logowania,
+# który na tej gałęzi WYPADŁ z wożenia (opierał się na xdotool, czyli na X11). Skrót bez
+# programu to martwy klawisz. Przepis na odtworzenie przez `ydotool`: lustra/lista-brakow-wayland.md.
+/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2/binding
+/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2/command
+/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2/name

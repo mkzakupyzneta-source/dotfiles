@@ -1,0 +1,20 @@
+[Desktop Entry]
+Type=Application
+Name=Transkryptor — wskaznik nagrywania
+Comment=Plakietka "NAGRYWAM" zawsze na wierzchu; widoczna tylko w trakcie nagrania
+# WOZONE PRZEZ LUSTRO (chezmoi: private_dot_config/autostart/transkryptor-wskaznik.desktop.tmpl).
+# Wciagniete do kanonu 2026-09-14, sprawa [423]: user — "ma byc na kazdym lustrze".
+# Tresc wzieta z maszyny HP, gdzie plakietka dziala; jedyna zmiana to sciezka katalogu
+# domowego, ktora jest teraz liczona przez chezmoi zamiast wpisanej na sztywno.
+#
+# WAZNE: systemowy python3, NIE venv Transkryptora — venv nie ma modulu `gi` (PyGObject).
+# Sciezka jest bezwzgledna, bo autostart nie zna katalogu projektu.
+# Jesli ~/AI-katalog-roboczy jeszcze nie dojechal Syncthingiem, wpis po prostu nic nie robi
+# (brak pliku = brak plakietki), a zadziala po synchronizacji i nastepnym zalogowaniu.
+Exec=/usr/bin/python3 {{ .chezmoi.homeDir }}/AI-katalog-roboczy/12_Narzedzia-AI/Transkryptor/bin/transkryptor-wskaznik
+Icon=audio-input-microphone
+Terminal=false
+# Sekunda zwloki: niech sesja graficzna i demon zdaza wstac przed plakietka.
+X-GNOME-Autostart-Delay=5
+X-GNOME-Autostart-enabled=true
+NoDisplay=false
