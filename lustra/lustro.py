@@ -3973,6 +3973,33 @@ def polecenie_sync_auto(args):
         print(f"Migawka inwentarza zaktualizowana ({n_inw} pozycji).")
         print()
 
+    # [421] (14.09, decyzja usera) — LISTA WYKONAWCZA `.chezmoidata/packages.yaml`
+    # przegenerowana przy KAŻDYM biegu, w tym samym miejscu i na tej samej zasadzie
+    # co migawka inwentarza wyżej: tania operacja (samo czytanie dzienników, zero
+    # instalacji), plik nadpisywany TYLKO gdy treść listy naprawdę się zmieniła,
+    # commit robi wspólny `git_zapisz()` na końcu przebiegu (ścieżka jest w
+    # `sciezki_apki()`). Świadomie PO księgowaniu „wykryte" i po instalacjach —
+    # żeby lista objęła też to, co ten bieg właśnie dopisał do dziennika.
+    # Why: do 14.09 plik powstawał tylko z ręcznego `lustro lista` i bywał
+    # nieświeży (ostatnie przegenerowanie 05.09), przez co bootstrap nowej
+    # maszyny stawiał stan sprzed tygodni.
+    # Defensywnie: błąd generowania listy NIE może wywalić całego biegu sync —
+    # zostaje poprzednia wersja pliku, timer spróbuje za godzinę.
+    zmieniona_lista, n_lista = False, 0
+    try:
+        zmieniona_lista, pak = zapisz_liste_wykonawcza()
+        n_lista = sum(len(v) for v in pak.values())
+        if zmieniona_lista:
+            print(f"Lista wykonawcza packages.yaml przegenerowana ({n_lista} pozycji: "
+                  f"apt {len(pak['apt'])}, snap {len(pak['snap'])}, "
+                  f"flatpak {len(pak['flatpak'])}).")
+            print()
+    except Exception as e:                                   # noqa: BLE001 — patrz wyżej
+        print(f"⚠ Nie udało się przegenerować listy wykonawczej packages.yaml: "
+              f"{e.__class__.__name__}: {e} — zostaje poprzednia wersja pliku, "
+              f"reszta przebiegu idzie dalej.")
+        print()
+
     pominiete = len(dane["usuniete_poza"]) + (1 if roznice_pulpitu() else 0)
     if not do_instalacji and not brak_zrodel and not dane["niezapisane"] and not odlozone:
         print("Nic do automatycznego dociągnięcia/księgowania.")
@@ -3997,6 +4024,8 @@ def polecenie_sync_auto(args):
         czesci.append(f"{zaksiegowane} zaksięgowanych (wykryte)")
     if zmienione_inw:
         czesci.append(f"migawka inwentarza ({n_inw} pozycji)")
+    if zmieniona_lista:
+        czesci.append(f"lista wykonawcza packages.yaml ({n_lista} pozycji)")
     opis = ", ".join(czesci) if czesci else "porządki (hook dpkg / zaległe commity)"
     git_zapisz(f"lustra: auto-sync na {nazwa_maszyny()} — {opis} "
                f"(--auto, [194]/[213])")
@@ -4851,6 +4880,104 @@ def wczytaj_reczne_kolumny(plik):
     return wynik
 
 
+# --- lista WYKONAWCZA `.chezmoidata/packages.yaml` ([421], 14.09) -----------
+# Wydzielone z `polecenie_lista`, żeby TEN SAM kod mógł wołać automat
+# (`sync --auto` z timera `lustro-sync`) bez generowania tabeli `programy.md`.
+# Why: do 14.09 plik powstawał WYŁĄCZNIE z ręcznego `lustro lista` i potrafił
+# być nieświeży tygodniami (ostatnie przegenerowanie 05.09 na vostro), choć
+# dzienniki szły dalej co godzinę. Decyzja usera: ma się aktualizować sam.
+
+def oblicz_pakiety_wykonawcze(zdarzenia=None, statusy=None):
+    """Konsensus dla listy WYKONAWCZEJ: `{kanal: [id, …]}` dla kanałów `KANALY`.
+
+    Kontrakt [209] rozdz. 5 — liczone TYLKO z dzienników maszyn-członków lustra,
+    z pominięciem kwarantanny (`testowe`) i pozycji imiennych (`wylacznie_na`).
+
+    Wynik jest POSORTOWANY. To warunek konieczny odkąd listę generuje automat na
+    KAŻDEJ maszynie: dwie maszyny liczące ją z tych samych dzienników muszą
+    dostać identyczną treść, inaczej plik przepychałby się w gicie tam i z
+    powrotem. `sorted` na napisach jest niezależne od locale (porządek
+    kodowych punktów), więc wynik nie zależy od ustawień maszyny.
+    """
+    if zdarzenia is None:
+        zdarzenia = wczytaj_dzienniki()
+    if statusy is None:
+        statusy = wczytaj_statusy_pozycji()
+    czlonkowie = wczytaj_czlonkow_lustra()
+    zdarzenia_czlonkow = [z for z in zdarzenia
+                          if czy_czlonek_lustra(z.get("maszyna"), czlonkowie)]
+    ostatnie_wykonawcze, _ = stan_oczekiwany(zdarzenia_czlonkow)
+
+    pakiety = {k: [] for k in KANALY}
+    for (kanal, ident), ost in ostatnie_wykonawcze.items():
+        if kanal not in pakiety:
+            continue
+        if ost.get("zdarzenie") != "dodano":
+            continue
+        st = statusy.get((kanal, ident))
+        if st and st["status"] == "testowe":
+            continue
+        if st and st.get("wylacznie_na"):
+            continue
+        pakiety[kanal].append(ident)
+    for kanal in pakiety:
+        pakiety[kanal].sort()
+    return pakiety
+
+
+def _cialo_packages_yaml(tekst):
+    """Sama treść listy, BEZ linii komentarza (nagłówek „Wygenerowane: … na
+    maszynie …") — to ona decyduje, czy plik naprawdę się zmienił."""
+    return "\n".join(l for l in tekst.splitlines()
+                     if not l.lstrip().startswith("#")).strip()
+
+
+def zapisz_liste_wykonawcza(pakiety=None):
+    """Zapisuje `.chezmoidata/packages.yaml`, ale TYLKO gdy zmieniła się TREŚĆ
+    listy. Nagłówek z datą i nazwą maszyny jest przy porównaniu POMIJANY —
+    inaczej każdy bieg timera nadpisywałby plik samą nową datą, a maszyny
+    przepychałyby się identycznymi commitami co godzinę (ta sama zasada co
+    w `zapisz_migawke_inwentarza`).
+
+    Nie rusza gita — decyduje wołający (`polecenie_lista` zostawia commit
+    człowiekowi; `sync --auto` łączy go ze swoim commitem końca przebiegu,
+    `.chezmoidata/packages.yaml` jest w `sciezki_apki()` od [283]).
+
+    Zwraca (zmienione: bool, pakiety: dict).
+    """
+    if pakiety is None:
+        pakiety = oblicz_pakiety_wykonawcze()
+    yml = [
+        "# Lista programów lustra — plik GENEROWANY przez `lustro lista`.",
+        "# Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.",
+        f"# Wygenerowane: {datetime.now():%Y-%m-%d %H:%M} na maszynie {nazwa_maszyny()}.",
+        "packages:",
+    ]
+    for kanal in KANALY:
+        if pakiety[kanal]:
+            yml.append(f"  {kanal}:")
+            for p in sorted(pakiety[kanal]):
+                yml.append(f"    - {p}")
+        else:
+            yml.append(f"  {kanal}: []")
+    tresc = "\n".join(yml) + "\n"
+
+    kat = REPO / ".chezmoidata"
+    plik = kat / "packages.yaml"
+    if plik.exists():
+        try:
+            stare = plik.read_text(encoding="utf-8")
+        except OSError:
+            stare = None
+        if stare is not None and (_cialo_packages_yaml(stare)
+                                  == _cialo_packages_yaml(tresc)):
+            return False, pakiety
+
+    kat.mkdir(exist_ok=True)
+    plik.write_text(tresc, encoding="utf-8")
+    return True, pakiety
+
+
 def polecenie_lista(args):
     """Generuje programy.md ORAZ .chezmoidata/packages.yaml z dzienników.
 
@@ -4875,11 +5002,9 @@ def polecenie_lista(args):
     statusy = wczytaj_statusy_pozycji()
 
     # Konsensus dla LISTY WYKONAWCZEJ (packages.yaml): tylko dzienniki członków
-    # lustra, kontrakt [209] rozdz. 4-5.
-    czlonkowie = wczytaj_czlonkow_lustra()
-    zdarzenia_czlonkow = [z for z in zdarzenia
-                          if czy_czlonek_lustra(z.get("maszyna"), czlonkowie)]
-    ostatnie_wykonawcze, _ = stan_oczekiwany(zdarzenia_czlonkow)
+    # lustra, kontrakt [209] rozdz. 4-5 — liczy go `oblicz_pakiety_wykonawcze`
+    # ([421]: ten sam kod woła automat `sync --auto`, stąd wydzielenie).
+    pakiety = oblicz_pakiety_wykonawcze(zdarzenia, statusy)
 
     per_maszyna = {}
     for z in zdarzenia:
@@ -4889,7 +5014,7 @@ def polecenie_lista(args):
         if None not in klucz:
             per_maszyna[klucz] = z
 
-    wiersze, pakiety = [], {k: [] for k in KANALY}
+    wiersze = []
     for (kanal, ident) in sorted(ostatnie):
         komorki = []
         for m in maszyny:
@@ -4911,21 +5036,6 @@ def polecenie_lista(args):
         if st and st["status"] == "testowe" and not uwagi:
             uwagi = "⏳ testowe (kwarantanna) — nie propaguje się automatem"
         wiersze.append((ident, kanal, komorki, do_czego, uwagi))
-        if kanal in pakiety:
-            # Lista WYKONAWCZA (kontrakt [209] rozdz. 5): konsensus tylko z
-            # dzienników członków lustra (nie z `ost`, który jest niefiltrowany —
-            # ten służy tylko tabeli dla człowieka wyżej), pominięcie kwarantanny
-            # (poprawka 11 — bez zmian) i pominięcie pozycji ograniczonych
-            # `wylacznie_na` (nowa maszyna z bootstrapu nie jest jeszcze na
-            # żadnej takiej liście imiennej, więc nie powinna jej dostać z automatu).
-            ost_wyk = ostatnie_wykonawcze.get((kanal, ident))
-            if ost_wyk is None or ost_wyk.get("zdarzenie") != "dodano":
-                continue
-            if st and st["status"] == "testowe":
-                continue
-            if st and st.get("wylacznie_na"):
-                continue
-            pakiety[kanal].append(ident)
 
     linie = [
         "# Programy — tabela GENEROWANA z dzienników luster",
@@ -4973,25 +5083,15 @@ def polecenie_lista(args):
     else:
         print(tresc)
 
-    kat = REPO / ".chezmoidata"
-    kat.mkdir(exist_ok=True)
-    yml = [
-        "# Lista programów lustra — plik GENEROWANY przez `lustro lista`.",
-        "# Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.",
-        f"# Wygenerowane: {datetime.now():%Y-%m-%d %H:%M} na maszynie {nazwa_maszyny()}.",
-        "packages:",
-    ]
-    for kanal in KANALY:
-        if pakiety[kanal]:
-            yml.append(f"  {kanal}:")
-            for p in sorted(pakiety[kanal]):
-                yml.append(f"    - {p}")
-        else:
-            yml.append(f"  {kanal}: []")
-    (kat / "packages.yaml").write_text("\n".join(yml) + "\n", encoding="utf-8")
-    print(f"Zapisano listę wykonawczą: {kat / 'packages.yaml'} "
-          f"(apt {len(pakiety['apt'])}, snap {len(pakiety['snap'])}, "
-          f"flatpak {len(pakiety['flatpak'])})")
+    plik_yaml = REPO / ".chezmoidata" / "packages.yaml"
+    zmieniona, _ = zapisz_liste_wykonawcza(pakiety)
+    ile = (f"(apt {len(pakiety['apt'])}, snap {len(pakiety['snap'])}, "
+           f"flatpak {len(pakiety['flatpak'])})")
+    if zmieniona:
+        print(f"Zapisano listę wykonawczą: {plik_yaml} {ile}")
+    else:
+        print(f"Lista wykonawcza bez zmian: {plik_yaml} {ile} — nie nadpisuję "
+              f"(treść identyczna, [421]).")
     return 0
 
 
