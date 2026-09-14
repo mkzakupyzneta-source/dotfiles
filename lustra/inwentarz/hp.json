@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-14T15:42:57+02:00",
+  "ts": "2026-09-14T16:54:19+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -736,8 +736,26 @@
     },
     {
       "kanal": "gnome-extension",
+      "id": "caffeine@patapon.info",
+      "wersja": "60",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "gnome-extension",
+      "id": "clipboard-indicator@tudmotu.com",
+      "wersja": "71",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "gnome-extension",
       "id": "dash-to-panel@jderose9.github.com",
       "wersja": "73",
+      "zrodlo": ""
+    },
+    {
+      "kanal": "gnome-extension",
+      "id": "desktop-cube@schneegans.github.com",
+      "wersja": "33",
       "zrodlo": ""
     },
     {
