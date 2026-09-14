@@ -183,6 +183,14 @@ kafelkowanie Tiling Shell, czujniki Vitals, ikony na pulpicie.
 - Kanon pulpitu to zrzut żywego HP z wieczora 14.09. User w tym czasie **pracował na maszynie
   i zmieniał ustawienia** (między dwoma odczytami zmieniły się m.in. ustawienia Caffeine
   i procent baterii na pasku). Jeśli tego wieczoru dopieszcza jeszcze pulpit, kanon warto
-  odświeżyć jedną komendą **na HP, na tej gałęzi**: `lustro pulpit oddaj`.
+  odświeżyć jedną komendą **na HP, na tej gałęzi**:
+  `python3 ~/.local/share/chezmoi/lustra/pulpit-kanon-odswiez.py`
+  (kanon z tego commita został tak odświeżony o 23:3x — po odświeżeniu różnice wobec żywego HP
+  to dokładnie trzy świadome odstępstwa kanonu i nic więcej, sprawdzone).
 - Automatyczne ZBIERANIE zmian pulpitu z HP do kanonu (kierunek odwrotny) **nie jest zrobione** —
-  działa kierunek kanon → maszyny. Ręczna komenda „zrzuć pulpit do kanonu" to `lustro pulpit oddaj`.
+  działa kierunek kanon → maszyny. Ręczna komenda „zrzuć pulpit do kanonu":
+  **`python3 ~/.local/share/chezmoi/lustra/pulpit-kanon-odswiez.py`** (na maszynie
+  wzorcowej, przy działającym pulpicie). To jest komenda „zrzuć pulpit do kanonu" dla tej gałęzi:
+  robi to samo co `lustro pulpit oddaj`, ale nakłada z powrotem trzy świadome odstępstwa kanonu
+  (tapeta jako własny plik, wycięty skrót `custom2`, `disabled-extensions` bez zaszłości) — samo
+  `lustro pulpit oddaj` by je zjadło. Nie commituje; wypisuje gotowe komendy gita.
