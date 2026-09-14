@@ -1,8 +1,9 @@
 # Lista programów lustra — plik GENEROWANY przez `lustro lista`.
 # Nie edytować ręcznie: źródłem prawdy jest lustra/dziennik/*.jsonl.
-# Wygenerowane: 2026-09-05 13:36 na maszynie vostro.
+# Wygenerowane: 2026-09-14 21:36 na maszynie hp.
 packages:
   apt:
+    - autorandr
     - brightnessctl
     - btop
     - build-essential
@@ -23,6 +24,7 @@ packages:
     - gnome-tweaks
     - google-chrome-stable
     - gstreamer1.0-plugins-bad
+    - hp-pilnuj-snu-po-klapie
     - htop
     - hunspell-pl
     - ibus-table-cangjie-big
@@ -116,11 +118,11 @@ packages:
     - teams-for-linux
   flatpak:
     - com.bambulab.BambuStudio
+    - com.brave.Browser
     - com.github.tenderowl.frog
     - com.jgraph.drawio.desktop
     - com.orcaslicer.OrcaSlicer
-    - net.mkiol.SpeechNote
-    - net.mkiol.SpeechNote.Addon.nvidia
+    - com.vivaldi.Vivaldi
     - org.ferdium.Ferdium
     - org.gnome.SoundRecorder
     - org.onlyoffice.desktopeditors
