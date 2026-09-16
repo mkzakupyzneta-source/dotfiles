@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-16T18:14:25+02:00",
+  "ts": "2026-09-16T20:40:46+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -857,7 +857,7 @@
     {
       "kanal": "snap",
       "id": "teams-for-linux",
-      "wersja": "2.20.1",
+      "wersja": "2.21.0",
       "zrodlo": "latest/stable"
     }
   ]
