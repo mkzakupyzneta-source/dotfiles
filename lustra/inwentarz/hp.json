@@ -1,6 +1,6 @@
 {
   "maszyna": "hp",
-  "ts": "2026-09-17T11:47:38+02:00",
+  "ts": "2026-09-19T17:01:18+02:00",
   "pozycje": [
     {
       "kanal": "apt",
@@ -665,7 +665,7 @@
     {
       "kanal": "flatpak",
       "id": "com.brave.Browser",
-      "wersja": "1.95.101",
+      "wersja": "1.95.104",
       "zrodlo": "flathub"
     },
     {
@@ -689,7 +689,7 @@
     {
       "kanal": "flatpak",
       "id": "com.vivaldi.Vivaldi",
-      "wersja": "8.2.4133.52",
+      "wersja": "8.2.4133.68",
       "zrodlo": "flathub"
     },
     {
@@ -857,7 +857,7 @@
     {
       "kanal": "snap",
       "id": "teams-for-linux",
-      "wersja": "2.21.0",
+      "wersja": "2.22.0",
       "zrodlo": "latest/stable"
     }
   ]
